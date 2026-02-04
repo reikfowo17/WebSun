@@ -5,18 +5,16 @@ import { User } from '../types';
 interface LayoutProps {
   user: User;
   children: React.ReactNode;
-  currentView: string;
-  onNavigate: (view: string) => void;
+  currentView?: string;
+  onNavigate?: (view: string) => void;
   onLogout: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ user, children, currentView, onNavigate, onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 text-secondary font-sans">
       <Sidebar
         user={user}
-        currentView={currentView}
-        onChangeView={onNavigate}
         collapsed={false}
         onToggle={() => { }}
         onLogout={onLogout}

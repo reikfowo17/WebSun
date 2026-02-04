@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { runBackend } from '../services/api';
+import { useUser } from '../contexts';
+import { useNavigate, Link } from 'react-router-dom';
 
-interface LoginProps {
-  onLoginSuccess: (user: any, token: string) => void;
-  onSwitchToRegister?: () => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister }) => {
+const Login: React.FC = () => {
+  const { login } = useUser();
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,10 +16,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister }) => 
     setError('');
 
     try {
-      // Pass username to login action
-      const res = await runBackend('login', { username: username, password: pass });
+      const res = await login(username, pass);
       if (res.success) {
-        onLoginSuccess(res.user, res.token);
+        navigate('/', { replace: true });
       } else {
         setError(res.error || 'Đăng nhập thất bại');
       }
@@ -85,16 +82,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onSwitchToRegister }) => 
           </button>
         </form>
 
-        {onSwitchToRegister && (
-          <div className="mt-6 text-center">
-            <button
-              onClick={onSwitchToRegister}
-              className="text-sm text-gray-500 hover:text-primary font-medium"
-            >
-              Chưa có tài khoản? <span className="text-primary font-bold">Đăng ký ngay</span>
-            </button>
-          </div>
-        )}
+        <div className="mt-6 text-center">
+          <Link
+            to="/register"
+            className="text-sm text-gray-500 hover:text-primary font-medium"
+          >
+            Chưa có tài khoản? <span className="text-primary font-bold">Đăng ký ngay</span>
+          </Link>
+        </div>
 
         <p className="text-center mt-8 text-xs text-gray-400 font-medium">© 2026 Sunmart Systems</p>
       </div>

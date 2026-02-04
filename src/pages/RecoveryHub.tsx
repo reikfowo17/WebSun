@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { RecoveryService, RecoveryItem } from '../services/api';
+import { RecoveryService, RecoveryItem } from '../services';
+import { useToast } from '../contexts';
 
 /**
  * Recovery Hub - Admin interface for "Truy Thu" (Discrepancy Recovery)
  */
 const RecoveryHub: React.FC = () => {
+    const toast = useToast();
     const [activeTab, setActiveTab] = useState<'SCAN' | 'MANAGE'>('SCAN');
 
     // Scan State
@@ -51,14 +53,14 @@ const RecoveryHub: React.FC = () => {
         try {
             const res = await RecoveryService.createRecoveryItems(scanStore, scannedItems);
             if (res.success) {
-                alert(res.message);
+                toast.success(res.message);
                 setScannedItems([]);
                 setActiveTab('MANAGE');
             } else {
-                alert(res.message || 'Lỗi khi tạo phiếu');
+                toast.error(res.message || 'Lỗi khi tạo phiếu');
             }
         } catch (e) {
-            alert('Lỗi kết nối');
+            toast.error('Lỗi kết nối');
         } finally {
             setScanning(false);
         }
@@ -269,8 +271,8 @@ const RecoveryHub: React.FC = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <span className={`inline-flex px-2 py-1 rounded text-xs font-bold border ${item.status === 'ĐÃ XỬ LÝ' ? 'bg-green-100 text-green-700 border-green-200' :
-                                                            item.status === 'BỎ QUA' ? 'bg-gray-100 text-gray-700 border-gray-200' :
-                                                                'bg-red-100 text-red-700 border-red-200'
+                                                        item.status === 'BỎ QUA' ? 'bg-gray-100 text-gray-700 border-gray-200' :
+                                                            'bg-red-100 text-red-700 border-red-200'
                                                         }`}>
                                                         {item.status}
                                                     </span>

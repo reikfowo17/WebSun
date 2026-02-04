@@ -455,3 +455,56 @@ input[type="number"] {
 .slide-in-from-top-2 {
     animation: fadeInSlideUp 0.2s ease-out forwards;
 }
+
+/* --- NEW ANIMATIONS FOR REDESIGNED PAGES --- */
+@keyframes fadeInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.35s ease-out forwards;
+}
+
+/* --- SHADOW UTILITIES --- */
+.shadow-soft {
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05),
+        0 4px 16px -4px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-glow {
+    box-shadow: 0 0 12px 2px rgba(34, 197, 94, 0.4);
+}
+
+/* --- GRADIENT TEXT --- */
+.text-gradient {
+    background: linear-gradient(135deg, #FACC15 0%, #F97316 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* --- PING ANIMATION --- */
+@keyframes pingOnce {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    75%,
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+.animate-ping-once {
+    animation: pingOnce 1s ease-out;
+}

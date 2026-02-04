@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, InventoryProduct } from '../types';
-import { InventoryService } from '../services/api';
+import { InventoryService } from '../services';
+import { useToast } from '../contexts';
 
 interface InventoryProps {
   user: User;
-  onBack: () => void;
+  onBack?: () => void; // Kept for interface compatibility but unused
 }
 
-const Inventory: React.FC<InventoryProps> = ({ user, onBack }) => {
+const Inventory: React.FC<InventoryProps> = ({ user }) => {
+  const navigate = useNavigate();
+  const toast = useToast();
   const [shift, setShift] = useState(1);
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,9 +74,10 @@ const Inventory: React.FC<InventoryProps> = ({ user, onBack }) => {
     try {
       const res = await InventoryService.submitReport(user.store || 'BEE', shift, user.id);
       if (res.success) {
-        alert(res.message || 'Đã nộp báo cáo thành công!');
+        toast.success(res.message || 'Đã nộp báo cáo thành công!');
+        navigate('/'); // Go back to dashboard after successful submit
       } else {
-        alert(res.message || 'Lỗi khi nộp báo cáo');
+        toast.error(res.message || 'Lỗi khi nộp báo cáo');
       }
     } finally {
       setSubmitting(false);
@@ -114,7 +119,7 @@ const Inventory: React.FC<InventoryProps> = ({ user, onBack }) => {
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <span className="material-symbols-outlined text-gray-600">arrow_back</span>
             </button>
             <div className="flex items-center gap-3">
@@ -254,8 +259,8 @@ const Inventory: React.FC<InventoryProps> = ({ user, onBack }) => {
                   key={f.key}
                   onClick={() => setFilterStatus(f.key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterStatus === f.key
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                 >
                   {f.label}
@@ -318,9 +323,9 @@ const Inventory: React.FC<InventoryProps> = ({ user, onBack }) => {
                     <div>
                       <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Chênh lệch</label>
                       <div className={`h-10 border rounded-lg flex items-center justify-center text-sm font-black ${p.diff === null || p.diff === undefined ? 'bg-gray-50 border-gray-200 text-gray-400' :
-                          p.diff === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' :
-                            p.diff < 0 ? 'bg-red-50 border-red-200 text-red-600' :
-                              'bg-blue-50 border-blue-200 text-blue-600'
+                        p.diff === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' :
+                          p.diff < 0 ? 'bg-red-50 border-red-200 text-red-600' :
+                            'bg-blue-50 border-blue-200 text-blue-600'
                         }`}>
                         {p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff}
                       </div>

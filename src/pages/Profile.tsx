@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { XPService } from '../services/api';
+// XPService was a mock, using local state instead
 
 interface ProfileProps {
     user: User;
@@ -34,16 +34,13 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
     const progressPercent = (xpInCurrentLevel / xpPerLevel) * 100;
 
     useEffect(() => {
-        const loadStats = async () => {
-            try {
-                const result = await XPService.getUserStats(user.id);
-                setStats(result);
-            } catch (e) {
-                // Use user data as fallback
-            }
-        };
-        loadStats();
-    }, [user.id]);
+        // Update stats when user changes
+        setStats({
+            xp: user.xp,
+            level: user.level,
+            xpToNextLevel: 500
+        });
+    }, [user.id, user.xp, user.level]);
 
     return (
         <div className="min-h-full bg-gray-50 p-6">
@@ -113,8 +110,8 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key as any)}
                                 className={`flex-1 py-3 text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === tab.key
-                                        ? 'text-primary border-b-2 border-primary bg-yellow-50/50'
-                                        : 'text-gray-400 hover:text-gray-600'
+                                    ? 'text-primary border-b-2 border-primary bg-yellow-50/50'
+                                    : 'text-gray-400 hover:text-gray-600'
                                     }`}
                             >
                                 <span className="material-symbols-outlined text-base">{tab.icon}</span>
@@ -189,8 +186,8 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                                     <div
                                         key={ach.id}
                                         className={`relative p-3 rounded-xl border transition-all text-center ${ach.unlocked
-                                                ? 'bg-white border-yellow-200 shadow-sm'
-                                                : 'bg-gray-50 border-gray-200 opacity-50'
+                                            ? 'bg-white border-yellow-200 shadow-sm'
+                                            : 'bg-gray-50 border-gray-200 opacity-50'
                                             }`}
                                     >
                                         <div className="text-2xl mb-1">{ach.unlocked ? ach.icon : '🔒'}</div>
@@ -214,8 +211,8 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                                         <div
                                             key={entry.rank}
                                             className={`flex items-center gap-3 p-3 rounded-xl ${isCurrentUser
-                                                    ? 'bg-yellow-50 border-2 border-yellow-300'
-                                                    : 'bg-gray-50'
+                                                ? 'bg-yellow-50 border-2 border-yellow-300'
+                                                : 'bg-gray-50'
                                                 }`}
                                         >
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${entry.rank <= 3 ? 'text-lg' : 'bg-gray-200 text-gray-500'

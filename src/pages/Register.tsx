@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { AuthService } from '../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+import { AuthService } from '../services';
 
-interface RegisterProps {
-    onRegisterSuccess: () => void;
-    onSwitchToLogin: () => void;
-}
-
-const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin }) => {
+const Register: React.FC = () => {
+    const navigate = useNavigate();
     const [username, setUsername] = useState('');
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
@@ -39,18 +36,19 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
         setLoading(true);
 
         try {
-            const res = await AuthService.register({
+            // Register requires: username, password, name, employeeId, storeCode
+            const res = await AuthService.register(
                 username,
-                name,
                 password,
-                store: store || undefined,
-                role: 'EMPLOYEE' // Default to employee
-            });
+                name,
+                '', // employeeId - auto-generated or optional
+                store || ''
+            );
 
             if (res.success) {
                 setSuccess(true);
                 setTimeout(() => {
-                    onRegisterSuccess();
+                    navigate('/login');
                 }, 1500);
             } else {
                 setError(res.error || 'Đăng ký thất bại');
@@ -182,12 +180,12 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
                 )}
 
                 <div className="mt-6 text-center">
-                    <button
-                        onClick={onSwitchToLogin}
+                    <Link
+                        to="/login"
                         className="text-sm text-gray-500 hover:text-primary font-medium"
                     >
                         Đã có tài khoản? <span className="text-primary font-bold">Đăng nhập</span>
-                    </button>
+                    </Link>
                 </div>
 
                 <p className="text-center mt-6 text-xs text-gray-400 font-medium">© 2026 Sunmart Systems</p>

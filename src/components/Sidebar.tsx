@@ -1,21 +1,24 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '../types';
 
 interface SidebarProps {
   user: User;
-  currentView: string;
-  onChangeView: (view: string) => void;
+  currentView?: string; // Optional now
+  onChangeView?: (view: string) => void; // Optional now
   collapsed: boolean;
   onToggle: () => void;
   onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isAdmin = user.role === 'ADMIN';
 
-  // Auto expand/collapse based on hover - like Supabase
+  // Auto expand/collapse based on hover
   const isExpanded = isHovered;
 
   const handleMouseEnter = () => {
@@ -27,7 +30,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLo
   };
 
   const handleMouseLeave = () => {
-    // Add small delay to prevent flicker when cursor moves slightly
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(false);
     }, 100);
@@ -35,24 +37,23 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLo
 
   const menuItems = [
     ...(isAdmin ? [
-      { id: 'DASHBOARD', label: 'Bảng Điều Khiển', icon: 'dashboard' },
-      { id: 'INVENTORY_HQ', label: 'Thiết Lập Kiểm Tồn', icon: 'inventory_2' },
-      { id: 'EXPIRY_HQ', label: 'Thiết Lập Hạn Dùng', icon: 'event_busy' },
-      { id: 'INVENTORY_REVIEW', label: 'Tổng Hợp Tồn Kho', icon: 'fact_check' },
-      { id: 'RECOVERY_HUB', label: 'Truy Thu', icon: 'account_balance_wallet' }
+      { path: '/', label: 'Bảng Điều Khiển', icon: 'dashboard' },
+      { path: '/hq', label: 'Thiết Lập Kiểm Tồn', icon: 'inventory_2' },
+      { path: '/expiry-hq', label: 'Thiết Lập Hạn Dùng', icon: 'event_busy' },
+      { path: '/review', label: 'Tổng Hợp Tồn Kho', icon: 'fact_check' },
+      { path: '/recovery', label: 'Truy Thu', icon: 'account_balance_wallet' }
     ] : [
-      { id: 'EMPLOYEE_HOME', label: 'Trang chủ', icon: 'grid_view' },
-      { id: 'AUDIT', label: 'Kiểm Kho', icon: 'inventory_2' },
-      { id: 'EXPIRY_CONTROL', label: 'Kiểm Date', icon: 'history_toggle_off' }
+      { path: '/', label: 'Trang chủ', icon: 'grid_view' },
+      { path: '/inventory', label: 'Kiểm Kho', icon: 'inventory_2' },
+      { path: '/expiry', label: 'Kiểm Date', icon: 'history_toggle_off' }
     ]),
-    // Profile is now a regular menu item
-    { id: 'PROFILE', label: 'Hồ Sơ', icon: 'person' }
+    { path: '/profile', label: 'Hồ Sơ', icon: 'person' }
   ];
 
-  // Calculate XP progress (kept for future use)
-  const xpPerLevel = 500;
-  const xpInCurrentLevel = user.xp % xpPerLevel;
-  const progressPercent = (xpInCurrentLevel / xpPerLevel) * 100;
+  const isActive = (path: string) => {
+    if (path === '/' && location.pathname !== '/') return false;
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <aside
@@ -78,17 +79,17 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLo
       <nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden">
         {menuItems.map(item => (
           <button
-            key={item.id}
-            onClick={() => onChangeView(item.id)}
+            key={item.path}
+            onClick={() => navigate(item.path)}
             title={!isExpanded ? item.label : undefined}
             className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-all text-sm font-semibold text-left group
-              ${currentView === item.id
+              ${isActive(item.path)
                 ? 'bg-yellow-50 text-primary-dark font-bold'
                 : 'text-gray-500 hover:bg-gray-50 hover:text-secondary'}
               ${!isExpanded ? 'justify-center' : ''}
             `}
           >
-            <span className={`material-symbols-outlined text-xl flex-shrink-0 ${currentView === item.id ? 'material-symbols-fill' : ''}`}>
+            <span className={`material-symbols-outlined text-xl flex-shrink-0 ${isActive(item.path) ? 'material-symbols-fill' : ''}`}>
               {item.icon}
             </span>
             {isExpanded && (
@@ -102,7 +103,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLo
       <div className={`border-t border-gray-100 p-3 ${!isExpanded ? 'flex justify-center' : ''}`}>
         {isExpanded ? (
           <div className="bg-gray-50 rounded-xl p-3">
-            {/* User Info Row with Logout Icon */}
             <div className="flex items-center gap-3">
               <div className="relative flex-shrink-0">
                 <img
@@ -118,7 +118,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLo
                 <div className="font-bold text-sm text-gray-800 truncate">{user.name}</div>
                 <div className="text-[10px] text-gray-400 font-medium">{user.store || 'Sunmart'}</div>
               </div>
-              {/* Compact Logout Icon */}
               <button
                 onClick={onLogout}
                 title="Đăng xuất"
@@ -129,7 +128,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentView, onChangeView, onLo
             </div>
           </div>
         ) : (
-          // Collapsed: Just avatar
           <div className="relative group cursor-pointer" title={user.name}>
             <img
               src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=fbbf24`}

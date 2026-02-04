@@ -1,131 +1,145 @@
 # 🌞 Sunmart Portal
 
-Hệ thống quản lý cửa hàng Sunmart
+Hệ thống quản lý cửa hàng Sunmart - Frontend Web Application
 
-## 📁 Cấu trúc Project
+## 📁 Directory Structure
 
 ```
 WebSun/
-├── lib/                # Library configurations
-│   └── supabase.ts    # Supabase client
-├── types/             # TypeScript type definitions
-│   └── database.ts    # Supabase database types
-├── components/        # React components tái sử dụng
-│   ├── Layout.tsx    # Layout wrapper
-│   └── Sidebar.tsx   # Sidebar navigation
-├── pages/            # Các trang chính
-│   ├── Login.tsx     # Trang đăng nhập
-│   ├── Dashboard.tsx # Dashboard
-│   ├── Inventory.tsx # Kiểm tồn kho
-│   └── Expiry.tsx    # Kiểm hạn sử dụng
-├── services/         # Service layers
-│   └── api.ts        # API service (Supabase + Mock)
-├── App.tsx           # Root component
-├── index.tsx         # Entry point
-├── index.html        # HTML template
-├── index.css         # Global styles
-├── types.ts          # Legacy types
-├── vercel.json       # Vercel config
-└── package.json      # Dependencies
+├── public/                   # Static assets
+├── src/                      # Main source directory
+│   ├── components/           # Shared UI components
+│   │   ├── Layout.tsx        # Main layout wrapper
+│   │   └── Sidebar.tsx       # Navigation sidebar
+│   │
+│   ├── pages/                # Page components (Views)
+│   │   ├── Dashboard.tsx     # Admin/Employee dashboard
+│   │   ├── Inventory.tsx     # Employee inventory check
+│   │   ├── Expiry.tsx        # Employee expiry check
+│   │   ├── InventoryHQ.tsx   # Admin inventory management
+│   │   ├── RecoveryHub.tsx   # Admin recovery management
+│   │   ├── Profile.tsx       # User profile
+│   │   ├── Login.tsx         # Login page
+│   │   └── Register.tsx      # Registration page
+│   │
+│   ├── contexts/             # React Context providers
+│   │   ├── UserContext.tsx   # Auth state management
+│   │   ├── ToastContext.tsx  # Toast notifications
+│   │   └── index.ts          # Barrel exports
+│   │
+│   ├── services/             # API services (Business Logic)
+│   │   ├── auth.ts           # Authentication service
+│   │   ├── inventory.ts      # Inventory operations
+│   │   ├── expiry.ts         # Expiry tracking
+│   │   ├── dashboard.ts      # Dashboard stats
+│   │   ├── recovery.ts       # Recovery/Truy thu
+│   │   └── index.ts          # Barrel exports
+│   │
+│   ├── types/                # TypeScript definitions
+│   │   └── index.ts          # All shared types
+│   │
+│   ├── hooks/                # Custom React hooks
+│   │   └── index.ts          # Reusable hooks
+│   │
+│   ├── constants/            # App constants
+│   │   └── index.ts          # Magic numbers, configs
+│   │
+│   ├── lib/                  # Utilities
+│   │   └── supabase.ts       # Supabase client config
+│   │
+│   ├── App.tsx               # Main app component
+│   ├── index.tsx             # Entry point
+│   └── index.css             # Global styles (Tailwind)
+│
+├── index.html                # HTML Entry point
+├── vite.config.ts            # Vite config
+├── vercel.json               # Vercel deployment config
+└── package.json              # Dependencies
 ```
 
-## 🚀 Bắt đầu
+## 🚀 Quick Start
 
-### 1. Cài đặt Dependencies
-
+### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Cấu hình Environment
-
-Copy `.env.example` thành `.env.local` và điền thông tin:
-
-```bash
-cp .env.example .env.local
-```
-
+### 2. Configure Environment
+Create `.env.local` with:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### 3. Chạy Development Server
-
+### 3. Run Development Server
 ```bash
 npm run dev
 ```
+Open http://localhost:3000
 
-Mở http://localhost:3000
-
-### Tài khoản test
-
+### Test Accounts
 | ID | Password | Role |
 |---|----------|------|
 | `ADMIN001` | `123456` | Admin |
-| `EMP001` | `123456` | Employee - BEE |
-| `EMP002` | `123456` | Employee - PLAZA |
-
-## 🚀 Deploy lên Vercel
-
-### Option 1: Qua Vercel CLI
-
-```bash
-# Cài Vercel CLI
-npm i -g vercel
-
-# Login
-vercel login
-
-# Deploy
-vercel --prod
-```
-
-### Option 2: Qua GitHub
-
-1. Push code lên GitHub
-2. Vào [vercel.com](https://vercel.com) → Import Project
-3. Chọn repository
-4. Thêm Environment Variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-5. Deploy!
+| `EMP001` | `123456` | Employee |
 
 ## 🔧 Tech Stack
 
 - **Frontend**: React 19 + TypeScript + Vite
-- **Styling**: Tailwind CSS (CDN)
+- **Styling**: Tailwind CSS
 - **Database**: Supabase (PostgreSQL)
 - **Hosting**: Vercel
-- **Auth**: Supabase Auth (planned)
 
-## 📊 Database Schema
+## 📊 Key Architecture
 
-### Tables
-- **stores** - Danh sách cửa hàng
-- **users** - Người dùng (admin/employee)
-- **products** - Sản phẩm master data
-- **inventory_items** - Kiểm tồn kho
-- **expiry_items** - Theo dõi hạn sử dụng
-- **tasks** - Nhiệm vụ
+### State Management
+- **UserContext**: Global auth state, eliminates prop drilling
+- **ToastContext**: Centralized notifications
 
-### Features
-- Auto-update status triggers
-- Computed columns (diff)
-- Views for easy querying
+### Service Layer
+- Modular services per domain (auth, inventory, expiry, etc.)
+- Each service handles Supabase queries + mock fallback
 
-## 📱 Tính năng
+### Code Splitting
+- `React.lazy()` for page components
+- `Suspense` boundaries with loading skeletons
 
-### 👨‍💼 Admin
-- Dashboard tổng quan hệ thống
-- Xem thống kê real-time từ Supabase
-- Quản lý nhiệm vụ
+### Import Patterns
+```tsx
+// using Alias @ -> src (Recommended)
+import { useUser } from '@/contexts';
+import { Layout } from '@/components/Layout';
 
-### 👷 Employee
-- Dashboard cá nhân với XP/Level
-- Kiểm tồn kho (đối soát hàng hóa)
-- Kiểm date (theo dõi hạn sử dụng)
-- Gamification system
+// Or Relative
+import { DashboardService } from '../services'; 
+```
+
+## 🗄️ Database (Supabase)
+
+### Core Tables
+- **users** - Employee accounts with XP/Level
+- **stores** - Store locations
+- **products** - Product catalog
+- **inventory_items** - Current inventory state
+- **expiry_items** - Expiry tracking
+- **recovery_items** - Discrepancy recovery
+- **tasks** - Assigned work tasks
+- **achievements** - Gamification
+
+### Security
+- RLS (Row Level Security) on all tables
+- Optimized indexes for common queries
+- SECURITY INVOKER views
+
+## 🚀 Deploy to Vercel
+
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+
+Or connect GitHub repository on [vercel.com](https://vercel.com)
 
 ## 📄 License
 
