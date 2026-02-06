@@ -1,13 +1,4 @@
-/**
- * Recovery Service (Truy Thu)
- * 
- * Handles discrepancy recovery operations
- */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-
-// ===========================================================================
-// TYPES
-// ===========================================================================
 
 export interface RecoveryItem {
     id: string;
@@ -36,23 +27,7 @@ export interface ScannedItem {
     total_amount: number;
 }
 
-// ===========================================================================
-// MOCK DATA
-// ===========================================================================
-
-const MOCK_SCANNED: ScannedItem[] = [
-    { product_id: '1', product_name: 'Sting Dâu', barcode: '8930003', check_date: '2024-03-10', missing_qty: 2, unit_price: 10000, total_amount: 20000 },
-    { product_id: '2', product_name: 'Nước Suối', barcode: '8930004', check_date: '2024-03-12', missing_qty: 5, unit_price: 5000, total_amount: 25000 }
-];
-
-// ===========================================================================
-// RECOVERY SERVICE
-// ===========================================================================
-
 export const RecoveryService = {
-    /**
-     * Scan history for discrepancies (missing items) in a given month/store
-     */
     async scanForDiscrepancies(
         storeCode: string,
         monthStr: string
@@ -111,14 +86,9 @@ export const RecoveryService = {
             }
         }
 
-        // Mock
-        await new Promise(r => setTimeout(r, 800));
-        return { success: true, items: [...MOCK_SCANNED] };
+        return { success: false, items: [] };
     },
 
-    /**
-     * Create recovery items from scanned list
-     */
     async createRecoveryItems(
         storeCode: string,
         items: ScannedItem[]
@@ -155,12 +125,9 @@ export const RecoveryService = {
             }
         }
 
-        return { success: true, message: 'Mock Success' };
+        return { success: false, message: 'Database disconnected' };
     },
 
-    /**
-     * Get existing recovery items
-     */
     async getRecoveryItems(
         storeCode: string
     ): Promise<{ success: boolean; items: RecoveryItem[] }> {
@@ -216,12 +183,9 @@ export const RecoveryService = {
             }
         }
 
-        return { success: true, items: [] };
+        return { success: false, items: [] };
     },
 
-    /**
-     * Update recovery item status/reason
-     */
     async updateRecoveryItem(
         id: string,
         updates: Partial<RecoveryItem>
@@ -233,7 +197,7 @@ export const RecoveryService = {
                 .eq('id', id);
             return { success: !error };
         }
-        return { success: true };
+        return { success: false };
     }
 };
 

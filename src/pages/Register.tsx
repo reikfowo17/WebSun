@@ -23,8 +23,8 @@ const Register: React.FC = () => {
             return;
         }
 
-        if (password.length < 4) {
-            setError('Mật khẩu phải có ít nhất 4 ký tự');
+        if (password.length < 6) {
+            setError('Mật khẩu phải có ít nhất 6 ký tự');
             return;
         }
 

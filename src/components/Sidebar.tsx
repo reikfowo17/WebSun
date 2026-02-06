@@ -38,10 +38,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const menuItems = [
     ...(isAdmin ? [
       { path: '/', label: 'Bảng Điều Khiển', icon: 'dashboard' },
-      { path: '/hq', label: 'Thiết Lập Kiểm Tồn', icon: 'inventory_2' },
-      { path: '/expiry-hq', label: 'Thiết Lập Hạn Dùng', icon: 'event_busy' },
-      { path: '/review', label: 'Tổng Hợp Tồn Kho', icon: 'fact_check' },
-      { path: '/recovery', label: 'Truy Thu', icon: 'account_balance_wallet' }
+      { path: '/hq', label: 'Quản Lý Tồn Kho', icon: 'inventory_2' },
+      { path: '/expiry-hq', label: 'Quản Lý Hạn Dùng', icon: 'event_busy' }
     ] : [
       { path: '/', label: 'Trang chủ', icon: 'grid_view' },
       { path: '/inventory', label: 'Kiểm Kho', icon: 'inventory_2' },

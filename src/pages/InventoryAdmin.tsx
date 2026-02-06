@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../types';
 import { useToast } from '../contexts';
 import { useNavigate } from 'react-router-dom';
-import { RecoveryService, RecoveryItem, InventoryService, TasksService, Task } from '../services';
+import { RecoveryService, RecoveryItem, InventoryService } from '../services';
 
 // --- CONFIG & TYPES ---
 
@@ -20,16 +20,27 @@ const REVIEW_CONFIG = {
         { value: 'ĐÃ XỬ LÝ', label: 'Đã Xử Lý', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
         { value: 'CHỜ XÁC MINH', label: 'Chờ Xác Minh', color: 'bg-amber-100 text-amber-700 border-amber-200' },
         { value: 'BỎ QUA', label: 'Bỏ Qua', color: 'bg-gray-100 text-gray-500 border-gray-200' }
+    ],
+    REASON_OPTIONS: [
+        { value: 'Mất hàng', icon: 'remove_shopping_cart' },
+        { value: 'Hư hỏng', icon: 'broken_image' },
+        { value: 'Sai nhập liệu', icon: 'edit_note' },
+        { value: 'Hết hạn sử dụng', icon: 'event_busy' },
+        { value: 'Khách trả lại', icon: 'undo' },
+        { value: 'Kiểm đếm sai', icon: 'calculate' },
+        { value: 'Lý do khác', icon: 'more_horiz' }
     ]
 };
 
-interface InventoryHQProps {
+
+
+interface InventoryAdminProps {
     user: User;
 }
 
 // --- MAIN COMPONENT ---
 
-const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
+const InventoryAdmin: React.FC<InventoryAdminProps> = ({ user }) => {
     const toast = useToast();
     const navigate = useNavigate();
     const [subTab, setSubTab] = useState<'TASKS' | 'REVIEWS' | 'RECOVERY'>('TASKS');
@@ -37,55 +48,48 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
 
     return (
         <div className="h-full flex flex-col bg-slate-50/50 font-sans text-slate-900">
-            {/* Header - Clean & Compact */}
-            <header className="px-6 py-3 flex items-center justify-between shrink-0 bg-white border-b border-gray-100 sticky top-0 z-10">
-                {/* Left: Logo + Title + Tabs */}
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-md">
-                            <span className="material-symbols-outlined text-white text-lg">inventory</span>
-                        </div>
-                        <h1 className="text-lg font-black text-slate-800">Quản Lý Tồn Kho</h1>
+            {/* Header */}
+            <header className="px-8 py-5 flex items-center justify-between shrink-0 bg-white border-b border-gray-200 sticky top-0 z-10">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+                        <span className="material-symbols-outlined text-white text-2xl">inventory</span>
                     </div>
-
-                    {/* Tabs */}
-                    <nav className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-lg">
-                        {[
-                            { id: 'TASKS', label: 'PHÂN PHỐI & TIẾN ĐỘ', icon: 'assignment' },
-                            { id: 'REVIEWS', label: 'DUYỆT BÁO CÁO', icon: 'fact_check' },
-                            { id: 'RECOVERY', label: 'XỬ LÝ CHÊNH LỆCH', icon: 'sync_problem' }
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setSubTab(tab.id as any)}
-                                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all flex items-center gap-1.5 ${subTab === tab.id
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-                                <span className="hidden lg:inline">{tab.label}</span>
-                            </button>
-                        ))}
-                    </nav>
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Quản Lý Tồn Kho</h2>
+                        <div className="flex gap-4 mt-1">
+                            {['TASKS', 'REVIEWS', 'RECOVERY'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setSubTab(tab as any)}
+                                    className={`text-xs font-bold uppercase tracking-wider relative pb-1 transition-colors ${subTab === tab ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                                        }`}
+                                >
+                                    {tab === 'TASKS' ? 'Phân Phối & Tiến độ' : tab === 'REVIEWS' ? 'Duyệt Báo Cáo' : 'Xử Lý Chênh Lệch'}
+                                    {subTab === tab && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Right: Date Picker - Enhanced */}
+                {/* Date Picker & Actions */}
                 <div className="flex items-center gap-3">
-                    <div className="relative flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:shadow-md transition-shadow">
-                        <span className="material-symbols-outlined text-indigo-600 text-xl">calendar_month</span>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Ngày làm việc</span>
-                            <span className="text-sm font-black text-gray-800">
-                                {new Date(currentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                            </span>
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="material-symbols-outlined text-gray-400 text-lg">calendar_today</span>
                         </div>
                         <input
                             type="date"
                             value={currentDate}
                             onChange={(e) => setCurrentDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            className="pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-700 text-sm font-bold rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none hover:bg-gray-100 cursor-pointer"
                         />
+                    </div>
+                    <button className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                        <span className="material-symbols-outlined">notifications</span>
+                    </button>
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold border border-indigo-200 shadow-sm">
+                        {user.username.substring(0, 2).toUpperCase()}
                     </div>
                 </div>
             </header>
@@ -104,215 +108,144 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
 
 // --- SUB-COMPONENTS ---
 
-/* 1. TASKS VIEW - Thiết lập danh sách sản phẩm cần kiểm + Bảng điều khiển */
+/* 1. TASKS VIEW - IMPROVED DISTRIBUTION TABLE */
 const TasksView: React.FC<{ toast: any, date: string }> = ({ toast, date }) => {
-    const [selectedStore, setSelectedStore] = useState<string>('ALL');
-    const [selectedShift, setSelectedShift] = useState<number>(1);
-    const [products, setProducts] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [distributing, setDistributing] = useState(false);
+    const [filterShift, setFilterShift] = useState<'ALL' | number>('ALL');
 
-    useEffect(() => {
-        loadMasterProducts();
-    }, []);
+    // Mock Tasks - In real app, fetch based on `date`
+    const tasks = [
+        { storeId: 'BEE', storeName: 'SM BEE', shift: 1, status: 'SUBMITTED', assignee: 'Nguyễn Văn A', avatar: 'A', progress: 100 },
+        { storeId: 'BEE', storeName: 'SM BEE', shift: 2, status: 'NOT_STARTED', assignee: 'Chưa phân công', avatar: null, progress: 0 },
+        { storeId: 'PLAZA', storeName: 'SM PLAZA', shift: 1, status: 'IN_PROGRESS', assignee: 'Trần Thị B', avatar: 'B', progress: 65 },
+        { storeId: 'MIỀN ĐÔNG', storeName: 'SM MIỀN ĐÔNG', shift: 1, status: 'NOT_STARTED', assignee: 'Chưa phân công', avatar: null, progress: 0 },
+        { storeId: 'HT PEARL', storeName: 'SM HT PEARL', shift: 1, status: 'COMPLETED', assignee: 'Lê Văn C', avatar: 'C', progress: 100 },
+        { storeId: 'GREEN TOPAZ', storeName: 'SM GREEN TOPAZ', shift: 2, status: 'NOT_STARTED', assignee: 'Phạm D', avatar: 'D', progress: 0 },
+        { storeId: 'EMERALD', storeName: 'SM EMERALD', shift: 1, status: 'NOT_STARTED', assignee: 'Chưa phân công', avatar: null, progress: 0 }
+    ];
 
-    const loadMasterProducts = async () => {
-        setLoading(true);
-        try {
-            const res = await InventoryService.getMasterItems();
-            if (res.success) setProducts(res.items);
-            else toast.error('Không thể tải danh sách sản phẩm');
-        } catch {
-            toast.error('Lỗi kết nối');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDistribute = async () => {
-        if (selectedStore === 'ALL') {
-            toast.error('Vui lòng chọn cửa hàng cụ thể');
-            return;
-        }
-        if (!confirm(`Phân phối ${products.length} sản phẩm cho ${selectedStore} - Ca ${selectedShift}?`)) return;
-
-        setDistributing(true);
-        try {
-            const res = await InventoryService.distributeToStore(selectedStore, selectedShift);
-            if (res.success) toast.success(res.message || 'Phân phối thành công!');
-            else toast.error(res.message || 'Lỗi phân phối');
-        } catch {
-            toast.error('Lỗi kết nối');
-        } finally {
-            setDistributing(false);
-        }
-    };
+    const filtered = filterShift === 'ALL' ? tasks : tasks.filter(t => t.shift === filterShift);
 
     return (
-        <div className="pt-4 flex gap-6">
-            {/* LEFT: Product Master Table */}
-            <div className="flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                {/* Table Header */}
-                <div className="bg-gradient-to-r from-red-600 to-red-500 text-white px-4 py-3 flex items-center justify-center">
-                    <span className="material-symbols-outlined mr-2">list_alt</span>
-                    <h3 className="font-bold text-sm uppercase tracking-wide">Bảng Thiết Lập Các Sản Phẩm Cần Kiểm Tra</h3>
+        <div className="space-y-6 pt-4">
+            {/* Toolbar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-400 uppercase mr-2">Bộ lọc Ca:</span>
+                    {[
+                        { id: 'ALL', label: 'Tất cả' },
+                        { id: 1, label: 'Ca 1 (Sáng)' },
+                        { id: 2, label: 'Ca 2 (Chiều)' },
+                        { id: 3, label: 'Ca 3 (Đêm)' }
+                    ].map(opt => (
+                        <button
+                            key={opt.id}
+                            onClick={() => setFilterShift(opt.id as any)}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${filterShift === opt.id
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                                }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
                 </div>
+                <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95">
+                    <span className="material-symbols-outlined text-[18px]">add_task</span>
+                    Phân Bổ Tự Động
+                </button>
+            </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto max-h-[65vh] overflow-y-auto custom-scrollbar">
+            {/* Distribution Table */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-indigo-600">assignment_ind</span>
+                        Bảng Phân Phối Kiểm Tồn
+                    </h3>
+                    <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-200">
+                        Ngày: {new Date(date).toLocaleDateString('vi-VN')}
+                    </span>
+                </div>
+                <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-red-50 text-xs font-bold text-red-700 uppercase border-b border-red-100 sticky top-0">
+                        <thead className="bg-gray-50 text-xs font-bold text-gray-500 uppercase border-b border-gray-100">
                             <tr>
-                                <th className="px-4 py-3 w-24">Mã hàng</th>
-                                <th className="px-4 py-3 w-36">Mã vạch</th>
-                                <th className="px-4 py-3">Tên Sản Phẩm</th>
+                                <th className="px-6 py-4 w-1/4">Cửa hàng</th>
+                                <th className="px-6 py-4 w-1/6 text-center">Ca làm việc</th>
+                                <th className="px-6 py-4 w-1/4">Nhân viên phụ trách</th>
+                                <th className="px-6 py-4 w-1/6 text-center">Trạng thái</th>
+                                <th className="px-6 py-4 w-1/6 text-center">Tiến độ</th>
+                                <th className="px-6 py-4 text-right">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
-                                        <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
-                                        Đang tải...
+                            {filtered.map((task, i) => (
+                                <tr key={i} className="hover:bg-indigo-50/30 transition-colors group">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black border uppercase ${REVIEW_CONFIG.STORES.find(s => s.id === task.storeId)?.color || 'bg-gray-100 text-gray-500'
+                                                }`}>
+                                                {task.storeId}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-gray-800">{task.storeName}</p>
+                                                <p className="text-[10px] text-gray-400 font-medium">Store ID: {task.storeId}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className="inline-block px-2 py-1 rounded-md bg-white border border-gray-200 text-xs font-bold text-gray-600 shadow-sm">
+                                            Ca {task.shift}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            {task.avatar ? (
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm">
+                                                    {task.avatar}
+                                                </div>
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center border-2 border-white border-dashed">
+                                                    <span className="material-symbols-outlined text-[16px]">add</span>
+                                                </div>
+                                            )}
+                                            <span className={`text-sm font-medium ${!task.avatar ? 'text-gray-400 italic' : 'text-gray-700'}`}>
+                                                {task.assignee}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border inline-flex items-center gap-1 ${task.status === 'NOT_STARTED' ? 'bg-gray-50 text-gray-400 border-gray-100' :
+                                                task.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                    'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                            }`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${task.status === 'NOT_STARTED' ? 'bg-gray-400' :
+                                                    task.status === 'IN_PROGRESS' ? 'bg-amber-500 animate-pulse' :
+                                                        'bg-emerald-500'
+                                                }`} />
+                                            {task.status === 'NOT_STARTED' ? 'Chưa nhận' : task.status === 'IN_PROGRESS' ? 'Đang kiểm' : 'Hoàn thành'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-1000 ${task.status === 'SUBMITTED' ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                                    style={{ width: `${task.progress || 0}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-500 w-8 text-right">{task.progress}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button className="text-gray-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-indigo-50 transition-colors">
+                                            <span className="material-symbols-outlined">more_vert</span>
+                                        </button>
                                     </td>
                                 </tr>
-                            ) : products.length === 0 ? (
-                                <tr>
-                                    <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
-                                        Chưa có sản phẩm nào trong danh sách.
-                                    </td>
-                                </tr>
-                            ) : (
-                                products.map((p, i) => (
-                                    <tr key={p.id || i} className="hover:bg-red-50/30 transition-colors">
-                                        <td className="px-4 py-2.5 font-mono text-xs text-gray-600">{p.pvn || `SP${String(i + 1).padStart(6, '0')}`}</td>
-                                        <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{p.barcode}</td>
-                                        <td className="px-4 py-2.5 text-gray-800">{p.name}</td>
-                                    </tr>
-                                ))
-                            )}
+                            ))}
                         </tbody>
                     </table>
-                </div>
-
-                {/* Footer */}
-                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
-                    <span>Tổng: <strong className="text-gray-700">{products.length}</strong> sản phẩm</span>
-                    <button onClick={loadMasterProducts} className="text-indigo-600 hover:underline flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">refresh</span> Làm mới
-                    </button>
-                </div>
-            </div>
-
-            {/* RIGHT: Control Panel */}
-            <div className="w-72 shrink-0 space-y-4">
-                {/* Control Panel Card */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="bg-gradient-to-r from-sky-500 to-blue-500 text-white px-4 py-3 text-center">
-                        <h3 className="font-bold text-sm uppercase tracking-wide">Bảng Điều Khiển</h3>
-                    </div>
-
-                    <div className="p-4 space-y-4">
-                        {/* Store Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Chọn cửa hàng</label>
-                            <select
-                                value={selectedStore}
-                                onChange={(e) => setSelectedStore(e.target.value)}
-                                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
-                            >
-                                <option value="ALL">TẤT CẢ</option>
-                                {REVIEW_CONFIG.STORES.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Shift Selector */}
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Chọn ca làm cần phân chia</label>
-                            <div className="flex gap-2">
-                                {[1, 2, 3].map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => setSelectedShift(s)}
-                                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${selectedShift === s
-                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-                                            }`}
-                                    >
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="pt-2 grid grid-cols-4 gap-2">
-                            {/* View List */}
-                            <button
-                                onClick={loadMasterProducts}
-                                className="flex flex-col items-center justify-center p-3 bg-purple-50 rounded-xl border border-purple-100 text-purple-600 hover:bg-purple-100 transition-colors"
-                                title="Xem danh sách"
-                            >
-                                <span className="material-symbols-outlined text-2xl">list_alt</span>
-                            </button>
-
-                            {/* Distribute */}
-                            <button
-                                onClick={handleDistribute}
-                                disabled={distributing}
-                                className="flex flex-col items-center justify-center p-3 bg-blue-50 rounded-xl border border-blue-100 text-blue-600 hover:bg-blue-100 transition-colors disabled:opacity-50"
-                                title="Phân phối"
-                            >
-                                <span className="material-symbols-outlined text-2xl">{distributing ? 'progress_activity' : 'share'}</span>
-                            </button>
-
-                            {/* Save */}
-                            <button
-                                className="flex flex-col items-center justify-center p-3 bg-amber-50 rounded-xl border border-amber-100 text-amber-600 hover:bg-amber-100 transition-colors"
-                                title="Lưu cấu hình"
-                            >
-                                <span className="material-symbols-outlined text-2xl">save</span>
-                            </button>
-
-                            {/* Upload */}
-                            <button
-                                className="flex flex-col items-center justify-center p-3 bg-green-50 rounded-xl border border-green-100 text-green-600 hover:bg-green-100 transition-colors"
-                                title="Upload danh sách"
-                            >
-                                <span className="material-symbols-outlined text-2xl">upload_file</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Thống kê nhanh</h4>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span className="text-sm text-gray-600">Sản phẩm Master</span>
-                            <span className="text-sm font-bold text-gray-800">{products.length}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                            <span className="text-sm text-gray-600">Cửa hàng</span>
-                            <span className="text-sm font-bold text-gray-800">{REVIEW_CONFIG.STORES.length}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2">
-                            <span className="text-sm text-gray-600">Ca đang chọn</span>
-                            <span className="text-sm font-bold text-blue-600">Ca {selectedShift}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Date Info */}
-                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="material-symbols-outlined">calendar_today</span>
-                        <span className="text-xs font-bold uppercase opacity-80">Ngày làm việc</span>
-                    </div>
-                    <p className="text-lg font-black">{new Date(date).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
                 </div>
             </div>
         </div>
@@ -342,8 +275,12 @@ const ReviewsView: React.FC<{ toast: any, user: User }> = ({ toast, user }) => {
         setShowDetailModal(true);
         setLoadingDetails(true);
         try {
+            // Fetch items for this store/shift
+            // Note: In real app we might want a snapshot, but getItems returns current/latest for that shift
+            // If historical snapshot is needed, getItems needs update. For now assuming getItems(store, shift) is sufficient.
             const res = await InventoryService.getItems(report.storeId, report.shift);
             if (res.success) {
+                // Filter only items with discrepancies for the view
                 const problems = res.products.filter((p: any) => p.diff !== 0 || p.status === 'MISSING' || p.status === 'OVER');
                 setReportItems(problems);
             }
@@ -352,9 +289,11 @@ const ReviewsView: React.FC<{ toast: any, user: User }> = ({ toast, user }) => {
         }
     };
 
+    // Stats
     const stats = useMemo(() => {
         const pending = reports.filter(r => r.status === 'PENDING').length;
-        const missingVal = 0; // Backend aggregation needed for value
+        // missingValue is not yet calculated in backend view, so default 0 or sum from items if available
+        const missingVal = 0;
         return { pending, missingVal };
     }, [reports]);
 
@@ -390,6 +329,7 @@ const ReviewsView: React.FC<{ toast: any, user: User }> = ({ toast, user }) => {
 
     return (
         <div className="space-y-6 pt-4">
+            {/* Stats Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
                     <span className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center material-symbols-outlined">pending_actions</span>
@@ -409,6 +349,7 @@ const ReviewsView: React.FC<{ toast: any, user: User }> = ({ toast, user }) => {
                 </div>
             </div>
 
+            {/* List */}
             <div className="space-y-3">
                 {reports.length === 0 && <p className="text-center text-gray-400 py-8">Không có báo cáo nào.</p>}
                 {reports.map(report => (
@@ -520,13 +461,17 @@ const ReviewsView: React.FC<{ toast: any, user: User }> = ({ toast, user }) => {
     );
 };
 
-/* 3. RECOVERY VIEW */
+/* 3. RECOVERY VIEW (Integrated from RecoveryHub logic) */
 const RecoveryView: React.FC<{ toast: any }> = ({ toast }) => {
     const [activeTab, setActiveTab] = useState<'SCAN' | 'MANAGE'>('SCAN');
+
+    // Scan State
     const [scanStore, setScanStore] = useState('BEE');
     const [scanMonth, setScanMonth] = useState(new Date().toISOString().slice(0, 7));
     const [scannedItems, setScannedItems] = useState<any[]>([]);
     const [scanning, setScanning] = useState(false);
+
+    // Manage State
     const [recoveryItems, setRecoveryItems] = useState<RecoveryItem[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -541,7 +486,7 @@ const RecoveryView: React.FC<{ toast: any }> = ({ toast }) => {
         try {
             const res = await RecoveryService.scanForDiscrepancies(scanStore, scanMonth);
             if (res.success) setScannedItems(res.items);
-            else toast.error('Không tìm thấy dữ liệu hoặc lỗi kết nối');
+            else toast.error('Không tìm thấy dữ liệu');
         } catch { toast.error('Lỗi kết nối'); }
         finally { setScanning(false); }
     };
@@ -571,6 +516,7 @@ const RecoveryView: React.FC<{ toast: any }> = ({ toast }) => {
 
     return (
         <div className="space-y-6 pt-4">
+            {/* Sub-Tabs for Recovery */}
             <div className="flex bg-gray-100 p-1 rounded-xl w-fit">
                 <button
                     onClick={() => setActiveTab('SCAN')}
@@ -681,4 +627,4 @@ const RecoveryView: React.FC<{ toast: any }> = ({ toast }) => {
     );
 };
 
-export default InventoryHQ;
+export default InventoryAdmin;

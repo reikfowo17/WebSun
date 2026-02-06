@@ -30,7 +30,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           if (res.success) setStats(res.stats);
         }
 
-        const taskRes = await DashboardService.getTasks(user.role === 'ADMIN' ? undefined : user.name);
+        const taskRes = await DashboardService.getTasks(user.role === 'ADMIN' ? undefined : user.id);
         if (taskRes.success) setTasks(taskRes.tasks || []);
       } catch (e) {
         console.error(e);

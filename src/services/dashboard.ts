@@ -1,14 +1,4 @@
-/**
- * Dashboard Service
- * 
- * Handles dashboard statistics and task management
- */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { ExpiryService } from './expiry';
-
-// ===========================================================================
-// TYPES
-// ===========================================================================
 
 export interface DashboardStats {
     urgentItems: number;
@@ -26,67 +16,26 @@ export interface TaskItem {
     status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 }
 
-// ===========================================================================
-// MOCK DATA
-// ===========================================================================
-
-const MOCK_TASKS: TaskItem[] = [
-    {
-        id: '1',
-        title: 'Kiểm kê Ca 1 - CHN',
-        assignee: 'Nhân viên 1',
-        type: 'INVENTORY',
-        target_items: 50,
-        completed_items: 45,
-        status: 'IN_PROGRESS'
-    },
-    {
-        id: '2',
-        title: 'Báo cáo hạn dùng TM - CHN',
-        assignee: 'Nhân viên 2',
-        type: 'EXPIRY',
-        target_items: 30,
-        completed_items: 30,
-        status: 'COMPLETED'
-    },
-];
-
-// ===========================================================================
-// UTILITY
-// ===========================================================================
-
 const addDays = (days: number): string => {
     const d = new Date();
     d.setDate(d.getDate() + days);
     return d.toISOString().split('T')[0];
 };
 
-// ===========================================================================
-// DASHBOARD SERVICE
-// ===========================================================================
-
 export const DashboardService = {
-    /**
-     * Get dashboard statistics
-     */
     async getStats(): Promise<{ success: boolean; stats: DashboardStats }> {
         if (isSupabaseConfigured()) {
             try {
-                // Parallel fetch for better performance
                 const [urgentResult, totalAuditsResult, totalChecksResult] = await Promise.all([
-                    // Get urgent expiry items (within 3 days)
                     supabase
                         .from('expiry_items')
                         .select('*', { count: 'exact', head: true })
                         .gte('expiry_date', new Date().toISOString().split('T')[0])
                         .lte('expiry_date', addDays(3)),
 
-                    // Get total inventory items
                     supabase
                         .from('inventory_items')
                         .select('*', { count: 'exact', head: true }),
-
-                    // Get checked inventory items
                     supabase
                         .from('inventory_items')
                         .select('*', { count: 'exact', head: true })
@@ -106,22 +55,17 @@ export const DashboardService = {
             }
         }
 
-        // Mock mode
-        await new Promise(r => setTimeout(r, 300));
         return {
-            success: true,
+            success: false,
             stats: {
-                urgentItems: 5,
-                totalChecks: 45,
-                totalAudits: 50,
+                urgentItems: 0,
+                totalChecks: 0,
+                totalAudits: 0,
             },
         };
     },
 
-    /**
-     * Get tasks for a user
-     */
-    async getTasks(assignee?: string): Promise<{ success: boolean; tasks: TaskItem[] }> {
+    async getTasks(userId?: string): Promise<{ success: boolean; tasks: TaskItem[] }> {
         if (isSupabaseConfigured()) {
             try {
                 let query = supabase
@@ -133,13 +77,14 @@ export const DashboardService = {
             target_items,
             completed_items,
             status,
+            assignee_id,
             users (
               name
             )
           `);
 
-                if (assignee) {
-                    query = query.eq('users.name', assignee);
+                if (userId) {
+                    query = query.eq('assignee_id', userId);
                 }
 
                 const { data, error } = await query;
@@ -152,7 +97,7 @@ export const DashboardService = {
                     type: t.type,
                     target_items: t.target_items,
                     completed_items: t.completed_items,
-                    status: t.status,
+                    status: t.status === 'NOT_STARTED' ? 'PENDING' : t.status,
                 }));
 
                 return { success: true, tasks };
@@ -160,14 +105,7 @@ export const DashboardService = {
                 console.error('[Dashboard] Get tasks error:', e);
             }
         }
-
-        // Mock mode
-        await new Promise(r => setTimeout(r, 300));
-        let tasks = [...MOCK_TASKS];
-        if (assignee) {
-            tasks = tasks.filter(t => t.assignee === assignee);
-        }
-        return { success: true, tasks };
+        return { success: false, tasks: [] };
     },
 };
 

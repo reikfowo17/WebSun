@@ -5,44 +5,36 @@
  */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { ExpiryProduct } from '../types';
+
+// ===========================================================================
+// TYPES
+// ===========================================================================
+
 export type { ExpiryProduct };
 
-// ===========================================================================
-// MOCK DATA
-// ===========================================================================
+export interface ExpiryConfig {
+    id: string;
+    type: string;
+    nearExpiryDays: number;
+    productionThreshold: number;
+    enabled: boolean;
+    stores: string[];
+}
 
-const MOCK_EXPIRY: ExpiryProduct[] = [
-    {
-        id: '1',
-        productName: 'Bánh mì sandwich',
-        barcode: '8934588012348',
-        quantity: 10,
-        mfgDate: '2026-02-01',
-        expiryDate: '2026-02-04',
-        status: 'Cận hạn',
-        note: '',
-        daysLeft: 1
-    },
-    {
-        id: '2',
-        productName: 'Sữa tươi Vinamilk',
-        barcode: '8934588012349',
-        quantity: 24,
-        mfgDate: '2026-01-28',
-        expiryDate: '2026-02-10',
-        status: 'Còn hạn',
-        note: '',
-        daysLeft: 7
-    },
-];
+export interface ExpiryReport {
+    id: string;
+    store: string;
+    date: string;
+    scannedCount: number;
+    nearExpiryCount: number;
+    expiredCount: number;
+    status: 'SUBMITTED' | 'REVIEWED';
+}
 
 // ===========================================================================
 // UTILITY FUNCTIONS
 // ===========================================================================
 
-/**
- * Calculate days remaining until expiry
- */
 const getDaysLeft = (expiryDate: string | null): number => {
     if (!expiryDate) return 999;
     const today = new Date();
@@ -52,9 +44,6 @@ const getDaysLeft = (expiryDate: string | null): number => {
     return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-/**
- * Determine status based on days left
- */
 const getStatus = (daysLeft: number): string => {
     if (daysLeft < 0) return 'Hết hạn';
     if (daysLeft <= 30) return 'Cận hạn';
@@ -101,8 +90,7 @@ export const ExpiryService = {
             )
           `)
                     .eq('stores.code', store)
-                    .eq('type', type as any)
-                    .order('expiry_date', { ascending: true }); // Sort by expiry date (Urgent first)
+                    .eq('type', type);
 
                 if (error) throw error;
 
@@ -112,116 +100,145 @@ export const ExpiryService = {
                         id: item.id,
                         productName: item.products?.name || '',
                         barcode: item.products?.barcode || '',
-                        quantity: item.quantity,
+                        quantity: item.quantity || 0,
                         mfgDate: item.mfg_date,
                         expiryDate: item.expiry_date,
-                        status: getStatus(daysLeft), // Recalculate status dynamically
+                        status: getStatus(daysLeft),
                         note: item.note || '',
-                        daysLeft: daysLeft,
+                        daysLeft: daysLeft
                     };
                 });
 
                 return { success: true, products };
-
             } catch (e) {
                 console.error('[Expiry] Get items error:', e);
                 return { success: false, products: [] };
             }
         }
-
-        // Mock mode (Fallback)
-        await new Promise(r => setTimeout(r, 500));
-        // ... (Mock data logic)
-        const products = MOCK_EXPIRY.map(p => ({
-            ...p,
-            daysLeft: getDaysLeft(p.expiryDate),
-            status: getStatus(getDaysLeft(p.expiryDate))
-        })).sort((a, b) => a.daysLeft - b.daysLeft);
-
-        return { success: true, products };
+        return { success: false, products: [] };
     },
 
-    /**
-     * Update an expiry item
-     */
-    async updateItem(
-        id: string,
-        field: string,
-        value: any
-    ): Promise<{ success: boolean }> {
-        if (!id || !field) {
-            return { success: false };
-        }
-
+    async getConfigs(): Promise<{ success: boolean; configs: ExpiryConfig[] }> {
         if (isSupabaseConfigured()) {
             try {
-                const updateData: Record<string, any> = {
-                    updated_at: new Date().toISOString(),
-                };
-
-                // Map frontend field names to database columns
-                const fieldMap: Record<string, string> = {
-                    mfgDate: 'mfg_date',
-                    expiryDate: 'expiry_date',
-                };
-                updateData[fieldMap[field] || field] = value;
-
-                // Auto-calculate status for expiry date changes
-                if (field === 'expiryDate' && value) {
-                    const daysLeft = getDaysLeft(value);
-                    updateData.status = getStatus(daysLeft);
-                }
-
-                const { error } = await supabase
-                    .from('expiry_items')
-                    .update(updateData)
-                    .eq('id', id);
+                const { data, error } = await supabase
+                    .from('expiry_configs')
+                    .select('*')
+                    .order('type');
 
                 if (error) throw error;
-                return { success: true };
+
+                const configs = (data || []).map((c: any) => ({
+                    id: c.id,
+                    type: c.type,
+                    nearExpiryDays: c.near_expiry_days,
+                    productionThreshold: c.production_threshold,
+                    enabled: c.enabled,
+                    stores: c.stores || []
+                }));
+
+                return { success: true, configs };
             } catch (e) {
-                console.error('[Expiry] Update error:', e);
+                console.error('Get configs error', e);
+            }
+        }
+        return { success: false, configs: [] };
+    },
+
+    async updateConfig(id: string, updates: Partial<ExpiryConfig>): Promise<{ success: boolean }> {
+        if (isSupabaseConfigured()) {
+            try {
+                const dbUpdates: any = {};
+                if (updates.enabled !== undefined) dbUpdates.enabled = updates.enabled;
+                if (updates.nearExpiryDays !== undefined) dbUpdates.near_expiry_days = updates.nearExpiryDays;
+                // Add others if needed
+
+                const { error } = await supabase
+                    .from('expiry_configs')
+                    .update(dbUpdates)
+                    .eq('id', id);
+
+                return { success: !error };
+            } catch (e) {
                 return { success: false };
             }
         }
+        return { success: false };
+    },
 
-        // Mock mode
-        await new Promise(r => setTimeout(r, 300));
-        const item = MOCK_EXPIRY.find(p => p.id === id);
-        if (item) {
-            (item as any)[field] = value;
-            if (field === 'expiryDate' && value) {
-                const daysLeft = getDaysLeft(value);
-                item.status = getStatus(daysLeft);
-                item.daysLeft = daysLeft;
+    async getReports(): Promise<{ success: boolean; reports: ExpiryReport[] }> {
+        if (isSupabaseConfigured()) {
+            try {
+                const { data, error } = await supabase
+                    .from('expiry_reports')
+                    .select(`
+                        id,
+                        check_date,
+                        scanned_count,
+                        near_expiry_count,
+                        expired_count,
+                        status,
+                        stores ( name )
+                    `)
+                    .order('check_date', { ascending: false });
+
+                if (error) throw error;
+
+                const reports = (data || []).map((r: any) => ({
+                    id: r.id,
+                    store: r.stores?.name || 'Unknown',
+                    date: r.check_date,
+                    scannedCount: r.scanned_count,
+                    nearExpiryCount: r.near_expiry_count,
+                    expiredCount: r.expired_count,
+                    status: r.status
+                }));
+
+                return { success: true, reports };
+            } catch (e) {
+                console.error('Get reports error', e);
             }
         }
-        return { success: true };
+        return { success: false, reports: [] };
     },
 
-    /**
-     * Submit expiry report
-     */
-    async submitReport(
-        items: ExpiryProduct[]
-    ): Promise<{ success: boolean; message?: string }> {
-        await new Promise(r => setTimeout(r, 500));
+    async submitReport(storeCode: string, items: ExpiryProduct[]): Promise<{ success: boolean; message: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'Lỗi kết nối server' };
 
-        if (!items || items.length === 0) {
-            return { success: false, message: 'Danh sách sản phẩm trống' };
+        try {
+            // Get Store ID
+            const { data: store, error: storeError } = await supabase
+                .from('stores')
+                .select('id')
+                .eq('code', storeCode)
+                .single();
+
+            if (storeError || !store) throw new Error('Không tìm thấy cửa hàng');
+
+            // Calculate aggregates based on current status
+            const scannedCount = items.length;
+            const nearExpiryCount = items.filter(i => i.status === 'NEAR_EXPIRY' || i.status === 'Cận hạn').length;
+            const expiredCount = items.filter(i => i.status === 'EXPIRED' || i.status === 'Hết hạn').length;
+
+            const { error: insertError } = await supabase
+                .from('expiry_reports')
+                .insert({
+                    store_id: store.id,
+                    check_date: new Date().toISOString(),
+                    scanned_count: scannedCount,
+                    near_expiry_count: nearExpiryCount,
+                    expired_count: expiredCount,
+                    status: 'SUBMITTED'
+                });
+
+            if (insertError) throw insertError;
+
+            return { success: true, message: 'Gửi báo cáo thành công' };
+        } catch (e) {
+            console.error('Submit report error:', e);
+            return { success: false, message: 'Gửi báo cáo thất bại' };
         }
-
-        const expired = items.filter(p => (p.daysLeft ?? 999) < 0).length;
-        const warning = items.filter(p => (p.daysLeft ?? 999) >= 0 && (p.daysLeft ?? 999) <= 30).length;
-
-        // In a real app, you would send this to Supabase
-        // await supabase.from('expiry_reports').insert(...)
-
-        return {
-            success: true,
-            message: `Đã nộp báo cáo: ${items.length} sản phẩm (${expired} hết hạn, ${warning} cận hạn)`,
-        };
-    },
+    }
 };
 
 export default ExpiryService;

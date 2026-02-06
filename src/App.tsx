@@ -17,8 +17,6 @@ const Inventory = React.lazy(() => import('./pages/Inventory'));
 const Expiry = React.lazy(() => import('./pages/Expiry'));
 const InventoryHQ = React.lazy(() => import('./pages/InventoryHQ'));
 const ExpiryHQ = React.lazy(() => import('./pages/ExpiryHQ'));
-const InventoryReview = React.lazy(() => import('./pages/InventoryReview'));
-const RecoveryHub = React.lazy(() => import('./pages/RecoveryHub'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 
 // ===========================================================================
@@ -110,8 +108,6 @@ const AppRoutes: React.FC = () => {
           <Route path="/expiry" element={<AnimatedPage><ExpiryWrapper /></AnimatedPage>} />
           <Route path="/hq" element={<AnimatedPage><InventoryHQWrapper /></AnimatedPage>} />
           <Route path="/expiry-hq" element={<AnimatedPage><ExpiryHQWrapper /></AnimatedPage>} />
-          <Route path="/review" element={<AnimatedPage><InventoryReviewWrapper /></AnimatedPage>} />
-          <Route path="/recovery" element={<AnimatedPage><RecoveryHubWrapper /></AnimatedPage>} />
           <Route path="/profile" element={<AnimatedPage><ProfileWrapper /></AnimatedPage>} />
         </Route>
 
@@ -154,15 +150,6 @@ const InventoryHQWrapper = () => {
 const ExpiryHQWrapper = () => {
   const { user } = useUser();
   return user ? <ExpiryHQ user={user} /> : null;
-};
-
-const InventoryReviewWrapper = () => {
-  const { user } = useUser();
-  return user ? <InventoryReview user={user} /> : null;
-};
-
-const RecoveryHubWrapper = () => {
-  return <RecoveryHub />;
 };
 
 const ProfileWrapper = () => {

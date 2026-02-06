@@ -14,7 +14,7 @@ export type { InventoryProduct, MasterItem } from './inventory';
 
 // Expiry
 export { ExpiryService } from './expiry';
-export type { ExpiryProduct } from './expiry';
+export type { ExpiryProduct, ExpiryConfig, ExpiryReport } from './expiry';
 
 // Dashboard
 export { DashboardService } from './dashboard';
@@ -23,3 +23,7 @@ export type { DashboardStats, TaskItem } from './dashboard';
 // Recovery
 export { RecoveryService } from './recovery';
 export type { RecoveryItem, ScannedItem } from './recovery';
+
+// Tasks
+export { TasksService } from './tasks';
+export type { Task } from './tasks';

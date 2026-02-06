@@ -7,10 +7,6 @@ interface InventoryReviewProps {
     user: User;
 }
 
-/**
- * Config aligned with GAS SMRecoveryLib.js
- * Status and reason options match the backend
- */
 const REVIEW_CONFIG = {
     STORES: [
         { id: 'BEE', name: 'SM BEE', color: 'bg-yellow-100 text-yellow-700' },
