@@ -250,16 +250,33 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
-                const { error } = await supabase
+                console.log('[Inventory] Adding product:', product);
+
+                // Check current session
+                const { data: { session } } = await supabase.auth.getSession();
+                console.log('[Inventory] Current session:', session?.user?.id ? 'Logged in' : 'Not logged in');
+
+                const { data, error } = await supabase
                     .from('products')
                     .insert([{
                         barcode: product.barcode,
                         name: product.name,
                         unit: product.unit || '',
                         category: product.category || '',
-                    }]);
+                    }])
+                    .select();
 
-                if (error) throw error;
+                if (error) {
+                    console.error('[Inventory] Insert error details:', {
+                        message: error.message,
+                        code: error.code,
+                        details: error.details,
+                        hint: error.hint
+                    });
+                    throw error;
+                }
+
+                console.log('[Inventory] Product added successfully:', data);
                 return { success: true };
             } catch (e: any) {
                 console.error('[Inventory] Add master item error:', e);
@@ -557,8 +574,7 @@ export const InventoryService = {
         return { success: false, error: 'Database disconnected' };
     },
 
-    // ========== ADMIN REPORT REVIEW ==========
-    async getReports(status?: string): Promise<{ success: boolean; reports?: any[] }> {
+    async getReports(status?: string, storeCode?: string): Promise<{ success: boolean; reports?: any[] }> {
         if (isSupabaseConfigured()) {
             try {
                 let query = supabase
@@ -570,6 +586,7 @@ export const InventoryService = {
                         status,
                         created_at,
                         stores!inner (
+                            id,
                             code,
                             name
                         ),
@@ -581,6 +598,10 @@ export const InventoryService = {
 
                 if (status && status !== 'ALL') {
                     query = query.eq('status', status);
+                }
+
+                if (storeCode && storeCode !== 'ALL') {
+                    query = query.eq('stores.code', storeCode);
                 }
 
                 const { data, error } = await query;
@@ -654,6 +675,144 @@ export const InventoryService = {
             }
         }
         return { success: false, message: 'Database disconnected' };
+    },
+
+    async getOverview(date: string): Promise<{
+        success: boolean;
+        stats?: {
+            totalStores: number;
+            completedStores: number;
+            inProgressStores: number;
+            pendingStores: number;
+            issuesCount: number;
+        };
+        stores?: Array<{
+            id: string;
+            code: string;
+            name: string;
+            color: string;
+            shift: number;
+            employee: {
+                id: string;
+                name: string;
+            } | null;
+            progress: {
+                total: number;
+                checked: number;
+                matched: number;
+                missing: number;
+                over: number;
+                percentage: number;
+            };
+            reportStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+            lastUpdate: string | null;
+        }>;
+    }> {
+        if (!date || !isSupabaseConfigured()) {
+            return { success: false };
+        }
+
+        try {
+            // Get all stores with their inventory items for the date
+            const { data: storesData, error: storesError } = await supabase
+                .from('stores')
+                .select('id, code, name, bg_color, color')
+                .eq('active', true)
+                .order('code');
+
+            if (storesError) throw storesError;
+
+            // Get all inventory items for the date
+            const { data: itemsData, error: itemsError } = await supabase
+                .from('inventory_items')
+                .select('store_id, shift, status, actual_stock, updated_at')
+                .eq('check_date', date);
+
+            if (itemsError) throw itemsError;
+
+            // Get all reports for the date
+            const { data: reportsData, error: reportsError } = await supabase
+                .from('inventory_reports')
+                .select(`
+                    id,
+                    store_id,
+                    shift,
+                    status,
+                    created_at,
+                    users!inventory_reports_submitted_by_fkey (
+                        id,
+                        name
+                    )
+                `)
+                .eq('check_date', date);
+
+            if (reportsError) throw reportsError;
+
+            // Build store progress map
+            const stores = (storesData || []).map(store => {
+                // Get items for this store
+                const storeItems = (itemsData || []).filter(item => item.store_id === store.id);
+
+                // Get report for this store (assuming 1 report per store per day)
+                const storeReport = (reportsData || []).find(r => r.store_id === store.id);
+
+                // Calculate progress
+                const total = storeItems.length;
+                const checked = storeItems.filter(item => item.actual_stock !== null).length;
+                const matched = storeItems.filter(item => item.status === 'MATCHED').length;
+                const missing = storeItems.filter(item => item.status === 'MISSING').length;
+                const over = storeItems.filter(item => item.status === 'OVER').length;
+                const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
+
+                // Get last update time
+                const lastUpdate = storeItems.length > 0
+                    ? storeItems.reduce((latest, item) => {
+                        const itemTime = new Date(item.updated_at || 0).getTime();
+                        return itemTime > latest ? itemTime : latest;
+                    }, 0)
+                    : null;
+
+                return {
+                    id: store.id,
+                    code: store.code,
+                    name: store.name,
+                    color: store.color || '#6B7280',
+                    shift: storeItems[0]?.shift || 1,
+                    employee: (storeReport?.users && typeof storeReport.users === 'object' && 'id' in storeReport.users) ? {
+                        id: (storeReport.users as any).id,
+                        name: (storeReport.users as any).name
+                    } : null,
+                    progress: {
+                        total,
+                        checked,
+                        matched,
+                        missing,
+                        over,
+                        percentage
+                    },
+                    reportStatus: storeReport?.status || null,
+                    lastUpdate: lastUpdate ? new Date(lastUpdate).toISOString() : null
+                };
+            }).filter(store => store.progress.total > 0); // Only show stores with distributed items
+
+            // Calculate overall stats
+            const stats = {
+                totalStores: stores.length,
+                completedStores: stores.filter(s => s.reportStatus === 'APPROVED').length,
+                inProgressStores: stores.filter(s => s.reportStatus === 'PENDING' || (s.progress.checked > 0 && !s.reportStatus)).length,
+                pendingStores: stores.filter(s => s.progress.checked === 0 && !s.reportStatus).length,
+                issuesCount: stores.reduce((sum, s) => sum + s.progress.missing + s.progress.over, 0)
+            };
+
+            return {
+                success: true,
+                stats,
+                stores
+            };
+        } catch (e: any) {
+            console.error('[Inventory] Get overview error:', e);
+            return { success: false };
+        }
     }
 };
 

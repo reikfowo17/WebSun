@@ -18,7 +18,6 @@ interface ProductModalProps {
 }
 
 const UNIT_OPTIONS = ['Cái', 'Hộp', 'Lon', 'Chai', 'Kg', 'Gói'];
-const CATEGORY_OPTIONS = ['Bánh Mì', 'Thức Uống', 'Đồ Ăn Vặt', 'Tủ Mát', 'Đông Lạnh', 'Khác'];
 
 const ProductModal: React.FC<ProductModalProps> = ({
     isOpen,
@@ -81,17 +80,14 @@ const ProductModal: React.FC<ProductModalProps> = ({
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1.5">Danh mục</label>
-                            <select
+                            <label className="block text-xs font-bold text-gray-500 mb-1.5">Mã hàng</label>
+                            <input
+                                type="text"
                                 value={productForm.category}
                                 onChange={(e) => onFormChange({ category: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
-                            >
-                                <option value="">Chọn...</option>
-                                {CATEGORY_OPTIONS.map(opt => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                            </select>
+                                placeholder="SP001"
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none"
+                            />
                         </div>
                     </div>
                 </div>

@@ -175,14 +175,14 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
             const productsToImport = jsonData.map((row: any) => ({
-                barcode: String(row['Barcode'] || row['Mã vạch'] || row['barcode'] || row['ma_vach'] || ''),
-                name: String(row['Tên SP'] || row['Name'] || row['Tên sản phẩm'] || row['name'] || row['ten_sp'] || ''),
-                unit: String(row['ĐVT'] || row['Unit'] || row['Đơn vị'] || row['unit'] || row['dvt'] || ''),
-                category: String(row['Danh mục'] || row['Category'] || row['category'] || row['danh_muc'] || ''),
+                category: String(row['Mã hàng SP'] || row['Mã hàng'] || row['Product Code'] || row['ma_hang'] || ''),
+                barcode: String(row['Mã barcode'] || row['Barcode'] || row['Mã vạch'] || row['barcode'] || ''),
+                name: String(row['Tên sản phẩm'] || row['Tên SP'] || row['Name'] || row['name'] || ''),
+                unit: '', // Optional, can be filled later
             })).filter((p: any) => p.barcode && p.name);
 
             if (productsToImport.length === 0) {
-                toast.error('Không tìm thấy dữ liệu hợp lệ. Cần có cột: Barcode, Tên SP');
+                toast.error('Không tìm thấy dữ liệu hợp lệ. Cần có: Mã barcode, Tên sản phẩm');
                 return;
             }
 

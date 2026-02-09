@@ -29,18 +29,22 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
     const [loading, setLoading] = useState(false);
     const [selectedReport, setSelectedReport] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('PENDING');
+    const [filterStore, setFilterStore] = useState<string>('ALL');
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
         loadReports();
-    }, [filterStatus]);
+    }, [filterStatus, filterStore]);
 
     const loadReports = async () => {
         setLoading(true);
         try {
-            const res = await InventoryService.getReports(filterStatus === 'ALL' ? undefined : filterStatus);
+            const res = await InventoryService.getReports(
+                filterStatus === 'ALL' ? undefined : filterStatus,
+                filterStore === 'ALL' ? undefined : filterStore
+            );
             if (res.success) {
                 setReports(res.reports || []);
             }
@@ -134,22 +138,49 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
 
     return (
         <div className="pt-6 space-y-4">
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-2 bg-white rounded-xl p-2 border border-gray-200 w-fit">
-                {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(status => (
-                    <button
-                        key={status}
-                        onClick={() => setFilterStatus(status)}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterStatus === status
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'text-gray-500 hover:bg-gray-50'
-                            }`}
+            {/* Filters */}
+            <div className="flex items-center gap-4 flex-wrap">
+                {/* Status Filter */}
+                <div className="flex items-center gap-2 bg-white rounded-xl p-2 border border-gray-200">
+                    {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(status => (
+                        <button
+                            key={status}
+                            onClick={() => setFilterStatus(status)}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterStatus === status
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                        >
+                            {status === 'ALL' ? 'Tất cả' :
+                                status === 'PENDING' ? 'Chờ duyệt' :
+                                    status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Store Filter */}
+                <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 text-lg">store</span>
+                    <select
+                        value={filterStore}
+                        onChange={(e) => setFilterStore(e.target.value)}
+                        className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white"
                     >
-                        {status === 'ALL' ? 'Tất cả' :
-                            status === 'PENDING' ? 'Chờ duyệt' :
-                                status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
-                    </button>
-                ))}
+                        <option value="ALL">Tất cả cửa hàng</option>
+                        {STORES.map(store => (
+                            <option key={store.code} value={store.code}>{store.name}</option>
+                        ))}
+                    </select>
+                    {filterStore !== 'ALL' && (
+                        <button
+                            onClick={() => setFilterStore('ALL')}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                        >
+                            <span className="material-symbols-outlined text-sm">close</span>
+                            Xóa filter
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Reports Grid */}

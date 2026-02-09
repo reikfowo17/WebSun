@@ -3,9 +3,9 @@ import { User } from '../../types';
 import { useToast } from '../../contexts';
 import { useNavigate } from 'react-router-dom';
 import DistributionHub from './DistributionHub';
-import MonitoringView from './MonitoringView';
 import RecoveryView from './RecoveryView';
 import ReviewsView from './ReviewsView';
+import OverviewTab from './OverviewTab';
 
 interface InventoryHQProps {
     user: User;
@@ -15,6 +15,7 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
     const toast = useToast();
     const navigate = useNavigate();
     const [subTab, setSubTab] = useState<'TASKS' | 'REVIEWS' | 'RECOVERY'>('TASKS');
+    const [progressSubTab, setProgressSubTab] = useState<'OVERVIEW' | 'REVIEW'>('OVERVIEW');
     const [currentDate, setCurrentDate] = useState(new Date().toISOString().slice(0, 10));
 
     return (
@@ -70,7 +71,44 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
             <main className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
                 <div className="max-w-7xl mx-auto min-h-full">
                     {subTab === 'TASKS' && <DistributionHub toast={toast} date={currentDate} />}
-                    {subTab === 'REVIEWS' && <ReviewsView toast={toast} user={user} />}
+
+                    {subTab === 'REVIEWS' && (
+                        <div className="space-y-4">
+                            {/* Sub-tabs for TIẾN TRÌNH */}
+                            <div className="flex items-center gap-2 bg-white rounded-xl p-2 border border-gray-200 w-fit">
+                                {[
+                                    { id: 'OVERVIEW', label: 'TỔNG QUAN', icon: 'dashboard' },
+                                    { id: 'REVIEW', label: 'DUYỆT BÁO CÁO', icon: 'fact_check' }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setProgressSubTab(tab.id as any)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${progressSubTab === tab.id
+                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            : 'text-gray-500 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <span className="material-symbols-outlined text-lg">{tab.icon}</span>
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Content */}
+                            {progressSubTab === 'OVERVIEW' && (
+                                <OverviewTab
+                                    date={currentDate}
+                                    toast={toast}
+                                    onNavigateToReviews={(storeCode) => {
+                                        setProgressSubTab('REVIEW');
+                                        // Could add store filter here
+                                    }}
+                                />
+                            )}
+                            {progressSubTab === 'REVIEW' && <ReviewsView toast={toast} user={user} />}
+                        </div>
+                    )}
+
                     {subTab === 'RECOVERY' && <RecoveryView toast={toast} />}
                 </div>
             </main>
