@@ -1,9 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-// ===========================================================================
-// TYPES
-// ===========================================================================
-
 export interface InventoryProduct {
     id: string;
     productName: string;
@@ -25,10 +21,6 @@ export interface MasterItem {
     unit: string;
     unitPrice: number;
 }
-
-// ===========================================================================
-// INVENTORY SERVICE
-// ===========================================================================
 
 export const InventoryService = {
     async getItems(
@@ -104,7 +96,6 @@ export const InventoryService = {
                     updated_at: new Date().toISOString(),
                 };
 
-                // Auto-calculate diff and status for stock changes
                 if (field === 'actual_stock' && value !== null) {
                     const { data: itemData } = await supabase
                         .from('inventory_items')
@@ -422,7 +413,236 @@ export const InventoryService = {
             }
         }
         return { success: false };
+    },
+
+    async getMonitoringStats(date: string): Promise<{ success: boolean; data: any[] }> {
+        if (isSupabaseConfigured()) {
+            try {
+                const { data: stores } = await supabase.from('stores').select('id, code, name');
+                if (!stores) return { success: false, data: [] };
+
+                const { data: items } = await supabase
+                    .from('inventory_items')
+                    .select('store_id, status, diff, check_date, shift, actual_stock')
+                    .eq('check_date', date);
+
+                const stats = stores.map(store => {
+                    const storeItems = items?.filter((i: any) => i.store_id === store.id) || [];
+                    const total = storeItems.length;
+                    const checked = storeItems.filter((i: any) => i.actual_stock !== null).length;
+                    const issues = storeItems.filter((i: any) => i.diff !== 0).length;
+
+                    let status = 'PENDING';
+                    if (total > 0) {
+                        if (checked === total) status = 'COMPLETED';
+                        else if (checked > 0) status = 'IN_PROGRESS';
+                    }
+                    if (issues > 0 && status === 'COMPLETED') status = 'ISSUE';
+
+                    const currentShift = storeItems.length > 0 ? Math.max(...storeItems.map((i: any) => i.shift || 1)) : 1;
+
+                    return {
+                        id: store.code,
+                        name: store.name,
+                        status: status,
+                        progress: checked,
+                        total: total,
+                        issues: issues,
+                        shift: currentShift,
+                        staff: '--'
+                    };
+                });
+
+                return { success: true, data: stats };
+            } catch (e) {
+                console.error('Monitoring stats error:', e);
+                return { success: false, data: [] };
+            }
+        }
+        return { success: false, data: [] };
+    },
+
+    // ======================= MASTER ITEM MANAGEMENT =======================
+
+    async updateMasterItem(id: string, data: {
+        name?: string;
+        barcode?: string;
+        unit?: string;
+        category?: string;
+        unit_price?: number;
+    }): Promise<{ success: boolean; error?: string }> {
+        if (!id) return { success: false, error: 'ID sản phẩm không hợp lệ' };
+
+        if (isSupabaseConfigured()) {
+            try {
+                const { error } = await supabase
+                    .from('products')
+                    .update({
+                        ...data,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', id);
+
+                if (error) throw error;
+                return { success: true };
+            } catch (e: any) {
+                console.error('[Inventory] Update master item error:', e);
+                return { success: false, error: 'Không thể cập nhật: ' + e.message };
+            }
+        }
+        return { success: false, error: 'Database disconnected' };
+    },
+
+    async deleteMasterItem(id: string): Promise<{ success: boolean; error?: string }> {
+        if (!id) return { success: false, error: 'ID sản phẩm không hợp lệ' };
+
+        if (isSupabaseConfigured()) {
+            try {
+                const { error } = await supabase
+                    .from('products')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+                return { success: true };
+            } catch (e: any) {
+                console.error('[Inventory] Delete master item error:', e);
+                return { success: false, error: 'Không thể xóa: ' + e.message };
+            }
+        }
+        return { success: false, error: 'Database disconnected' };
+    },
+
+    async importProducts(products: Array<{
+        barcode: string;
+        name: string;
+        unit?: string;
+        category?: string;
+        unit_price?: number;
+    }>): Promise<{ success: boolean; imported: number; errors: string[] }> {
+        if (!products?.length) {
+            return { success: false, imported: 0, errors: ['Không có dữ liệu để import'] };
+        }
+
+        if (isSupabaseConfigured()) {
+            try {
+                const errors: string[] = [];
+                let imported = 0;
+
+                // Process in batches of 100
+                const batchSize = 100;
+                for (let i = 0; i < products.length; i += batchSize) {
+                    const batch = products.slice(i, i + batchSize).map(p => ({
+                        barcode: p.barcode?.trim(),
+                        name: p.name?.trim(),
+                        unit: p.unit?.trim() || '',
+                        category: p.category?.trim() || '',
+                        unit_price: p.unit_price || 0
+                    })).filter(p => p.barcode && p.name);
+
+                    if (batch.length === 0) continue;
+
+                    const { error, data } = await supabase
+                        .from('products')
+                        .upsert(batch, { onConflict: 'barcode', ignoreDuplicates: false })
+                        .select();
+
+                    if (error) {
+                        errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${error.message}`);
+                    } else {
+                        imported += data?.length || 0;
+                    }
+                }
+
+                return {
+                    success: errors.length === 0,
+                    imported,
+                    errors
+                };
+            } catch (e: any) {
+                console.error('[Inventory] Import products error:', e);
+                return { success: false, imported: 0, errors: [e.message] };
+            }
+        }
+        return { success: false, imported: 0, errors: ['Database disconnected'] };
+    },
+
+    // ======================= STORE MANAGEMENT =======================
+
+    async getStores(): Promise<{ success: boolean; stores: any[] }> {
+        if (isSupabaseConfigured()) {
+            try {
+                const { data, error } = await supabase
+                    .from('stores')
+                    .select('*')
+                    .order('name');
+
+                if (error) throw error;
+                return { success: true, stores: data || [] };
+            } catch (e) {
+                console.error('[Inventory] Get stores error:', e);
+                return { success: false, stores: [] };
+            }
+        }
+        return { success: false, stores: [] };
+    },
+
+    async updateStore(id: string, data: {
+        name?: string;
+        code?: string;
+        is_active?: boolean;
+        shifts_enabled?: number[];
+    }): Promise<{ success: boolean; error?: string }> {
+        if (!id) return { success: false, error: 'ID cửa hàng không hợp lệ' };
+
+        if (isSupabaseConfigured()) {
+            try {
+                const { error } = await supabase
+                    .from('stores')
+                    .update({
+                        ...data,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', id);
+
+                if (error) throw error;
+                return { success: true };
+            } catch (e: any) {
+                console.error('[Inventory] Update store error:', e);
+                return { success: false, error: 'Không thể cập nhật: ' + e.message };
+            }
+        }
+        return { success: false, error: 'Database disconnected' };
+    },
+
+    async createStore(data: {
+        name: string;
+        code: string;
+    }): Promise<{ success: boolean; error?: string }> {
+        if (!data.name || !data.code) {
+            return { success: false, error: 'Tên và mã cửa hàng là bắt buộc' };
+        }
+
+        if (isSupabaseConfigured()) {
+            try {
+                const { error } = await supabase
+                    .from('stores')
+                    .insert([{
+                        name: data.name,
+                        code: data.code.toUpperCase(),
+                        is_active: true
+                    }]);
+
+                if (error) throw error;
+                return { success: true };
+            } catch (e: any) {
+                console.error('[Inventory] Create store error:', e);
+                return { success: false, error: 'Không thể tạo cửa hàng: ' + e.message };
+            }
+        }
+        return { success: false, error: 'Database disconnected' };
     }
 };
 
 export default InventoryService;
+

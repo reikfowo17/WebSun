@@ -11,53 +11,48 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     return (
         <div className="h-full flex flex-col bg-slate-50/50 font-sans text-slate-900">
             {/* Header - Clean & Compact like InventoryHQ */}
-            <header className="px-6 py-3 flex items-center justify-between shrink-0 bg-white border-b border-gray-100 sticky top-0 z-10">
-                {/* Left: Logo + Title + Tabs */}
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md">
-                            <span className="material-symbols-outlined text-white text-lg">pending_actions</span>
-                        </div>
-                        <h1 className="text-lg font-black text-slate-800">Quản Lý Date</h1>
-                    </div>
+            {/* Header - Professional & Minimal */}
+            <header className="px-8 flex items-center justify-between shrink-0 bg-white border-b border-gray-100 sticky top-0 z-50 h-16">
+                {/* Left: Navigation Tabs */}
+                <nav className="flex items-center gap-8 h-full">
+                    {[
+                        { id: 'CONFIG', label: 'CẤU HÌNH NGƯỠNG' },
+                        { id: 'SCHEDULE', label: 'LỊCH QUÉT' },
+                        { id: 'REPORTS', label: 'BÁO CÁO DATE' }
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setSubTab(tab.id as any)}
+                            className={`h-full relative px-1 text-xs font-bold uppercase tracking-wider transition-colors flex items-center ${subTab === tab.id
+                                ? 'text-indigo-600'
+                                : 'text-gray-400 hover:text-slate-600'
+                                }`}
+                        >
+                            {tab.label}
+                            {subTab === tab.id && (
+                                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-indigo-600"></span>
+                            )}
+                        </button>
+                    ))}
+                </nav>
 
-                    {/* Tabs */}
-                    <nav className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-lg">
-                        {[
-                            { id: 'CONFIG', label: 'CẤU HÌNH NGƯỠNG', icon: 'tune' },
-                            { id: 'SCHEDULE', label: 'LỊCH QUÉT', icon: 'calendar_clock' },
-                            { id: 'REPORTS', label: 'BÁO CÁO DATE', icon: 'assessment' }
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setSubTab(tab.id as any)}
-                                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-md transition-all flex items-center gap-1.5 ${subTab === tab.id
-                                        ? 'bg-white text-orange-600 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                    }`}
-                            >
-                                <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-                                <span className="hidden lg:inline">{tab.label}</span>
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-
-                {/* Right: Date Picker */}
+                {/* Right: Date Picker - Minimal */}
                 <div className="flex items-center gap-3">
-                    <div className="relative flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:shadow-md transition-shadow">
-                        <span className="material-symbols-outlined text-orange-600 text-xl">calendar_month</span>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide leading-none">Ngày làm việc</span>
-                            <span className="text-sm font-black text-gray-800">
-                                {new Date(currentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                            </span>
+                    <div className="relative group">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer">
+                            <span className="material-symbols-outlined text-gray-400 group-hover:text-indigo-500 text-lg transition-colors">calendar_month</span>
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide leading-none group-hover:text-indigo-400">Ngày làm việc</span>
+                                <span className="text-sm font-bold text-slate-700 w-24 text-right group-hover:text-indigo-700">
+                                    {new Date(currentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </span>
+                            </div>
                         </div>
                         <input
                             type="date"
                             value={currentDate}
                             onChange={(e) => setCurrentDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
                         />
                     </div>
                 </div>

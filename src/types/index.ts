@@ -1,13 +1,3 @@
-/**
- * Shared Types
- * 
- * Core types used throughout the application
- */
-
-// ===========================================================================
-// USER TYPES
-// ===========================================================================
-
 export interface User {
     id: string;
     name: string;
@@ -20,10 +10,6 @@ export interface User {
     avatarUrl?: string;
 }
 
-// ===========================================================================
-// TASK TYPES
-// ===========================================================================
-
 export interface Task {
     id: string;
     title: string;
@@ -35,10 +21,6 @@ export interface Task {
     completed_items: number;
     dueDate?: string;
 }
-
-// ===========================================================================
-// ACHIEVEMENT TYPES
-// ===========================================================================
 
 export interface Achievement {
     id: string;
@@ -55,20 +37,12 @@ export interface Achievement {
     earnedAt?: string;
 }
 
-// ===========================================================================
-// STORE TYPES
-// ===========================================================================
-
 export interface Store {
     id: string;
     code: string;
     name: string;
     address?: string;
 }
-
-// ===========================================================================
-// PRODUCT TYPES
-// ===========================================================================
 
 export interface Product {
     id: string;
@@ -80,10 +54,6 @@ export interface Product {
     unitPrice?: number;
     expiryDays?: number;
 }
-
-// ===========================================================================
-// INVENTORY TYPES
-// ===========================================================================
 
 export interface InventoryProduct {
     id: string | number;
@@ -110,10 +80,6 @@ export interface InventoryItem {
     note: string;
 }
 
-// ===========================================================================
-// EXPIRY TYPES
-// ===========================================================================
-
 export interface ExpiryItem {
     id: string;
     _row?: number;
@@ -139,20 +105,12 @@ export interface ExpiryProduct {
     daysLeft?: number;
 }
 
-// ===========================================================================
-// API RESPONSE TYPES
-// ===========================================================================
-
 export interface ApiResponse<T = any> {
     success: boolean;
     data?: T;
     error?: string;
     message?: string;
 }
-
-// ===========================================================================
-// UTILITY TYPES
-// ===========================================================================
 
 export type ViewName =
     | 'LOGIN'

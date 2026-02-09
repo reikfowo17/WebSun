@@ -31,6 +31,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
+
   useEffect(() => {
     loadData();
     setSelectedItems(new Set());
@@ -149,7 +150,8 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
     setSubmitting(true);
     try {
       const itemsToReport = products.filter(p => selectedItems.has(p.id));
-      const res = await ExpiryService.submitReport(itemsToReport);
+      const storeCode = user.store || 'BEE';
+      const res = await ExpiryService.submitReport(storeCode, itemsToReport);
 
       if (res.success) {
         toast.success(`Đã báo cáo ${itemsToReport.length} sản phẩm thành công`);
@@ -239,8 +241,8 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
               onClick={handleSubmitReport}
               disabled={submitting || selectedItems.size === 0}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] ${selectedItems.size > 0
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-orange-200 hover:shadow-orange-300'
-                  : 'bg-gray-300 cursor-not-allowed shadow-none'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-orange-200 hover:shadow-orange-300'
+                : 'bg-gray-300 cursor-not-allowed shadow-none'
                 }`}
             >
               {submitting ? (
@@ -253,6 +255,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
           </div>
         </div>
       </header>
+
 
       <main className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -327,8 +330,8 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
                   key={t}
                   onClick={() => setType(t)}
                   className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${type === t
-                      ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white shadow-md'
-                      : 'text-gray-500 hover:bg-gray-50'
+                    ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white shadow-md'
+                    : 'text-gray-500 hover:bg-gray-50'
                     }`}
                 >
                   {t}
@@ -418,8 +421,8 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
                         key={item.id}
                         onClick={() => handleSelect(item.id)}
                         className={`relative bg-white/80 backdrop-blur-sm p-5 rounded-2xl border transition-all cursor-pointer group ${isSelected
-                            ? `border-amber-400 ring-2 ${statusConfig.ringColor} shadow-lg`
-                            : 'border-gray-100 hover:border-gray-300 hover:shadow-md'
+                          ? `border-amber-400 ring-2 ${statusConfig.ringColor} shadow-lg`
+                          : 'border-gray-100 hover:border-gray-300 hover:shadow-md'
                           }`}
                       >
                         {/* Selection indicator */}
@@ -525,7 +528,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
           <span className="material-symbols-outlined text-2xl">send</span>
         </button>
       </div>
-    </div>
+    </div >
   );
 };
 

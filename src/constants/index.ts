@@ -84,17 +84,28 @@ export const EMPLOYEE_VIEWS = [
 // STORES
 // ===========================================================================
 
-export const STORES = [
-    { code: 'CHN', name: 'Cửa hàng Nguyễn' },
-    { code: 'CHP', name: 'Cửa hàng Phạm' },
-    { code: 'CHT', name: 'Cửa hàng Trần' },
-] as const;
+export interface StoreConfig {
+    id: string;
+    code: string;
+    name: string;
+    color: string;
+    bgColor: string;
+}
+
+export const STORES: StoreConfig[] = [
+    { id: 'BEE', code: 'BEE', name: 'SM BEE', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
+    { id: 'PLAZA', code: 'PLAZA', name: 'SM PLAZA', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+    { id: 'MIEN_DONG', code: 'MIỀN ĐÔNG', name: 'SM MIỀN ĐÔNG', color: 'text-green-700', bgColor: 'bg-green-100' },
+    { id: 'HT_PEARL', code: 'HT PEARL', name: 'SM HT PEARL', color: 'text-purple-700', bgColor: 'bg-purple-100' },
+    { id: 'BEACH', code: 'BEACH', name: 'SM BEACH', color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
+];
 
 export const SHIFTS = [
     { value: 1, label: 'Ca 1 (6:00 - 14:00)' },
     { value: 2, label: 'Ca 2 (14:00 - 22:00)' },
     { value: 3, label: 'Ca 3 (22:00 - 6:00)' },
 ] as const;
+
 
 // ===========================================================================
 // VALIDATION

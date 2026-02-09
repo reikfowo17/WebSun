@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { RecoveryService, RecoveryItem } from '../services';
 import { useToast } from '../contexts';
 
-/**
- * Recovery Hub - Admin interface for "Truy Thu" (Discrepancy Recovery)
- */
 const RecoveryHub: React.FC = () => {
     const toast = useToast();
     const [activeTab, setActiveTab] = useState<'SCAN' | 'MANAGE'>('SCAN');
