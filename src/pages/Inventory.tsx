@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, InventoryProduct } from '../types';
 import { InventoryService } from '../services';
 import { useToast } from '../contexts';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface InventoryProps {
   user: User;
@@ -44,6 +45,11 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'CARD' | 'TABLE'>('CARD');
   const [showSyncModal, setShowSyncModal] = useState(false);
+  const [confirmSubmit, setConfirmSubmit] = useState<{
+    show: boolean;
+    message: string;
+    title: string;
+  }>({ show: false, message: '', title: '' });
 
   useEffect(() => {
     loadProducts();
@@ -91,18 +97,29 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
     }));
   }, [user.id]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const pending = stats.pending;
     const missing = stats.missing;
 
+    let message = '';
+    let title = '';
+
     if (pending > 0) {
-      if (!confirm(`⚠️ Còn ${pending} sản phẩm chưa kiểm.\n\nVẫn nộp báo cáo?`)) return;
+      title = 'Còn sản phẩm chưa kiểm';
+      message = `Còn ${pending} sản phẩm chưa kiểm.\n\nVẫn nộp báo cáo?`;
     } else if (missing > 0) {
-      if (!confirm(`📋 Tổng kết:\n• Khớp: ${stats.matched}\n• Thiếu: ${stats.missing}\n• Thừa: ${stats.over}\n\nXác nhận nộp báo cáo?`)) return;
+      title = 'Tổng kết kiểm kho';
+      message = `• Khớp: ${stats.matched}\n• Thiếu: ${stats.missing}\n• Thừa: ${stats.over}\n\nXác nhận nộp báo cáo?`;
     } else {
-      if (!confirm('Xác nhận nộp báo cáo kiểm kho?')) return;
+      title = 'Hoàn thành kiểm kho';
+      message = 'Xác nhận nộp báo cáo kiểm kho?';
     }
 
+    setConfirmSubmit({ show: true, message, title });
+  };
+
+  const doSubmit = async () => {
+    setConfirmSubmit({ show: false, message: '', title: '' });
     setSubmitting(true);
     try {
       const res = await InventoryService.submitReport(user.store || 'BEE', shift, user.id);
@@ -186,8 +203,8 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
               onClick={handleSubmit}
               disabled={submitting || loading}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] ${stats.checked > 0
-                  ? 'bg-gradient-to-r from-primary to-emerald-500 shadow-lg shadow-primary/20 hover:shadow-primary/30'
-                  : 'bg-gray-300 cursor-not-allowed shadow-none'
+                ? 'bg-gradient-to-r from-primary to-emerald-500 shadow-lg shadow-primary/20 hover:shadow-primary/30'
+                : 'bg-gray-300 cursor-not-allowed shadow-none'
                 }`}
             >
               {submitting ? (
@@ -211,8 +228,8 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                 key={s.id}
                 onClick={() => setShift(s.id)}
                 className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${shift === s.id
-                    ? `bg-gradient-to-r ${s.color} text-white shadow-md`
-                    : 'text-gray-500 hover:bg-gray-200'
+                  ? `bg-gradient-to-r ${s.color} text-white shadow-md`
+                  : 'text-gray-500 hover:bg-gray-200'
                   }`}
               >
                 <span className="material-symbols-outlined text-sm">{s.icon}</span>
@@ -320,8 +337,8 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
             <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${progressPercent === 100
-                    ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
-                    : 'bg-gradient-to-r from-primary to-amber-400'
+                  ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                  : 'bg-gradient-to-r from-primary to-amber-400'
                   }`}
                 style={{ width: `${progressPercent}%` }}
               />
@@ -352,8 +369,8 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
               <button
                 onClick={() => setFilterStatus('ALL')}
                 className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${filterStatus === 'ALL'
-                    ? 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
                 Tất cả
@@ -438,12 +455,12 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1.5">Chênh lệch</label>
                         <div className={`h-11 border rounded-xl flex items-center justify-center text-sm font-black ${p.diff === null || p.diff === undefined
-                            ? 'bg-gray-50 border-gray-200 text-gray-400'
-                            : p.diff === 0
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                              : p.diff < 0
-                                ? 'bg-red-50 border-red-200 text-red-600'
-                                : 'bg-blue-50 border-blue-200 text-blue-600'
+                          ? 'bg-gray-50 border-gray-200 text-gray-400'
+                          : p.diff === 0
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                            : p.diff < 0
+                              ? 'bg-red-50 border-red-200 text-red-600'
+                              : 'bg-blue-50 border-blue-200 text-blue-600'
                           }`}>
                           {p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff}
                         </div>
@@ -505,12 +522,12 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-block px-2 py-1 rounded-lg text-xs font-black ${p.diff === null || p.diff === undefined
-                                ? 'bg-gray-100 text-gray-400'
-                                : p.diff === 0
-                                  ? 'bg-emerald-100 text-emerald-600'
-                                  : p.diff < 0
-                                    ? 'bg-red-100 text-red-600'
-                                    : 'bg-blue-100 text-blue-600'
+                              ? 'bg-gray-100 text-gray-400'
+                              : p.diff === 0
+                                ? 'bg-emerald-100 text-emerald-600'
+                                : p.diff < 0
+                                  ? 'bg-red-100 text-red-600'
+                                  : 'bg-blue-100 text-blue-600'
                               }`}>
                               {p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff}
                             </span>
@@ -582,6 +599,19 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Submit Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmSubmit.show}
+        title={confirmSubmit.title}
+        message={confirmSubmit.message}
+        variant="warning"
+        confirmText="Nộp báo cáo"
+        cancelText="Kiểm tra lại"
+        onConfirm={doSubmit}
+        onCancel={() => setConfirmSubmit({ show: false, message: '', title: '' })}
+        loading={submitting}
+      />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import DistributionHub from './DistributionHub';
 import MonitoringView from './MonitoringView';
 import RecoveryView from './RecoveryView';
+import ReviewsView from './ReviewsView';
 
 interface InventoryHQProps {
     user: User;
@@ -69,7 +70,7 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
             <main className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
                 <div className="max-w-7xl mx-auto min-h-full">
                     {subTab === 'TASKS' && <DistributionHub toast={toast} date={currentDate} />}
-                    {subTab === 'REVIEWS' && <MonitoringView date={currentDate} />}
+                    {subTab === 'REVIEWS' && <ReviewsView toast={toast} user={user} />}
                     {subTab === 'RECOVERY' && <RecoveryView toast={toast} />}
                 </div>
             </main>

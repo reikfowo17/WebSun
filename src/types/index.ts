@@ -22,20 +22,6 @@ export interface Task {
     dueDate?: string;
 }
 
-export interface Achievement {
-    id: string;
-    code: string;
-    name: string;
-    description: string;
-    icon: string;
-    color: string;
-    category: string;
-    xpReward: number;
-    requirementType: string;
-    requirementValue: number;
-    unlocked?: boolean;
-    earnedAt?: string;
-}
 
 export interface Store {
     id: string;

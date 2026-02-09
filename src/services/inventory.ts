@@ -329,92 +329,6 @@ export const InventoryService = {
         return { success: false, message: 'Database disconnected' };
     },
 
-    async getReports(filters?: { storeId?: string; status?: string; date?: string }): Promise<{ success: boolean; reports: any[] }> {
-        if (isSupabaseConfigured()) {
-            try {
-                let query = supabase
-                    .from('inventory_reports')
-                    .select(`
-                        id,
-                        store_id,
-                        check_date,
-                        shift,
-                        status,
-                        created_at,
-                        submitted_by ( name ),
-                        approved_by ( name ),
-                        stores ( code, name )
-                    `)
-                    .order('created_at', { ascending: false });
-
-                if (filters?.storeId && filters.storeId !== 'ALL') {
-                    query = query.eq('stores.code', filters.storeId);
-                }
-                if (filters?.status && filters.status !== 'ALL') query = query.eq('status', filters.status);
-                if (filters?.date && filters.date !== 'today') query = query.eq('check_date', filters.date);
-
-                const { data: reports, error } = await query;
-                if (error) throw error;
-
-                const enhancedReports = await Promise.all(reports.map(async (r: any) => {
-                    const { data: stats } = await supabase
-                        .from('inventory_report_stats')
-                        .select('*')
-                        .eq('store_id', r.store_id || '')
-                        .eq('check_date', r.check_date)
-                        .eq('shift', r.shift)
-                        .single();
-
-                    return {
-                        id: r.id,
-                        date: r.check_date,
-                        store: r.stores?.name || 'Unknown',
-                        storeId: r.stores?.code,
-                        shift: r.shift,
-                        employee: r.submitted_by?.name || 'Unknown',
-                        status: r.status,
-                        approvedBy: r.approved_by?.name,
-
-                        totalItems: stats?.total_items || 0,
-                        matched: stats?.matched_items || 0,
-                        missing: stats?.missing_items || 0,
-                        over: stats?.over_items || 0,
-                        missingValue: 0
-                    };
-                }));
-
-                return { success: true, reports: enhancedReports };
-            } catch (e) {
-                console.error('Get reports error', e);
-                return { success: false, reports: [] };
-            }
-        }
-        return { success: false, reports: [] };
-    },
-
-    async updateReportStatus(reportId: string, status: 'APPROVED' | 'REJECTED', userId: string): Promise<{ success: boolean }> {
-        if (isSupabaseConfigured()) {
-            try {
-                const updateData: any = { status };
-                if (status === 'APPROVED') {
-                    updateData.reviewed_by = userId;
-                    updateData.reviewed_at = new Date().toISOString();
-                }
-
-                const { error } = await supabase
-                    .from('inventory_reports')
-                    .update(updateData)
-                    .eq('id', reportId);
-
-                if (error) throw error;
-                return { success: true };
-            } catch (e) {
-                return { success: false };
-            }
-        }
-        return { success: false };
-    },
-
     async getMonitoringStats(date: string): Promise<{ success: boolean; data: any[] }> {
         if (isSupabaseConfigured()) {
             try {
@@ -641,8 +555,108 @@ export const InventoryService = {
             }
         }
         return { success: false, error: 'Database disconnected' };
+    },
+
+    // ========== ADMIN REPORT REVIEW ==========
+    async getReports(status?: string): Promise<{ success: boolean; reports?: any[] }> {
+        if (isSupabaseConfigured()) {
+            try {
+                let query = supabase
+                    .from('inventory_reports')
+                    .select(`
+                        id,
+                        check_date,
+                        shift,
+                        status,
+                        created_at,
+                        stores!inner (
+                            code,
+                            name
+                        ),
+                        users!inventory_reports_submitted_by_fkey (
+                            name
+                        )
+                    `)
+                    .order('created_at', { ascending: false });
+
+                if (status && status !== 'ALL') {
+                    query = query.eq('status', status);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                // Get stats for each report
+                const reportsWithStats = await Promise.all((data || []).map(async (report: any) => {
+                    const { data: items } = await supabase
+                        .from('inventory_history')
+                        .select('status')
+                        .eq('store_id', report.stores.id)
+                        .eq('shift', report.shift)
+                        .eq('check_date', report.check_date);
+
+                    const stats = (items || []).reduce((acc: any, item: any) => {
+                        acc.total++;
+                        if (item.status === 'MATCHED') acc.matched++;
+                        if (item.status === 'MISSING') acc.missing++;
+                        if (item.status === 'OVER') acc.over++;
+                        return acc;
+                    }, { total: 0, matched: 0, missing: 0, over: 0 });
+
+                    return {
+                        id: report.id,
+                        store: report.stores.code,
+                        shift: report.shift,
+                        date: report.check_date,
+                        submittedBy: report.users?.name || 'Unknown',
+                        submittedAt: report.created_at,
+                        status: report.status,
+                        ...stats
+                    };
+                }));
+
+                return { success: true, reports: reportsWithStats };
+            } catch (e) {
+                console.error('[Inventory] Get reports error:', e);
+                return { success: false, reports: [] };
+            }
+        }
+        return { success: false, reports: [] };
+    },
+
+    async reviewReport(
+        reportId: string,
+        status: 'APPROVED' | 'REJECTED',
+        reviewerId: string,
+        reason?: string
+    ): Promise<{ success: boolean; message?: string }> {
+        if (!reportId || !status || !reviewerId) {
+            return { success: false, message: 'Thiếu thông tin bắt buộc' };
+        }
+
+        if (isSupabaseConfigured()) {
+            try {
+                const { error } = await supabase
+                    .from('inventory_reports')
+                    .update({
+                        status,
+                        reviewed_by: reviewerId,
+                        reviewed_at: new Date().toISOString(),
+                        rejection_reason: reason || null
+                    })
+                    .eq('id', reportId);
+
+                if (error) throw error;
+                return { success: true };
+            } catch (e: any) {
+                console.error('[Inventory] Review report error:', e);
+                return { success: false, message: e.message };
+            }
+        }
+        return { success: false, message: 'Database disconnected' };
     }
 };
+
 
 export default InventoryService;
 
