@@ -406,15 +406,19 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
+                console.log('[Inventory] Updating product:', id, data);
+
                 const { error } = await supabase
                     .from('products')
-                    .update({
-                        ...data,
-                        updated_at: new Date().toISOString()
-                    })
+                    .update(data) // updated_at auto-updated by trigger
                     .eq('id', id);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('[Inventory] Update error:', error);
+                    throw error;
+                }
+
+                console.log('[Inventory] Product updated successfully');
                 return { success: true };
             } catch (e: any) {
                 console.error('[Inventory] Update master item error:', e);
