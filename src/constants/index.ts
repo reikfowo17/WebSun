@@ -97,7 +97,7 @@ export const STORES: StoreConfig[] = [
     { id: 'PLAZA', code: 'PLAZA', name: 'SM PLAZA', color: 'text-blue-700', bgColor: 'bg-blue-100' },
     { id: 'MIEN_DONG', code: 'MIỀN ĐÔNG', name: 'SM MIỀN ĐÔNG', color: 'text-green-700', bgColor: 'bg-green-100' },
     { id: 'HT_PEARL', code: 'HT PEARL', name: 'SM HT PEARL', color: 'text-purple-700', bgColor: 'bg-purple-100' },
-    { id: 'BEACH', code: 'BEACH', name: 'SM BEACH', color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
+    { id: 'GREEN_TOPAZ', code: 'GREEN_TOPAZ', name: 'SM GREEN TOPAZ', color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
 ];
 
 export const SHIFTS = [

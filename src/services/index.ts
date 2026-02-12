@@ -22,7 +22,7 @@ export type { DashboardStats, TaskItem } from './dashboard';
 
 // Recovery
 export { RecoveryService } from './recovery';
-export type { RecoveryItem, ScannedItem } from './recovery';
+export type { RecoveryItem } from '../types/recovery';
 
 // Tasks
 export { TasksService } from './tasks';

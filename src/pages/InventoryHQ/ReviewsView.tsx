@@ -4,6 +4,7 @@ import { User } from '../../types';
 import { STORES } from '../../constants';
 import ConfirmModal from '../../components/ConfirmModal';
 import PromptModal from '../../components/PromptModal';
+import ReportDetailModal from './components/ReportDetailModal';
 
 interface ReviewsViewProps {
     toast: any;
@@ -24,6 +25,8 @@ interface ReportSummary {
     over: number;
 }
 
+const STATUS_LABELS: Record<string, string> = { ALL: 'Tất cả', PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối' };
+
 const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
     const [reports, setReports] = useState<ReportSummary[]>([]);
     const [loading, setLoading] = useState(false);
@@ -32,11 +35,10 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
     const [filterStore, setFilterStore] = useState<string>('ALL');
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
     const [processing, setProcessing] = useState(false);
 
-    useEffect(() => {
-        loadReports();
-    }, [filterStatus, filterStore]);
+    useEffect(() => { loadReports(); }, [filterStatus, filterStore]);
 
     const loadReports = async () => {
         setLoading(true);
@@ -45,240 +47,222 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
                 filterStatus === 'ALL' ? undefined : filterStatus,
                 filterStore === 'ALL' ? undefined : filterStore
             );
-            if (res.success) {
-                setReports(res.reports || []);
-            }
-        } catch (error) {
-            toast.error('Không thể tải báo cáo');
-        } finally {
-            setLoading(false);
-        }
+            if (res.success) setReports(res.reports || []);
+        } catch { toast.error('Không thể tải báo cáo'); }
+        finally { setLoading(false); }
     };
 
-    const handleApprove = async (reportId: string) => {
-        setSelectedReport(reportId);
-        setShowApproveModal(true);
-    };
-
+    const handleApprove = (id: string) => { setSelectedReport(id); setShowApproveModal(true); };
     const doApprove = async () => {
         if (!selectedReport) return;
-
-        setShowApproveModal(false);
-        setProcessing(true);
-
+        setShowApproveModal(false); setProcessing(true);
         try {
             const res = await InventoryService.reviewReport(selectedReport, 'APPROVED', user.id);
-            if (res.success) {
-                toast.success('Đã phê duyệt báo cáo');
-                loadReports();
-            } else {
-                toast.error(res.message || 'Lỗi phê duyệt');
-            }
-        } catch (error) {
-            toast.error('Lỗi hệ thống');
-        } finally {
-            setProcessing(false);
-            setSelectedReport(null);
-        }
+            if (res.success) { toast.success('Đã phê duyệt báo cáo'); loadReports(); }
+            else toast.error(res.message || 'Lỗi phê duyệt');
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(false); setSelectedReport(null); }
     };
 
-    const handleReject = (reportId: string) => {
-        setSelectedReport(reportId);
-        setShowRejectModal(true);
-    };
-
+    const handleReject = (id: string) => { setSelectedReport(id); setShowRejectModal(true); };
     const doReject = async (reason: string) => {
         if (!selectedReport) return;
-
-        setShowRejectModal(false);
-        setProcessing(true);
-
+        setShowRejectModal(false); setProcessing(true);
         try {
             const res = await InventoryService.reviewReport(selectedReport, 'REJECTED', user.id, reason);
-            if (res.success) {
-                toast.warning('Đã từ chối báo cáo');
-                loadReports();
-            } else {
-                toast.error(res.message || 'Lỗi từ chối');
-            }
-        } catch (error) {
-            toast.error('Lỗi hệ thống');
-        } finally {
-            setProcessing(false);
-            setSelectedReport(null);
-        }
+            if (res.success) { toast.warning('Đã từ chối báo cáo'); loadReports(); }
+            else toast.error(res.message || 'Lỗi từ chối');
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(false); setSelectedReport(null); }
     };
 
-    const getStatusBadge = (status: string) => {
-        const configs = {
-            PENDING: { label: 'Chờ duyệt', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-            APPROVED: { label: 'Đã duyệt', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-            REJECTED: { label: 'Từ chối', color: 'bg-red-100 text-red-700 border-red-200' }
+    const getStatusStyle = (s: string) => {
+        const m: Record<string, { bg: string; text: string; dot: string }> = {
+            PENDING: { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
+            APPROVED: { bg: '#d1fae5', text: '#065f46', dot: '#10b981' },
+            REJECTED: { bg: '#fef2f2', text: '#991b1b', dot: '#ef4444' },
         };
-        const config = configs[status as keyof typeof configs] || configs.PENDING;
-        return (
-            <span className={`px-2 py-1 rounded-lg text-xs font-bold border ${config.color}`}>
-                {config.label}
-            </span>
-        );
+        return m[s] || m.PENDING;
     };
 
-    const getStoreColor = (storeCode: string) => {
-        return STORES.find(s => s.code === storeCode)?.bgColor || 'bg-gray-100';
-    };
-
+    /* ── Loading ── */
     if (loading && reports.length === 0) {
         return (
-            <div className="pt-12 text-center text-gray-400">
-                <span className="material-symbols-outlined text-4xl mb-2 animate-spin">sync</span>
-                <p>Đang tải báo cáo...</p>
-            </div>
+            <>
+                <style>{CSS_TEXT}</style>
+                <div className="rw-root">
+                    <div className="rw-filter-bar" style={{ opacity: .5 }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            {[1, 2, 3, 4].map(i => <div key={i} style={{ width: 80, height: 36, borderRadius: 10, background: '#f1f5f9' }} />)}
+                        </div>
+                    </div>
+                    <div className="rw-grid">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="rw-card" style={{ overflow: 'hidden' }}>
+                                <div style={{ height: 4, background: '#f1f5f9' }} />
+                                <div style={{ padding: 20 }}>
+                                    <div style={{ height: 18, width: 130, background: '#f1f5f9', borderRadius: 6, marginBottom: 10 }} />
+                                    <div style={{ height: 12, width: 90, background: '#f8fafc', borderRadius: 4, marginBottom: 18 }} />
+                                    <div style={{ height: 6, background: '#f1f5f9', borderRadius: 99, marginBottom: 14 }} />
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {[1, 2, 3].map(j => <div key={j} style={{ flex: 1, height: 52, background: '#f8fafc', borderRadius: 10 }} />)}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </>
         );
     }
 
     return (
-        <div className="pt-6 space-y-4">
-            {/* Filters */}
-            <div className="flex items-center gap-4 flex-wrap">
-                {/* Status Filter */}
-                <div className="flex items-center gap-2 bg-white rounded-xl p-2 border border-gray-200">
-                    {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(status => (
-                        <button
-                            key={status}
-                            onClick={() => setFilterStatus(status)}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterStatus === status
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'text-gray-500 hover:bg-gray-50'
-                                }`}
-                        >
-                            {status === 'ALL' ? 'Tất cả' :
-                                status === 'PENDING' ? 'Chờ duyệt' :
-                                    status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
-                        </button>
-                    ))}
-                </div>
+        <>
+            <style>{CSS_TEXT}</style>
+            <div className="rw-root">
 
-                {/* Store Filter */}
-                <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-gray-400 text-lg">store</span>
-                    <select
-                        value={filterStore}
-                        onChange={(e) => setFilterStore(e.target.value)}
-                        className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-white"
-                    >
-                        <option value="ALL">Tất cả cửa hàng</option>
-                        {STORES.map(store => (
-                            <option key={store.code} value={store.code}>{store.name}</option>
-                        ))}
-                    </select>
-                    {filterStore !== 'ALL' && (
-                        <button
-                            onClick={() => setFilterStore('ALL')}
-                            className="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
-                        >
-                            <span className="material-symbols-outlined text-sm">close</span>
-                            Xóa filter
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Reports Grid */}
-            {reports.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-                    <span className="material-symbols-outlined text-6xl text-gray-200 mb-3">description</span>
-                    <p className="text-gray-400 font-medium">Chưa có báo cáo nào</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {reports.map(report => {
-                        const completion = report.total > 0 ? Math.round(((report.matched + report.missing + report.over) / report.total) * 100) : 0;
-                        const hasDiscrepancy = report.missing > 0 || report.over > 0;
-
-                        return (
-                            <div
-                                key={report.id}
-                                className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-all overflow-hidden"
+                {/* ── Filter Bar ── */}
+                <div className="rw-filter-bar">
+                    <div className="rw-status-chips">
+                        {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(s => (
+                            <button
+                                key={s}
+                                className={`rw-chip ${filterStatus === s ? 'active' : ''}`}
+                                onClick={() => setFilterStatus(s)}
                             >
-                                {/* Header */}
-                                <div className={`${getStoreColor(report.store)} ${STORES.find(s => s.code === report.store)?.color || 'text-gray-700'} p-4 border-b border-gray-100`}>
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div>
-                                            <h3 className="font-black text-lg">{STORES.find(s => s.code === report.store)?.name || report.store}</h3>
-                                            <p className="text-xs opacity-75 font-medium">
-                                                Ca {report.shift} • {new Date(report.date).toLocaleDateString('vi-VN')}
-                                            </p>
-                                        </div>
-                                        {getStatusBadge(report.status)}
-                                    </div>
-                                </div>
+                                {s !== 'ALL' && <span className="rw-chip-dot" style={{ background: getStatusStyle(s).dot }} />}
+                                {STATUS_LABELS[s]}
+                            </button>
+                        ))}
+                    </div>
 
-                                {/* Stats */}
-                                <div className="p-4 space-y-3">
-                                    {/* Progress */}
-                                    <div>
-                                        <div className="flex justify-between text-xs mb-1">
-                                            <span className="text-gray-500 font-medium">Hoàn thành</span>
-                                            <span className="font-bold text-gray-700">{completion}%</span>
+                    <div className="rw-store-filter">
+                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#94a3b8' }}>store</span>
+                        <div className="rw-select-wrap">
+                            <select
+                                className="rw-select"
+                                value={filterStore}
+                                onChange={e => setFilterStore(e.target.value)}
+                            >
+                                <option value="ALL">Tất cả cửa hàng</option>
+                                {STORES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
+                            </select>
+                            <span className="material-symbols-outlined rw-chevron">expand_more</span>
+                        </div>
+                        {filterStore !== 'ALL' && (
+                            <button className="rw-clear-filter" onClick={() => setFilterStore('ALL')}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Reports Grid ── */}
+                {reports.length === 0 ? (
+                    <div className="rw-empty">
+                        <div className="rw-empty-icon">
+                            <span className="material-symbols-outlined" style={{ fontSize: 40, color: '#cbd5e1' }}>description</span>
+                        </div>
+                        <p className="rw-empty-title">Chưa có báo cáo nào</p>
+                        <p className="rw-empty-sub">Các báo cáo kiểm kê sẽ xuất hiện ở đây</p>
+                    </div>
+                ) : (
+                    <div className="rw-grid">
+                        {reports.map(report => {
+                            const storeInfo = STORES.find(s => s.code === report.store);
+                            const completion = report.total > 0 ? Math.round(((report.matched + report.missing + report.over) / report.total) * 100) : 0;
+                            const hasDiscrepancy = report.missing > 0 || report.over > 0;
+                            const ss = getStatusStyle(report.status);
+
+                            return (
+                                <div key={report.id} className="rw-card">
+                                    {/* Status Bar */}
+                                    <div className="rw-card-bar" style={{ background: ss.dot }} />
+
+                                    {/* Header */}
+                                    <div className="rw-card-hdr">
+                                        <div>
+                                            <h3 className="rw-card-title">{storeInfo?.name || report.store}</h3>
+                                            <p className="rw-card-meta">Ca {report.shift} • {new Date(report.date).toLocaleDateString('vi-VN')}</p>
                                         </div>
-                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <span className="rw-badge" style={{ background: ss.bg, color: ss.text }}>
+                                            <span className="rw-badge-dot" style={{ background: ss.dot }} />
+                                            {STATUS_LABELS[report.status] || report.status}
+                                        </span>
+                                    </div>
+
+                                    {/* Body */}
+                                    <div className="rw-card-body">
+                                        {/* Progress */}
+                                        <div className="rw-progress-row">
+                                            <span className="rw-progress-label">Hoàn thành</span>
+                                            <span className="rw-progress-pct">{completion}%</span>
+                                        </div>
+                                        <div className="rw-progress-track">
                                             <div
-                                                className={`h-full transition-all ${hasDiscrepancy ? 'bg-orange-500' : 'bg-emerald-500'}`}
-                                                style={{ width: `${completion}%` }}
+                                                className="rw-progress-fill"
+                                                style={{
+                                                    width: `${completion}%`,
+                                                    background: hasDiscrepancy
+                                                        ? 'linear-gradient(90deg,#f97316,#ef4444)'
+                                                        : 'linear-gradient(90deg,#10b981,#059669)',
+                                                }}
                                             />
                                         </div>
-                                    </div>
 
-                                    {/* Details */}
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div className="bg-emerald-50 rounded-lg p-2">
-                                            <p className="text-xs text-gray-500 font-medium">Khớp</p>
-                                            <p className="text-lg font-black text-emerald-600">{report.matched}</p>
+                                        {/* Mini Stats */}
+                                        <div className="rw-mini-stats">
+                                            <div className="rw-mini" style={{ background: '#f0fdf4' }}>
+                                                <span className="rw-mini-label">Khớp</span>
+                                                <span className="rw-mini-val" style={{ color: '#16a34a' }}>{report.matched}</span>
+                                            </div>
+                                            <div className="rw-mini" style={{ background: '#fef2f2' }}>
+                                                <span className="rw-mini-label">Thiếu</span>
+                                                <span className="rw-mini-val" style={{ color: '#dc2626' }}>{report.missing}</span>
+                                            </div>
+                                            <div className="rw-mini" style={{ background: '#eef2ff' }}>
+                                                <span className="rw-mini-label">Thừa</span>
+                                                <span className="rw-mini-val" style={{ color: '#4f46e5' }}>{report.over}</span>
+                                            </div>
                                         </div>
-                                        <div className="bg-red-50 rounded-lg p-2">
-                                            <p className="text-xs text-gray-500 font-medium">Thiếu</p>
-                                            <p className="text-lg font-black text-red-600">{report.missing}</p>
-                                        </div>
-                                        <div className="bg-blue-50 rounded-lg p-2">
-                                            <p className="text-xs text-gray-500 font-medium">Thừa</p>
-                                            <p className="text-lg font-black text-blue-600">{report.over}</p>
-                                        </div>
-                                    </div>
 
-                                    {/* Submitter */}
-                                    <div className="pt-3 border-t border-gray-100">
-                                        <p className="text-xs text-gray-400">Người nộp:</p>
-                                        <p className="text-sm font-bold text-gray-700">{report.submittedBy}</p>
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            {new Date(report.submittedAt).toLocaleString('vi-VN')}
-                                        </p>
-                                    </div>
+                                        {/* Submitter */}
+                                        <div className="rw-submitter">
+                                            <div>
+                                                <span className="rw-submitter-label">Người nộp</span>
+                                                <span className="rw-submitter-name">{report.submittedBy}</span>
+                                            </div>
+                                            <span className="rw-submitter-time">{new Date(report.submittedAt).toLocaleString('vi-VN')}</span>
+                                        </div>
 
-                                    {/* Actions (only for PENDING) */}
-                                    {report.status === 'PENDING' && (
-                                        <div className="flex gap-2 pt-3">
-                                            <button
-                                                onClick={() => handleReject(report.id)}
-                                                className="flex-1 py-2 px-3 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors"
-                                            >
-                                                Từ chối
+                                        {/* Actions */}
+                                        <div className="rw-actions">
+                                            <button className="rw-btn-detail" onClick={() => { setSelectedReport(report.id); setShowDetailModal(true); }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>visibility</span>
+                                                Chi tiết
                                             </button>
-                                            <button
-                                                onClick={() => handleApprove(report.id)}
-                                                className="flex-1 py-2 px-3 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-md"
-                                            >
-                                                Phê duyệt
-                                            </button>
+                                            {report.status === 'PENDING' && (
+                                                <>
+                                                    <button className="rw-btn-reject" onClick={() => handleReject(report.id)}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                                                        Từ chối
+                                                    </button>
+                                                    <button className="rw-btn-approve" onClick={() => handleApprove(report.id)}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
+                                                        Phê duyệt
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
 
-            {/* Modals */}
+            {/* ── Modals ── */}
             <ConfirmModal
                 isOpen={showApproveModal}
                 title="✅ Phê duyệt báo cáo"
@@ -290,7 +274,6 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
                 onCancel={() => { setShowApproveModal(false); setSelectedReport(null); }}
                 loading={processing}
             />
-
             <PromptModal
                 isOpen={showRejectModal}
                 title="❌ Từ chối báo cáo"
@@ -301,8 +284,86 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user }) => {
                 onConfirm={doReject}
                 onCancel={() => { setShowRejectModal(false); setSelectedReport(null); }}
             />
-        </div>
+            {showDetailModal && selectedReport && (
+                <ReportDetailModal
+                    reportId={selectedReport}
+                    toast={toast}
+                    onClose={() => { setShowDetailModal(false); setSelectedReport(null); }}
+                />
+            )}
+        </>
     );
 };
 
 export default ReviewsView;
+
+/* ══════ CSS ══════ */
+const CSS_TEXT = `
+.rw-root { display:flex; flex-direction:column; gap:16px; padding-top:20px; }
+
+/* Filter Bar */
+.rw-filter-bar { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.rw-status-chips { display:flex; gap:6px; background:#fff; border-radius:14px; padding:4px; border:1px solid #e5e7eb; }
+.rw-chip { display:inline-flex; align-items:center; gap:5px; padding:8px 16px; border-radius:10px; font-size:12px; font-weight:700; border:none; background:transparent; color:#64748b; cursor:pointer; transition:all .15s; }
+.rw-chip:hover { background:#f8fafc; color:#475569; }
+.rw-chip.active { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; box-shadow:0 2px 8px -2px rgba(99,102,241,.35); }
+.rw-chip-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.rw-chip.active .rw-chip-dot { background:#fff !important; }
+
+/* Store filter */
+.rw-store-filter { display:flex; align-items:center; gap:8px; }
+.rw-select-wrap { position:relative; }
+.rw-select { padding:8px 32px 8px 12px; background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; font-size:12px; font-weight:700; color:#1e293b; outline:none; appearance:none; cursor:pointer; transition:border-color .15s; }
+.rw-select:focus { border-color:#818cf8; box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+.rw-chevron { position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:16px; color:#94a3b8; pointer-events:none; }
+.rw-clear-filter { width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; background:#fef2f2; border:none; cursor:pointer; color:#ef4444; transition:all .15s; }
+.rw-clear-filter:hover { background:#fee2e2; }
+
+/* Grid */
+.rw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+
+/* Card */
+.rw-card { background:#fff; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; transition:box-shadow .3s,transform .2s; }
+.rw-card:hover { box-shadow:0 8px 30px -8px rgba(0,0,0,.1); transform:translateY(-2px); }
+.rw-card-bar { height:4px; width:100%; }
+.rw-card-hdr { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 10px; }
+.rw-card-title { font-size:16px; font-weight:800; color:#1e293b; margin:0; }
+.rw-card-meta { font-size:11px; color:#94a3b8; font-weight:500; margin-top:3px; }
+.rw-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
+.rw-badge-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+/* Body */
+.rw-card-body { padding:0 20px 16px; }
+.rw-progress-row { display:flex; justify-content:space-between; margin-bottom:6px; }
+.rw-progress-label { font-size:11px; color:#94a3b8; font-weight:600; }
+.rw-progress-pct { font-size:12px; font-weight:800; color:#1e293b; }
+.rw-progress-track { height:6px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+.rw-progress-fill { height:100%; border-radius:99px; transition:width .8s ease-out; }
+
+/* Mini stats */
+.rw-mini-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:14px; }
+.rw-mini { border-radius:10px; padding:8px; text-align:center; }
+.rw-mini-label { display:block; font-size:10px; color:#94a3b8; font-weight:600; margin-bottom:2px; }
+.rw-mini-val { font-size:18px; font-weight:800; line-height:1.2; }
+
+/* Submitter */
+.rw-submitter { display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding-top:12px; border-top:1px solid #f1f5f9; }
+.rw-submitter-label { display:block; font-size:10px; color:#94a3b8; font-weight:600; }
+.rw-submitter-name { display:block; font-size:13px; font-weight:700; color:#1e293b; }
+.rw-submitter-time { font-size:10px; color:#94a3b8; }
+
+/* Actions */
+.rw-actions { display:flex; gap:8px; margin-top:14px; padding-top:12px; border-top:1px solid #f1f5f9; }
+.rw-btn-detail { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:9px 0; border-radius:10px; background:#eef2ff; border:1px solid #c7d2fe; color:#4f46e5; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; }
+.rw-btn-detail:hover { background:#e0e7ff; }
+.rw-btn-reject { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:9px 0; border-radius:10px; background:#fff; border:1.5px solid #fca5a5; color:#dc2626; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; }
+.rw-btn-reject:hover { background:#fef2f2; border-color:#ef4444; }
+.rw-btn-approve { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:9px 0; border-radius:10px; background:linear-gradient(135deg,#10b981,#059669); border:none; color:#fff; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px -3px rgba(16,185,129,.4); transition:transform .15s,box-shadow .2s; }
+.rw-btn-approve:hover { transform:translateY(-1px); box-shadow:0 6px 20px -4px rgba(16,185,129,.5); }
+
+/* Empty */
+.rw-empty { display:flex; flex-direction:column; align-items:center; gap:10px; padding:80px 20px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; }
+.rw-empty-icon { width:80px; height:80px; border-radius:50%; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
+.rw-empty-title { font-size:15px; font-weight:700; color:#64748b; margin:0; }
+.rw-empty-sub { font-size:12px; color:#94a3b8; margin:0; }
+`;

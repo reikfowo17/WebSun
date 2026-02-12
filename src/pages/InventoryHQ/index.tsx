@@ -109,7 +109,7 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
                         </div>
                     )}
 
-                    {subTab === 'RECOVERY' && <RecoveryView toast={toast} />}
+                    {subTab === 'RECOVERY' && <RecoveryView toast={toast} date={currentDate} />}
                 </div>
             </main>
         </div>

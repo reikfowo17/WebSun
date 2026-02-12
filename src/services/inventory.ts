@@ -649,6 +649,75 @@ export const InventoryService = {
         return { success: false, reports: [] };
     },
 
+    async getReportDetail(reportId: string): Promise<{ success: boolean; report?: any }> {
+        if (!isSupabaseConfigured()) {
+            return { success: false };
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('inventory_reports')
+                .select(`
+                    id,
+                    store_id,
+                    shift,
+                    check_date,
+                    status,
+                    submitted_by,
+                    submitted_at,
+                    reviewed_by,
+                    reviewed_at,
+                    rejection_reason,
+                    stores!inner (code, name),
+                    submitter:users!inventory_reports_submitted_by_fkey (name),
+                    reviewer:users!inventory_reports_reviewed_by_fkey (name)
+                `)
+                .eq('id', reportId)
+                .single();
+
+            if (error) throw error;
+
+            // Get item counts from history
+            const { data: items } = await supabase
+                .from('inventory_history')
+                .select('status, diff')
+                .eq('store_id', data.store_id)
+                .eq('check_date', data.check_date)
+                .eq('shift', data.shift);
+
+            const total_items = items?.length || 0;
+            const matched_items = items?.filter((i: any) => i.status === 'MATCHED').length || 0;
+            const missing_items = items?.filter((i: any) => i.diff < 0).length || 0;
+            const over_items = items?.filter((i: any) => i.diff > 0).length || 0;
+
+            // Cast to any to handle Supabase join types
+            const reportData = data as any;
+
+            const report = {
+                id: reportData.id,
+                store_code: reportData.stores?.code || '',
+                store_name: reportData.stores?.name || '',
+                shift: reportData.shift,
+                check_date: reportData.check_date,
+                status: reportData.status,
+                submitted_by: reportData.submitter?.name || 'Unknown',
+                submitted_at: reportData.submitted_at || reportData.created_at || new Date().toISOString(),
+                reviewed_by: reportData.reviewer?.name,
+                reviewed_at: reportData.reviewed_at,
+                rejection_reason: reportData.rejection_reason,
+                total_items,
+                matched_items,
+                missing_items,
+                over_items
+            };
+
+            return { success: true, report };
+        } catch (e: any) {
+            console.error('[Inventory] Get report detail error:', e);
+            return { success: false };
+        }
+    },
+
     async reviewReport(
         reportId: string,
         status: 'APPROVED' | 'REJECTED',
@@ -816,6 +885,145 @@ export const InventoryService = {
         } catch (e: any) {
             console.error('[Inventory] Get overview error:', e);
             return { success: false };
+        }
+    },
+
+    // ============================================================================
+    // REPORT COMMENTS
+    // ============================================================================
+
+    async getReportComments(reportId: string): Promise<{ success: boolean; comments?: any[] }> {
+        if (!isSupabaseConfigured()) {
+            return { success: false };
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('inventory_report_comments')
+                .select(`
+                    id,
+                    comment,
+                    created_at,
+                    updated_at,
+                    users (
+                        id,
+                        name,
+                        email
+                    )
+                `)
+                .eq('report_id', reportId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const comments = (data || []).map((c: any) => ({
+                id: c.id,
+                comment: c.comment,
+                created_at: c.created_at,
+                updated_at: c.updated_at,
+                user_name: c.users?.name || c.users?.email || 'Unknown',
+                user_id: c.users?.id
+            }));
+
+            return { success: true, comments };
+        } catch (e: any) {
+            console.error('[Inventory] Get comments error:', e);
+            return { success: false };
+        }
+    },
+
+    /**
+     * Add comment to a report
+     */
+    async addReportComment(
+        reportId: string,
+        comment: string
+    ): Promise<{ success: boolean; error?: string }> {
+        if (!isSupabaseConfigured()) {
+            return { success: false, error: 'Database not configured' };
+        }
+
+        if (!comment || comment.trim().length === 0) {
+            return { success: false, error: 'Comment cannot be empty' };
+        }
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                return { success: false, error: 'Not logged in' };
+            }
+
+            console.log('[Inventory] Adding comment to report:', reportId);
+
+            const { error } = await supabase
+                .from('inventory_report_comments')
+                .insert([{
+                    report_id: reportId,
+                    user_id: session.user.id,
+                    comment: comment.trim()
+                }]);
+
+            if (error) {
+                console.error('[Inventory] Add comment error:', error);
+                throw error;
+            }
+
+            console.log('[Inventory] Comment added successfully');
+            return { success: true };
+        } catch (e: any) {
+            console.error('[Inventory] Add comment error:', e);
+            return { success: false, error: 'Cannot add comment: ' + e.message };
+        }
+    },
+
+    /**
+     * Update a comment
+     */
+    async updateReportComment(
+        commentId: string,
+        newComment: string
+    ): Promise<{ success: boolean; error?: string }> {
+        if (!isSupabaseConfigured()) {
+            return { success: false, error: 'Database not configured' };
+        }
+
+        if (!newComment || newComment.trim().length === 0) {
+            return { success: false, error: 'Comment cannot be empty' };
+        }
+
+        try {
+            const { error } = await supabase
+                .from('inventory_report_comments')
+                .update({ comment: newComment.trim() })
+                .eq('id', commentId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (e: any) {
+            console.error('[Inventory] Update comment error:', e);
+            return { success: false, error: 'Cannot update comment: ' + e.message };
+        }
+    },
+
+    /**
+     * Delete a comment
+     */
+    async deleteReportComment(commentId: string): Promise<{ success: boolean; error?: string }> {
+        if (!isSupabaseConfigured()) {
+            return { success: false, error: 'Database not configured' };
+        }
+
+        try {
+            const { error } = await supabase
+                .from('inventory_report_comments')
+                .delete()
+                .eq('id', commentId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (e: any) {
+            console.error('[Inventory] Delete comment error:', e);
+            return { success: false, error: 'Cannot delete comment: ' + e.message };
         }
     }
 };

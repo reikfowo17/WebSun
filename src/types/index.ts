@@ -108,3 +108,6 @@ export type ViewName =
     | 'INVENTORY_HQ'
     | 'RECOVERY_HUB'
     | 'PROFILE';
+
+// Re-export recovery types
+export * from './recovery';

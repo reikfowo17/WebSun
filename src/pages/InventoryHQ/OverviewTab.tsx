@@ -17,289 +17,304 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
 
     useEffect(() => {
         loadOverview();
-        const interval = setInterval(() => {
-            loadOverview();
-            setLastUpdate(new Date());
-        }, 10000); // Refresh every 10s
-
+        const interval = setInterval(() => { loadOverview(); setLastUpdate(new Date()); }, 10000);
         return () => clearInterval(interval);
     }, [date]);
 
     const loadOverview = async (isRetry = false) => {
-        if (!isRetry) {
-            setLoading(true);
-            setError(null);
-        }
-
+        if (!isRetry) { setLoading(true); setError(null); }
         try {
             const res = await InventoryService.getOverview(date);
-            if (res.success) {
-                setStats(res.stats);
-                setStores(res.stores || []);
-                setError(null);
-            } else {
-                throw new Error('Failed to load data');
-            }
+            if (res.success) { setStats(res.stats); setStores(res.stores || []); setError(null); }
+            else throw new Error('Failed to load data');
         } catch (err: any) {
-            const errorMsg = err.message || 'Không thể tải dữ liệu tổng quan';
-            setError(errorMsg);
-            if (!isRetry) {
-                toast.error(errorMsg);
-            }
-        } finally {
-            setLoading(false);
-        }
+            const msg = err.message || 'Không thể tải dữ liệu tổng quan';
+            setError(msg);
+            if (!isRetry) toast.error(msg);
+        } finally { setLoading(false); }
     };
 
-    const getStatusColor = (reportStatus: string | null, percentage: number) => {
-        if (reportStatus === 'APPROVED') return 'bg-emerald-500';
-        if (reportStatus === 'REJECTED') return 'bg-red-500';
-        if (reportStatus === 'PENDING') return 'bg-yellow-500';
-        if (percentage > 0) return 'bg-blue-500 animate-pulse';
-        return 'bg-gray-300';
+    const getStatusColor = (rs: string | null, pct: number) => {
+        if (rs === 'APPROVED') return { bg: '#10b981', glow: 'rgba(16,185,129,.25)' };
+        if (rs === 'REJECTED') return { bg: '#ef4444', glow: 'rgba(239,68,68,.25)' };
+        if (rs === 'PENDING') return { bg: '#f59e0b', glow: 'rgba(245,158,11,.25)' };
+        if (pct > 0) return { bg: '#6366f1', glow: 'rgba(99,102,241,.25)' };
+        return { bg: '#cbd5e1', glow: 'rgba(0,0,0,.05)' };
     };
 
-    const getStatusLabel = (reportStatus: string | null, percentage: number) => {
-        if (reportStatus === 'APPROVED') return 'Đã duyệt';
-        if (reportStatus === 'REJECTED') return 'Từ chối';
-        if (reportStatus === 'PENDING') return 'Chờ duyệt';
-        if (percentage > 0) return 'Đang kiểm';
+    const getStatusLabel = (rs: string | null, pct: number) => {
+        if (rs === 'APPROVED') return 'Đã duyệt';
+        if (rs === 'REJECTED') return 'Từ chối';
+        if (rs === 'PENDING') return 'Chờ duyệt';
+        if (pct > 0) return 'Đang kiểm';
         return 'Chưa bắt đầu';
     };
 
-    const getRelativeTime = (dateStr: string | null) => {
-        if (!dateStr) return 'Chưa cập nhật';
-        const diff = Date.now() - new Date(dateStr).getTime();
-        const minutes = Math.floor(diff / 60000);
-        if (minutes < 1) return 'Vừa xong';
-        if (minutes < 60) return `${minutes} phút trước`;
-        const hours = Math.floor(minutes / 60);
-        return `${hours} giờ trước`;
+    const getRelativeTime = (d: string | null) => {
+        if (!d) return 'Chưa cập nhật';
+        const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+        if (mins < 1) return 'Vừa xong';
+        if (mins < 60) return `${mins} phút trước`;
+        return `${Math.floor(mins / 60)} giờ trước`;
     };
 
-
-    if (loading) {
+    /* ── Loading State ── */
+    if (loading && !stats) {
         return (
-            <div className="pt-6 space-y-6 animate-pulse">
-                {/* Stats Cards Skeleton */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="bg-white rounded-2xl p-5 border border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <div className="h-3 bg-gray-100 rounded w-20 mb-2"></div>
-                                    <div className="h-8 bg-gray-200 rounded w-12"></div>
-                                </div>
-                                <div className="w-10 h-10 bg-gray-100 rounded-full"></div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Store Cards Skeleton */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            <div className="h-1.5 bg-gray-200"></div>
-                            <div className="bg-gray-50 p-4">
-                                <div className="h-6 bg-gray-200 rounded w-32 mb-2"></div>
-                                <div className="h-4 bg-gray-100 rounded w-24"></div>
-                            </div>
-                            <div className="p-4 space-y-3">
-                                <div className="h-2 bg-gray-100 rounded-full"></div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[1, 2, 3].map(j => (
-                                        <div key={j} className="h-16 bg-gray-50 rounded-lg"></div>
-                                    ))}
+            <>
+                <style>{CSS_TEXT}</style>
+                <div className="ov-root">
+                    <div className="ov-summary">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="ov-stat-card">
+                                <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f1f5f9' }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ height: 10, width: 50, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }} />
+                                    <div style={{ height: 22, width: 40, background: '#e2e8f0', borderRadius: 6 }} />
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                    <div className="ov-grid">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="ov-store-card" style={{ overflow: 'hidden' }}>
+                                <div style={{ height: 4, background: '#f1f5f9' }} />
+                                <div style={{ padding: 20 }}>
+                                    <div style={{ height: 18, width: 120, background: '#f1f5f9', borderRadius: 6, marginBottom: 10 }} />
+                                    <div style={{ height: 12, width: 80, background: '#f8fafc', borderRadius: 4, marginBottom: 16 }} />
+                                    <div style={{ height: 6, background: '#f1f5f9', borderRadius: 99, marginBottom: 16 }} />
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {[1, 2, 3].map(j => <div key={j} style={{ flex: 1, height: 54, background: '#f8fafc', borderRadius: 10 }} />)}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
-    // Error State
+    /* ── Error State ── */
     if (error && !loading) {
         return (
-            <div className="pt-12 text-center">
-                <span className="material-symbols-outlined text-6xl text-red-200 mb-4">error</span>
-                <h3 className="text-lg font-bold text-gray-700 mb-2">Không thể tải dữ liệu</h3>
-                <p className="text-sm text-gray-400 mb-6">{error}</p>
-                <button
-                    onClick={() => loadOverview(true)}
-                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
-                >
-                    <span className="material-symbols-outlined text-lg">refresh</span>
-                    Thử lại
-                </button>
-            </div>
+            <>
+                <style>{CSS_TEXT}</style>
+                <div className="ov-error">
+                    <div className="ov-error-icon">
+                        <span className="material-symbols-outlined" style={{ fontSize: 40, color: '#f87171' }}>error</span>
+                    </div>
+                    <h3 className="ov-error-title">Không thể tải dữ liệu</h3>
+                    <p className="ov-error-sub">{error}</p>
+                    <button className="ov-error-btn" onClick={() => loadOverview(true)}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
+                        Thử lại
+                    </button>
+                </div>
+            </>
         );
     }
 
     return (
-        <div className="pt-6 space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium mb-1">Tổng cửa hàng</p>
-                            <p className="text-3xl font-black text-gray-800">{stats?.totalStores || 0}</p>
+        <>
+            <style>{CSS_TEXT}</style>
+            <div className="ov-root">
+
+                {/* ── Summary Strip ── */}
+                <div className="ov-summary">
+                    <StatCard icon="store" iconBg="#eef2ff" iconColor="#6366f1" label="Tổng cửa hàng" value={stats?.totalStores || 0} />
+                    <StatCard icon="check_circle" iconBg="#d1fae5" iconColor="#10b981" label="Hoàn tất" value={`${stats?.completedStores || 0}/${stats?.totalStores || 0}`} />
+                    <StatCard icon="pending" iconBg="#dbeafe" iconColor="#3b82f6" label="Đang kiểm" value={stats?.inProgressStores || 0} />
+                    <StatCard icon="warning" iconBg="#fef2f2" iconColor="#ef4444" label="Vấn đề" value={stats?.issuesCount || 0} accent={stats?.issuesCount > 0 ? '#ef4444' : undefined} />
+                </div>
+
+                {/* ── Last Update ── */}
+                <div className="ov-update-bar">
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#94a3b8' }}>schedule</span>
+                    <span>Cập nhật: {lastUpdate.toLocaleTimeString('vi-VN')}</span>
+                    <button className="ov-refresh-btn" onClick={() => { loadOverview(); setLastUpdate(new Date()); }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
+                    </button>
+                </div>
+
+                {/* ── Store Grid ── */}
+                {stores.length === 0 ? (
+                    <div className="ov-empty">
+                        <div className="ov-empty-icon">
+                            <span className="material-symbols-outlined" style={{ fontSize: 40, color: '#cbd5e1' }}>store_mall_directory</span>
                         </div>
-                        <span className="material-symbols-outlined text-4xl text-blue-500">store</span>
+                        <p className="ov-empty-title">Chưa có dữ liệu kiểm kê</p>
+                        <p className="ov-empty-sub">Dữ liệu sẽ xuất hiện khi cửa hàng bắt đầu kiểm tồn</p>
                     </div>
-                </div>
+                ) : (
+                    <div className="ov-grid">
+                        {stores.map(store => {
+                            const info = STORES.find(s => s.code === store.code);
+                            const hasIssues = store.progress.missing > 0 || store.progress.over > 0;
+                            const sc = getStatusColor(store.reportStatus, store.progress.percentage);
 
-                <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium mb-1">Hoàn tất</p>
-                            <p className="text-3xl font-black text-emerald-600">
-                                {stats?.completedStores || 0}/{stats?.totalStores || 0}
-                            </p>
-                        </div>
-                        <span className="material-symbols-outlined text-4xl text-emerald-500">check_circle</span>
-                    </div>
-                </div>
+                            return (
+                                <div
+                                    key={store.id}
+                                    className={`ov-store-card ${store.reportStatus === 'PENDING' ? 'clickable' : ''}`}
+                                    onClick={() => { if (store.reportStatus === 'PENDING') onNavigateToReviews(store.code); }}
+                                >
+                                    {/* Status Bar */}
+                                    <div className="ov-status-bar" style={{ background: sc.bg }} />
 
-                <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium mb-1">Đang kiểm</p>
-                            <p className="text-3xl font-black text-blue-600">{stats?.inProgressStores || 0}</p>
-                        </div>
-                        <span className="material-symbols-outlined text-4xl text-blue-500">pending</span>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs text-gray-500 font-medium mb-1">Vấn đề</p>
-                            <p className="text-3xl font-black text-red-600">{stats?.issuesCount || 0}</p>
-                        </div>
-                        <span className="material-symbols-outlined text-4xl text-red-500">warning</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Last Update Indicator */}
-            <div className="flex items-center justify-end text-xs text-gray-400">
-                <span className="material-symbols-outlined text-sm mr-1">schedule</span>
-                Cập nhật lần cuối: {lastUpdate.toLocaleTimeString('vi-VN')}
-            </div>
-
-            {/* Store Progress Grid */}
-            {stores.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-                    <span className="material-symbols-outlined text-6xl text-gray-200 mb-3">store_off</span>
-                    <p className="text-gray-400 font-medium">Chưa có dữ liệu kiểm kê cho ngày này</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {stores.map(store => {
-                        const storeInfo = STORES.find(s => s.code === store.code);
-                        const hasIssues = store.progress.missing > 0 || store.progress.over > 0;
-
-                        return (
-                            <div
-                                key={store.id}
-                                className="bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-all overflow-hidden group cursor-pointer"
-                                onClick={() => {
-                                    if (store.reportStatus === 'PENDING') {
-                                        onNavigateToReviews(store.code);
-                                    }
-                                }}
-                            >
-                                {/* Status Bar */}
-                                <div className={`h-1.5 w-full ${getStatusColor(store.reportStatus, store.progress.percentage)}`} />
-
-                                {/* Header */}
-                                <div className={`${storeInfo?.bgColor || 'bg-gray-100'} ${storeInfo?.color || 'text-gray-700'} p-4 border-b border-gray-100`}>
-                                    <div className="flex items-start justify-between mb-2">
+                                    {/* Header */}
+                                    <div className="ov-store-hdr">
                                         <div>
-                                            <h3 className="font-black text-lg">{storeInfo?.name || store.name}</h3>
-                                            <p className="text-xs opacity-75 font-medium mt-1">
-                                                Ca {store.shift} • {store.employee?.name || '--'}
-                                            </p>
+                                            <h3 className="ov-store-name">{info?.name || store.name}</h3>
+                                            <p className="ov-store-meta">Ca {store.shift} • {store.employee?.name || '--'}</p>
                                         </div>
-                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${store.reportStatus === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                            store.reportStatus === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                store.reportStatus === 'PENDING' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
-                                                    store.progress.percentage > 0 ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                        'bg-gray-50 text-gray-400 border-gray-100'
-                                            }`}>
+                                        <span className="ov-badge" style={{ background: sc.bg + '18', color: sc.bg, borderColor: sc.bg + '30' }}>
                                             {getStatusLabel(store.reportStatus, store.progress.percentage)}
                                         </span>
                                     </div>
-                                </div>
 
-                                {/* Progress Section */}
-                                <div className="p-4 space-y-3">
-                                    {/* Progress Bar */}
-                                    <div>
-                                        <div className="flex justify-between text-xs mb-1">
-                                            <span className="text-gray-500 font-medium">Tiến độ</span>
-                                            <span className="text-slate-800 font-bold">{store.progress.percentage}%</span>
+                                    {/* Progress */}
+                                    <div className="ov-store-body">
+                                        <div className="ov-progress-hdr">
+                                            <span className="ov-progress-label">Tiến độ</span>
+                                            <span className="ov-progress-pct">{store.progress.percentage}%</span>
                                         </div>
-                                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="ov-progress-track">
                                             <div
-                                                className={`h-full rounded-full transition-all duration-1000 ${hasIssues ? 'bg-red-500' : 'bg-blue-600'
-                                                    }`}
-                                                style={{ width: `${store.progress.percentage}%` }}
+                                                className="ov-progress-fill"
+                                                style={{
+                                                    width: `${store.progress.percentage}%`,
+                                                    background: hasIssues
+                                                        ? 'linear-gradient(90deg,#ef4444,#f97316)'
+                                                        : `linear-gradient(90deg,${sc.bg},${sc.bg}cc)`,
+                                                    boxShadow: `0 0 10px ${sc.glow}`
+                                                }}
                                             />
                                         </div>
-                                        <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                        <div className="ov-progress-sub">
                                             <span>{store.progress.checked} / {store.progress.total} SP</span>
-                                            {hasIssues && (
-                                                <span className="text-red-500 font-bold">
-                                                    Lệch: {store.progress.missing + store.progress.over}
-                                                </span>
+                                            {hasIssues && <span className="ov-progress-issue">Lệch: {store.progress.missing + store.progress.over}</span>}
+                                        </div>
+
+                                        {/* Stats Row */}
+                                        <div className="ov-mini-stats">
+                                            <div className="ov-mini-stat" style={{ background: '#f0fdf4' }}>
+                                                <span className="ov-mini-label">Khớp</span>
+                                                <span className="ov-mini-val" style={{ color: '#16a34a' }}>{store.progress.matched}</span>
+                                            </div>
+                                            <div className="ov-mini-stat" style={{ background: '#fef2f2' }}>
+                                                <span className="ov-mini-label">Thiếu</span>
+                                                <span className="ov-mini-val" style={{ color: '#dc2626' }}>{store.progress.missing}</span>
+                                            </div>
+                                            <div className="ov-mini-stat" style={{ background: '#eef2ff' }}>
+                                                <span className="ov-mini-label">Thừa</span>
+                                                <span className="ov-mini-val" style={{ color: '#4f46e5' }}>{store.progress.over}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Footer */}
+                                        <div className="ov-store-footer">
+                                            <div className="ov-store-time">
+                                                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>update</span>
+                                                {getRelativeTime(store.lastUpdate)}
+                                            </div>
+                                            {store.reportStatus === 'PENDING' && (
+                                                <button className="ov-view-report" onClick={() => onNavigateToReviews(store.code)}>
+                                                    Xem báo cáo
+                                                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>arrow_forward</span>
+                                                </button>
                                             )}
                                         </div>
                                     </div>
-
-                                    {/* Stats Grid */}
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div className="bg-emerald-50 rounded-lg p-2">
-                                            <p className="text-xs text-gray-500 font-medium">Khớp</p>
-                                            <p className="text-lg font-black text-emerald-600">{store.progress.matched}</p>
-                                        </div>
-                                        <div className="bg-red-50 rounded-lg p-2">
-                                            <p className="text-xs text-gray-500 font-medium">Thiếu</p>
-                                            <p className="text-lg font-black text-red-600">{store.progress.missing}</p>
-                                        </div>
-                                        <div className="bg-blue-50 rounded-lg p-2">
-                                            <p className="text-xs text-gray-500 font-medium">Thừa</p>
-                                            <p className="text-lg font-black text-blue-600">{store.progress.over}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Last Update */}
-                                    <div className="pt-3 border-t border-gray-100 text-xs text-gray-400">
-                                        <span className="material-symbols-outlined text-sm mr-1 align-middle">update</span>
-                                        {getRelativeTime(store.lastUpdate)}
-                                    </div>
-
-                                    {/* Action Button */}
-                                    {store.reportStatus === 'PENDING' && (
-                                        <button
-                                            className="w-full py-2 px-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl text-sm font-bold hover:shadow-lg transition-all group-hover:scale-105"
-                                            onClick={() => onNavigateToReviews(store.code)}
-                                        >
-                                            Xem báo cáo →
-                                        </button>
-                                    )}
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </>
     );
 };
 
+/* ── Stat Card ── */
+const StatCard: React.FC<{ icon: string; iconBg: string; iconColor: string; label: string; value: any; accent?: string }> = ({ icon, iconBg, iconColor, label, value, accent }) => (
+    <div className="ov-stat-card">
+        <div className="ov-stat-icon" style={{ background: iconBg }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20, color: iconColor }}>{icon}</span>
+        </div>
+        <div>
+            <div className="ov-stat-label">{label}</div>
+            <div className="ov-stat-val" style={accent ? { color: accent } : {}}>{value}</div>
+        </div>
+    </div>
+);
+
 export default OverviewTab;
+
+/* ══════ CSS ══════ */
+const CSS_TEXT = `
+.ov-root { display:flex; flex-direction:column; gap:16px; padding-top:20px; }
+
+/* Summary */
+.ov-summary { display:flex; gap:12px; flex-wrap:wrap; }
+.ov-stat-card { display:flex; align-items:center; gap:12px; padding:14px 20px; background:#fff; border-radius:14px; border:1px solid #e5e7eb; flex:1; min-width:150px; transition:box-shadow .25s,border-color .25s; }
+.ov-stat-card:hover { box-shadow:0 4px 16px -4px rgba(0,0,0,.07); border-color:#c7d2fe; }
+.ov-stat-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ov-stat-label { font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; }
+.ov-stat-val { font-size:22px; font-weight:800; color:#1e293b; line-height:1.2; }
+
+/* Update bar */
+.ov-update-bar { display:flex; align-items:center; gap:6px; font-size:11px; color:#94a3b8; font-weight:500; justify-content:flex-end; }
+.ov-refresh-btn { width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; color:#94a3b8; transition:all .15s; }
+.ov-refresh-btn:hover { background:#eef2ff; color:#6366f1; }
+
+/* Grid */
+.ov-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+
+/* Store Card */
+.ov-store-card { background:#fff; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; transition:box-shadow .3s,transform .2s; }
+.ov-store-card:hover { box-shadow:0 8px 30px -8px rgba(0,0,0,.1); }
+.ov-store-card.clickable { cursor:pointer; }
+.ov-store-card.clickable:hover { transform:translateY(-2px); }
+.ov-status-bar { height:4px; width:100%; }
+.ov-store-hdr { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 12px; }
+.ov-store-name { font-size:16px; font-weight:800; color:#1e293b; margin:0; }
+.ov-store-meta { font-size:11px; color:#94a3b8; font-weight:500; margin-top:3px; }
+.ov-badge { display:inline-flex; padding:3px 10px; border-radius:8px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; border:1px solid; }
+
+/* Body */
+.ov-store-body { padding:0 20px 16px; }
+.ov-progress-hdr { display:flex; justify-content:space-between; margin-bottom:6px; }
+.ov-progress-label { font-size:11px; color:#94a3b8; font-weight:600; }
+.ov-progress-pct { font-size:12px; font-weight:800; color:#1e293b; }
+.ov-progress-track { height:6px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+.ov-progress-fill { height:100%; border-radius:99px; transition:width 1s ease-out; }
+.ov-progress-sub { display:flex; justify-content:space-between; margin-top:4px; font-size:10px; color:#94a3b8; }
+.ov-progress-issue { color:#ef4444; font-weight:700; }
+
+/* Mini Stats */
+.ov-mini-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:14px; }
+.ov-mini-stat { border-radius:10px; padding:8px; text-align:center; }
+.ov-mini-label { display:block; font-size:10px; color:#94a3b8; font-weight:600; margin-bottom:2px; }
+.ov-mini-val { font-size:18px; font-weight:800; line-height:1.2; }
+
+/* Store Footer */
+.ov-store-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; }
+.ov-store-time { display:flex; align-items:center; gap:4px; font-size:11px; color:#94a3b8; }
+.ov-view-report { display:inline-flex; align-items:center; gap:4px; padding:6px 14px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; transition:transform .15s,box-shadow .2s; }
+.ov-view-report:hover { transform:translateY(-1px); box-shadow:0 4px 12px -2px rgba(245,158,11,.35); }
+
+/* Empty */
+.ov-empty { display:flex; flex-direction:column; align-items:center; gap:10px; padding:80px 20px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; }
+.ov-empty-icon { width:80px; height:80px; border-radius:50%; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
+.ov-empty-title { font-size:15px; font-weight:700; color:#64748b; margin:0; }
+.ov-empty-sub { font-size:12px; color:#94a3b8; margin:0; }
+
+/* Error */
+.ov-error { display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; }
+.ov-error-icon { width:72px; height:72px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; }
+.ov-error-title { font-size:16px; font-weight:800; color:#1e293b; margin:0; }
+.ov-error-sub { font-size:13px; color:#94a3b8; margin:0; }
+.ov-error-btn { display:inline-flex; align-items:center; gap:6px; padding:10px 20px; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; border:none; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; box-shadow:0 4px 14px -3px rgba(99,102,241,.4); transition:transform .15s; margin-top:4px; }
+.ov-error-btn:hover { transform:translateY(-1px); }
+`;
