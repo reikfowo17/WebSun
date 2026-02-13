@@ -1,16 +1,16 @@
 /**
  * Authentication Service
  * 
- * Handles user authentication with secure password hashing
- * and cryptographically secure session tokens.
+ * Uses Supabase Auth for authentication with JWT tokens.
+ * This ensures RLS policies work correctly via auth.uid().
  * 
  * @security
- * - Uses bcrypt for password hashing
- * - Generates secure random tokens
- * - Rate limiting should be implemented at API gateway level
+ * - Supabase Auth manages password hashing (bcrypt)
+ * - JWT tokens managed by Supabase with automatic refresh
+ * - RLS policies enforce data access at database level
+ * - Session managed via Supabase Auth cookie/localStorage
  */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { sha256 } from '../lib/crypto-fallback';
 import type { User } from '../types';
 
 // ===========================================================================
@@ -59,68 +59,20 @@ const MOCK_USERS: User[] = [
 ];
 
 // ===========================================================================
-// UTILITY FUNCTIONS
+// HELPER: Convert username to email format for Supabase Auth
 // ===========================================================================
 
-/**
- * Generate cryptographically secure session token
- * Uses Web Crypto API for security
- */
-const generateSecureToken = (): string => {
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        const array = new Uint8Array(32);
-        crypto.getRandomValues(array);
-        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-    }
-    // Fallback
-    return Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-};
-
-/**
- * Hash password securely
- * Uses Web Crypto API when available, falls back to JS implementation
- */
-const hashPassword = async (password: string): Promise<string> => {
-    try {
-        // Priority 1: Native Web Crypto API (Verify support specificially for SHA-256)
-        if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
-            try {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(password);
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            } catch (err) {
-                console.warn('[Auth] Native crypto failed, using fallback:', err);
-            }
-        }
-
-        // Priority 2: Secure JS Implementation (Universal compatibility)
-        console.log('[Auth] Using secure JS SHA-256 fallback');
-        return sha256(password);
-
-    } catch (e) {
-        console.error('[Auth] Critical hashing error:', e);
-        // Last resort: fail closed
-        throw new Error('Could not hash password');
-    }
-};
-
-/**
- * Verify password against hash
- */
-const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-    const passwordHash = await hashPassword(password);
-    return passwordHash === hash;
+const usernameToEmail = (username: string): string => {
+    return `${username.toLowerCase().trim()}@sunmart.local`;
 };
 
 export const AuthService = {
     /**
-     * Authenticate user with username and password
-     * @security Uses secure password verification
+     * Login using Supabase Auth signInWithPassword.
+     * This creates a JWT session with role 'authenticated',
+     * making auth.uid() available for RLS policies.
      */
     async login(username: string, password: string): Promise<LoginResult> {
-        // Input validation
         if (!username || !password) {
             return { success: false, error: 'Vui lòng nhập đầy đủ thông tin' };
         }
@@ -131,61 +83,71 @@ export const AuthService = {
 
         if (isSupabaseConfigured()) {
             try {
-                const { data: user, error } = await supabase
+                // Sign in via Supabase Auth → creates JWT session
+                const email = usernameToEmail(username);
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+
+                if (authError || !authData.user) {
+                    console.error('[Auth] Supabase Auth error:', authError?.message);
+                    return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng' };
+                }
+
+                // Now we are authenticated! auth.uid() works.
+                // Fetch user profile from public.users (RLS will allow this)
+                const { data: userProfile, error: profileError } = await supabase
                     .from('users')
-                    .select('*')
-                    .eq('username', username.toLowerCase().trim())
+                    .select('id, username, name, role, store_id, xp, level, avatar_url')
+                    .eq('id', authData.user.id)
                     .single();
 
-                if (error || !user) {
-                    return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng' };
+                if (profileError || !userProfile) {
+                    console.error('[Auth] Profile fetch error:', profileError?.message);
+                    // Auth succeeded but profile not found - still return basic info
+                    const meta = authData.user.user_metadata;
+                    const mappedUser: User = {
+                        id: authData.user.id,
+                        name: meta?.name || username,
+                        username: meta?.username || username,
+                        role: meta?.role || 'EMPLOYEE',
+                        store: '',
+                        xp: 0,
+                        level: 1,
+                        avatar: '',
+                        avatarUrl: '',
+                    };
+                    return {
+                        success: true,
+                        user: mappedUser,
+                        token: authData.session?.access_token,
+                    };
                 }
 
-                // Secure password verification
-                let isValidPassword = await verifyPassword(password, user.password_hash);
-
-                // AUTO-MIGRATE: Check plaintext (legacy) if hash fails
-                if (!isValidPassword && password === user.password_hash) {
-                    console.log('[Auth] Detected plaintext password for user:', username, '- Migrating to hash...');
-                    isValidPassword = true;
-
-                    // Background update: Secure the password in DB
-                    const newHash = await hashPassword(password);
-                    supabase.from('users')
-                        .update({ password_hash: newHash })
-                        .eq('id', user.id)
-                        .then(({ error }) => {
-                            if (error) console.error('[Auth] Failed to migrate password:', error);
-                            else console.log('[Auth] Password migrated successfully');
-                        });
-                }
-
-                if (!isValidPassword) {
-                    return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng' };
-                }
-
-                // Get store info
-                const { data: store } = user.store_id
-                    ? await supabase.from('stores').select('code, name').eq('id', user.store_id).single()
+                // Get store info (RLS allows this now since we're authenticated)
+                const { data: store } = userProfile.store_id
+                    ? await supabase.from('stores').select('code, name').eq('id', userProfile.store_id).single()
                     : { data: null };
 
                 const mappedUser: User = {
-                    id: user.id,
-                    name: user.name,
-                    username: user.username,
-                    role: user.role || 'EMPLOYEE',
+                    id: userProfile.id,
+                    name: userProfile.name,
+                    username: userProfile.username,
+                    role: userProfile.role || 'EMPLOYEE',
                     store: store?.code || '',
-                    xp: user.xp || 0,
-                    level: user.level || 1,
-                    avatar: user.avatar_url || '',
-                    avatarUrl: user.avatar_url || '',
+                    xp: userProfile.xp || 0,
+                    level: userProfile.level || 1,
+                    avatar: userProfile.avatar_url || '',
+                    avatarUrl: userProfile.avatar_url || '',
                 };
 
-                // Generate secure session token
-                const token = generateSecureToken();
-
-                console.log('[Auth] Login successful:', username);
-                return { success: true, user: mappedUser, token };
+                console.log('[Auth] Login successful:', username, '| Role:', mappedUser.role);
+                return {
+                    success: true,
+                    user: mappedUser,
+                    token: authData.session?.access_token,
+                };
 
             } catch (e) {
                 console.error('[Auth] Login error:', e);
@@ -201,15 +163,14 @@ export const AuthService = {
         );
 
         if (mockUser && password === '1234') {
-            const token = generateSecureToken();
-            return { success: true, user: mockUser, token };
+            return { success: true, user: mockUser, token: 'mock-token' };
         }
 
         return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng' };
     },
 
     /**
-     * Register new user
+     * Register a new user via Supabase Auth + public.users entry.
      */
     async register(
         username: string,
@@ -218,7 +179,6 @@ export const AuthService = {
         employeeId: string,
         storeCode: string
     ): Promise<RegisterResult> {
-        // Input validation
         if (!username || !password || !name || !employeeId || !storeCode) {
             return { success: false, error: 'Vui lòng nhập đầy đủ thông tin' };
         }
@@ -233,18 +193,7 @@ export const AuthService = {
 
         if (isSupabaseConfigured()) {
             try {
-                // Check if username exists
-                const { data: existing } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('username', username.toLowerCase().trim())
-                    .single();
-
-                if (existing) {
-                    return { success: false, error: 'Tên đăng nhập đã tồn tại' };
-                }
-
-                // Get store
+                // Get store first (before auth signup)
                 const { data: store, error: storeError } = await supabase
                     .from('stores')
                     .select('id')
@@ -255,15 +204,36 @@ export const AuthService = {
                     return { success: false, error: 'Mã cửa hàng không hợp lệ' };
                 }
 
-                // Hash password
-                const passwordHash = await hashPassword(password);
+                // Create auth user via Supabase Auth
+                const email = usernameToEmail(username);
+                const { data: authData, error: signUpError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            username: username.toLowerCase().trim(),
+                            name: name.trim(),
+                            role: 'EMPLOYEE',
+                            employee_id: employeeId,
+                        },
+                    },
+                });
 
-                // Create user
+                if (signUpError || !authData.user) {
+                    console.error('[Auth] SignUp error:', signUpError?.message);
+                    if (signUpError?.message?.includes('already')) {
+                        return { success: false, error: 'Tên đăng nhập đã tồn tại' };
+                    }
+                    return { success: false, error: 'Lỗi tạo tài khoản' };
+                }
+
+                // Create public.users entry with same ID
                 const { error: insertError } = await supabase
                     .from('users')
                     .insert([{
+                        id: authData.user.id,
                         username: username.toLowerCase().trim(),
-                        password_hash: passwordHash,
+                        password_hash: 'managed_by_supabase_auth',
                         name: name.trim(),
                         employee_id: employeeId,
                         store_id: store.id,
@@ -273,8 +243,8 @@ export const AuthService = {
                     }]);
 
                 if (insertError) {
-                    console.error('[Auth] Register error:', insertError);
-                    return { success: false, error: 'Lỗi tạo tài khoản' };
+                    console.error('[Auth] Insert public.users error:', insertError);
+                    return { success: false, error: 'Lỗi tạo hồ sơ người dùng' };
                 }
 
                 return { success: true };
@@ -291,20 +261,54 @@ export const AuthService = {
     },
 
     /**
-     * Logout user
+     * Logout - signs out from Supabase Auth, clearing JWT session.
      */
     async logout(): Promise<{ success: boolean }> {
-        // In production, invalidate server-side session
-        console.log('[Auth] Logout');
+        if (isSupabaseConfigured()) {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error('[Auth] Logout error:', error.message);
+            }
+        }
+        console.log('[Auth] Logout — session cleared');
         return { success: true };
     },
 
     /**
-     * Change user password
+     * Check if user has an active Supabase Auth session.
+     */
+    isAuthenticated(): boolean {
+        // This is a sync check; for async check use getSession()
+        // Supabase stores session in localStorage automatically
+        if (!isSupabaseConfigured()) return false;
+        const url = import.meta.env.VITE_SUPABASE_URL || '';
+        const projectRef = url ? new URL(url).hostname.split('.')[0] : '';
+        const storageKey = `sb-${projectRef}-auth-token`;
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) return false;
+            const session = JSON.parse(raw);
+            return !!session?.access_token;
+        } catch {
+            return false;
+        }
+    },
+
+    /**
+     * Get current Supabase Auth session (async).
+     */
+    async getSession() {
+        if (!isSupabaseConfigured()) return null;
+        const { data } = await supabase.auth.getSession();
+        return data.session;
+    },
+
+    /**
+     * Change password via Supabase Auth.
      */
     async changePassword(
-        userId: string,
-        currentPassword: string,
+        _userId: string,
+        _currentPassword: string,
         newPassword: string
     ): Promise<{ success: boolean; error?: string }> {
         if (newPassword.length < 6) {
@@ -313,33 +317,16 @@ export const AuthService = {
 
         if (isSupabaseConfigured()) {
             try {
-                // Get current user
-                const { data: user } = await supabase
-                    .from('users')
-                    .select('password_hash')
-                    .eq('id', userId)
-                    .single();
+                const { error } = await supabase.auth.updateUser({
+                    password: newPassword,
+                });
 
-                if (!user) {
-                    return { success: false, error: 'Không tìm thấy người dùng' };
+                if (error) {
+                    console.error('[Auth] Change password error:', error.message);
+                    return { success: false, error: 'Lỗi cập nhật mật khẩu' };
                 }
 
-                // Verify current password
-                const isValid = await verifyPassword(currentPassword, user.password_hash);
-                if (!isValid) {
-                    return { success: false, error: 'Mật khẩu hiện tại không đúng' };
-                }
-
-                // Update password
-                const newHash = await hashPassword(newPassword);
-                const { error } = await supabase
-                    .from('users')
-                    .update({ password_hash: newHash, updated_at: new Date().toISOString() })
-                    .eq('id', userId);
-
-                if (error) throw error;
                 return { success: true };
-
             } catch (e) {
                 console.error('[Auth] Change password error:', e);
                 return { success: false, error: 'Lỗi cập nhật mật khẩu' };

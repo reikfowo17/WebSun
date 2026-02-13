@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { InventoryService } from '../../services';
 import { STORES } from '../../constants';
+import ConfirmModal from '../../components/ConfirmModal';
 import * as XLSX from 'xlsx';
 
 interface DistributionHubProps {
@@ -31,6 +32,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [productForm, setProductForm] = useState({ barcode: '', name: '', unit: '', category: '' });
     const [confirmDelete, setConfirmDelete] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'newSession'; message: string } | null>(null);
 
     useEffect(() => { loadMasterProducts(); }, []);
 
@@ -60,21 +62,46 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
 
     const handleDistribute = async () => {
         if (!products.length) return toast.error('Danh sách sản phẩm trống');
-        if (!confirm(`Xác nhận phân bổ ${products.length} sản phẩm cho ${selectedStore === 'ALL' ? 'TẤT CẢ CỬA HÀNG' : selectedStore} (Ca ${selectedShift})?`)) return;
+        setConfirmAction({
+            type: 'distribute',
+            message: `Xác nhận phân bổ ${products.length} sản phẩm cho ${selectedStore === 'ALL' ? 'TẤT CẢ CỬA HÀNG' : selectedStore} (Ca ${selectedShift})?`
+        });
+    };
+
+    const executeDistribute = async () => {
+        setConfirmAction(null);
         setProcessing('DISTRIBUTE');
         try {
+            let stockMap: Record<string, number> | undefined;
+            try {
+                const { data: fnData, error: fnErr } = await (await import('../../lib/supabase')).supabase
+                    .functions.invoke('kiotviet-stock', {
+                        body: { storeCode: selectedStore === 'ALL' ? undefined : selectedStore }
+                    });
+                if (!fnErr && fnData?.stockMap) {
+                    stockMap = fnData.stockMap;
+                    toast.info('Đã lấy dữ liệu tồn kho KiotViet');
+                }
+            } catch {
+                console.warn('[DistributionHub] KiotViet stock fetch skipped');
+            }
+
             if (selectedStore === 'ALL') {
-                for (const s of STORES) { await InventoryService.distributeToStore(s.id, selectedShift); }
+                for (const s of STORES) { await InventoryService.distributeToStore(s.id, selectedShift, stockMap); }
                 toast.success(`Đã phân phối cho tất cả cửa hàng (Ca ${selectedShift})`);
             } else {
-                const r = await InventoryService.distributeToStore(selectedStore, selectedShift);
-                r.success ? toast.success('Đã phân phối thành công!') : toast.error(r.message || 'Lỗi phân phối');
+                const r = await InventoryService.distributeToStore(selectedStore, selectedShift, stockMap);
+                r.success ? toast.success(r.message || 'Đã phân phối thành công!') : toast.error(r.message || 'Lỗi phân phối');
             }
         } catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); }
     };
 
     const handleNewSession = () => {
-        if (!confirm('Tạo phiên kiểm mới sẽ xóa danh sách hiện tại?')) return;
+        setConfirmAction({ type: 'newSession', message: 'Tạo phiên kiểm mới sẽ xóa danh sách hiện tại?' });
+    };
+
+    const executeNewSession = () => {
+        setConfirmAction(null);
         setProducts([]); setFilteredProducts([]); toast.info('Đã làm mới phiên làm việc');
     };
 
@@ -86,7 +113,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setProcessing('SAVE_PRODUCT');
         try {
             const d = { barcode: productForm.barcode, name: productForm.name, unit: productForm.unit, category: productForm.category };
-            const r = editingProduct ? await InventoryService.updateMasterItem(editingProduct.id, d) : await InventoryService.addMasterItem(d);
+            const r = editingProduct ? await InventoryService.updateMasterItem(editingProduct.id, d, 'ADMIN') : await InventoryService.addMasterItem(d);
             if (r.success) { toast.success(editingProduct ? 'Đã cập nhật' : 'Đã thêm mới'); setShowProductModal(false); loadMasterProducts(); }
             else toast.error(r.error || 'Có lỗi xảy ra');
         } catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); }
@@ -94,7 +121,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
 
     const handleDeleteProduct = async (p: any) => {
         setProcessing('DELETE_' + p.id);
-        try { const r = await InventoryService.deleteMasterItem(p.id); if (r.success) { toast.success('Đã xóa'); loadMasterProducts(); } else toast.error(r.error || 'Không thể xóa'); }
+        try { const r = await InventoryService.deleteMasterItem(p.id, 'ADMIN'); if (r.success) { toast.success('Đã xóa'); loadMasterProducts(); } else toast.error(r.error || 'Không thể xóa'); }
         catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); setConfirmDelete(null); }
     };
 
@@ -120,24 +147,6 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         <div className="dh-root">
             <style>{CSS_TEXT}</style>
 
-            {/* ━━━ SUMMARY STRIP ━━━ */}
-            <div className="dh-summary">
-                <div className="dh-stat-card">
-                    <div className="dh-stat-icon" style={{ background: '#eef2ff' }}><span className="material-symbols-outlined" style={{ fontSize: 20, color: '#6366f1' }}>inventory_2</span></div>
-                    <div><div className="dh-stat-label">Tổng SP</div><div className="dh-stat-val">{stats.total}</div></div>
-                </div>
-                {topCats.map(([cat, cnt]) => {
-                    const s = getCatStyle(cat);
-                    return (<div key={cat} className="dh-stat-card">
-                        <div className="dh-stat-dot" style={{ background: s.dot }} />
-                        <div><div className="dh-stat-label">{cat}</div><div className="dh-stat-val">{cnt}</div></div>
-                    </div>);
-                })}
-                <div className="dh-stat-card">
-                    <div className="dh-stat-icon" style={{ background: '#d1fae5' }}><span className="material-symbols-outlined" style={{ fontSize: 20, color: '#10b981' }}>storefront</span></div>
-                    <div><div className="dh-stat-label">Cửa hàng</div><div className="dh-stat-val">{STORES.length}</div></div>
-                </div>
-            </div>
 
             {/* ━━━ MAIN GRID ━━━ */}
             <div className="dh-main">
@@ -233,12 +242,11 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                         </div>
                     </div>
 
-                    <div className="dh-ctrl-card">
-                        <div className="dh-ctrl-hdr"><span className="material-symbols-outlined" style={{ fontSize: 18, color: '#f59e0b' }}>bolt</span><span className="dh-ctrl-title">Tác vụ nhanh</span></div>
-                        <button onClick={handleNewSession} className="dh-btn-reset"><span className="material-symbols-outlined" style={{ fontSize: 20 }}>restart_alt</span> Làm mới phiên</button>
+                    <div className="dh-ctrl-card dh-actions-card">
+                        <button onClick={handleNewSession} className="dh-btn-reset"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span> Làm mới phiên</button>
                         <button onClick={handleDistribute} disabled={!!processing || !products.length} className="dh-btn-dist">
-                            {processing === 'DISTRIBUTE' ? <><span className="material-symbols-outlined dh-spin" style={{ fontSize: 22 }}>sync</span> Đang xử lý...</> :
-                                <><span className="material-symbols-outlined" style={{ fontSize: 22 }}>send</span><div><div style={{ fontWeight: 800 }}>Phân phối</div><div style={{ fontSize: 11, opacity: 0.85 }}>{products.length} SP → {selectedStore === 'ALL' ? 'Tất cả' : selectedStore}</div></div></>}
+                            {processing === 'DISTRIBUTE' ? <><span className="material-symbols-outlined dh-spin" style={{ fontSize: 20 }}>sync</span> Đang xử lý...</> :
+                                <><span className="material-symbols-outlined" style={{ fontSize: 20 }}>send</span> Phân phối</>}
                         </button>
                     </div>
 
@@ -291,6 +299,17 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                     </button>
                 </div>
             </div></div>)}
+
+            {/* CONFIRM MODAL */}
+            <ConfirmModal
+                isOpen={!!confirmAction}
+                title={confirmAction?.type === 'distribute' ? 'Phân phối sản phẩm' : 'Làm mới phiên'}
+                message={confirmAction?.message || ''}
+                variant={confirmAction?.type === 'distribute' ? 'info' : 'warning'}
+                confirmText={confirmAction?.type === 'distribute' ? 'Phân phối' : 'Xác nhận'}
+                onConfirm={() => { confirmAction?.type === 'distribute' ? executeDistribute() : executeNewSession(); }}
+                onCancel={() => setConfirmAction(null)}
+            />
         </div>
     );
 };
@@ -300,15 +319,6 @@ export default DistributionHub;
 /* ══════ CSS ══════ */
 const CSS_TEXT = `
 .dh-root { display:flex; flex-direction:column; gap:20px; padding-top:20px; height:calc(100vh - 140px); min-height:0; }
-
-/* Summary Strip */
-.dh-summary { display:flex; gap:12px; flex-shrink:0; overflow-x:auto; }
-.dh-stat-card { display:flex; align-items:center; gap:12px; padding:14px 20px; background:#fff; border-radius:14px; border:1px solid #e5e7eb; min-width:120px; flex:1 0 auto; transition:box-shadow .25s,border-color .25s; }
-.dh-stat-card:hover { box-shadow:0 4px 16px -4px rgba(0,0,0,.07); border-color:#c7d2fe; }
-.dh-stat-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
-.dh-stat-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.dh-stat-label { font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.04em; }
-.dh-stat-val { font-size:20px; font-weight:800; color:#1e293b; line-height:1.2; }
 
 /* Main Grid */
 .dh-main { display:flex; gap:20px; flex:1; min-height:0; }
@@ -393,12 +403,15 @@ const CSS_TEXT = `
 .dh-shift.active { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:#6366f1; box-shadow:0 4px 12px -2px rgba(99,102,241,.35); }
 
 /* Action Buttons */
-.dh-btn-reset { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:11px 0; border-radius:10px; border:1.5px solid #e2e8f0; background:#fff; color:#64748b; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; margin-bottom:10px; }
+.dh-actions-card { display:flex; flex-direction:column; gap:10px; }
+.dh-btn-reset { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:10px 0; border-radius:10px; border:1.5px solid #e2e8f0; background:#fff; color:#64748b; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
 .dh-btn-reset:hover { border-color:#fca5a5; color:#ef4444; background:#fef2f2; }
-.dh-btn-dist { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; padding:14px 0; border-radius:12px; border:none; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; font-size:14px; cursor:pointer; box-shadow:0 8px 24px -4px rgba(99,102,241,.4); transition:transform .18s,box-shadow .25s; }
-.dh-btn-dist:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 12px 32px -6px rgba(99,102,241,.5); }
-.dh-btn-dist:active:not(:disabled) { transform:translateY(0) scale(.97); }
-.dh-btn-dist:disabled { opacity:.55; cursor:not-allowed; }
+.dh-btn-dist { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:13px 16px; border-radius:12px; border:none; background:#4f46e5; color:#fff; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; position:relative; overflow:hidden; }
+.dh-btn-dist::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,transparent 60%); pointer-events:none; }
+.dh-btn-dist:hover:not(:disabled) { background:#4338ca; transform:translateY(-1px); box-shadow:0 6px 20px -4px rgba(79,70,229,.45); }
+.dh-btn-dist:active:not(:disabled) { transform:translateY(0) scale(.98); }
+.dh-btn-dist:disabled { opacity:.45; cursor:not-allowed; }
+.dh-dist-badge { display:inline-flex; padding:2px 10px; background:rgba(255,255,255,.2); border-radius:20px; font-size:11px; font-weight:600; letter-spacing:.02em; backdrop-filter:blur(4px); }
 @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
 .dh-spin { animation:spin 1s linear infinite; }
 

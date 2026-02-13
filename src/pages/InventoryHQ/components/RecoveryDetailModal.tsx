@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RecoveryService } from '../../../services/recovery';
 import type { RecoveryItem, RecoveryHistoryEntry, RecoveryStatus } from '../../../types/recovery';
+import ConfirmModal from '../../../components/ConfirmModal';
 
 interface RecoveryDetailModalProps {
     item: RecoveryItem;
@@ -19,6 +20,7 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
     const [showRecoverModal, setShowRecoverModal] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [recoveredAmount, setRecoveredAmount] = useState<number>(currentItem.total_amount);
+    const [pendingConfirm, setPendingConfirm] = useState<{ type: 'approve' | 'inProgress' | 'cancel'; title: string; message: string } | null>(null);
 
     useEffect(() => {
         loadHistory();
@@ -48,8 +50,11 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
     };
 
     const handleApprove = async () => {
-        if (!confirm('Xác nhận duyệt phiếu truy thu này?')) return;
+        setPendingConfirm({ type: 'approve', title: 'Duyệt phiếu', message: 'Xác nhận duyệt phiếu truy thu này?' });
+    };
 
+    const executeApprove = async () => {
+        setPendingConfirm(null);
         setProcessing('APPROVE');
         try {
             const result = await RecoveryService.approveRecovery(currentItem.id);
@@ -93,8 +98,11 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
     };
 
     const handleMarkInProgress = async () => {
-        if (!confirm('Bắt đầu quá trình truy thu?')) return;
+        setPendingConfirm({ type: 'inProgress', title: 'Bắt đầu truy thu', message: 'Bắt đầu quá trình truy thu?' });
+    };
 
+    const executeMarkInProgress = async () => {
+        setPendingConfirm(null);
         setProcessing('IN_PROGRESS');
         try {
             const result = await RecoveryService.markInProgress(currentItem.id);
@@ -137,8 +145,11 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
     };
 
     const handleCancel = async () => {
-        if (!confirm('Xác nhận hủy phiếu truy thu này?')) return;
+        setPendingConfirm({ type: 'cancel', title: 'Hủy phiếu', message: 'Xác nhận hủy phiếu truy thu này?' });
+    };
 
+    const executeCancel = async () => {
+        setPendingConfirm(null);
         setProcessing('CANCEL');
         try {
             const result = await RecoveryService.cancelRecovery(currentItem.id);
@@ -471,6 +482,21 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={!!pendingConfirm}
+                title={pendingConfirm?.title || ''}
+                message={pendingConfirm?.message || ''}
+                variant={pendingConfirm?.type === 'cancel' ? 'danger' : 'info'}
+                confirmText={pendingConfirm?.type === 'approve' ? 'Duyệt' : pendingConfirm?.type === 'inProgress' ? 'Bắt đầu' : 'Hủy phiếu'}
+                onConfirm={() => {
+                    if (pendingConfirm?.type === 'approve') executeApprove();
+                    else if (pendingConfirm?.type === 'inProgress') executeMarkInProgress();
+                    else if (pendingConfirm?.type === 'cancel') executeCancel();
+                }}
+                onCancel={() => setPendingConfirm(null)}
+                loading={!!processing}
+            />
         </div>
     );
 };

@@ -83,7 +83,7 @@ export const TasksService = {
         if (isSupabaseConfigured()) {
             try {
                 let storeId = task.storeId;
-                if (task.storeId && task.storeId.length < 10) { // Simple check if code
+                if (task.storeId && task.storeId.length < 10) { 
                     const { data: store } = await supabase.from('stores').select('id').eq('code', task.storeId).single();
                     if (store) storeId = store.id;
                 }
@@ -92,6 +92,7 @@ export const TasksService = {
                     title: task.title,
                     type: task.type || 'AUDIT',
                     store_id: storeId,
+                    assignee_id: task.assigneeId || null,  
                     shift: task.shift,
                     status: 'NOT_STARTED',
                     target_items: task.targetItems || 0

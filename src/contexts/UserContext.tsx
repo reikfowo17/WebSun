@@ -1,16 +1,7 @@
-/**
- * UserContext - Global User State Management
- * 
- * Replaces prop drilling throughout the app.
- * Provides user authentication state and actions.
- */
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { User } from '../types';
 import { AuthService } from '../services/auth';
-
-// ===========================================================================
-// TYPES
-// ===========================================================================
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface UserContextType {
     user: User | null;
@@ -25,50 +16,95 @@ interface UserProviderProps {
     children: ReactNode;
 }
 
-// ===========================================================================
-// CONTEXT
-// ===========================================================================
-
 const UserContext = createContext<UserContextType | undefined>(undefined);
-
-// ===========================================================================
-// PROVIDER
-// ===========================================================================
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Check session on mount
+    // Check Supabase Auth session on mount + listen for auth state changes
     useEffect(() => {
-        const checkSession = async () => {
-            try {
-                const savedToken = sessionStorage.getItem('sunmart_token');
-                const savedUser = sessionStorage.getItem('sunmart_user');
+        let isMounted = true;
 
-                if (savedToken && savedUser) {
-                    const parsedUser = JSON.parse(savedUser) as User;
-                    // TODO: Verify token with backend
-                    setUser(parsedUser);
+        const initSession = async () => {
+            try {
+                if (!isSupabaseConfigured()) {
+                    // Check sessionStorage for mock mode
+                    const savedUser = sessionStorage.getItem('sunmart_user');
+                    if (savedUser && isMounted) {
+                        setUser(JSON.parse(savedUser) as User);
+                    }
+                    return;
+                }
+
+                // Check existing Supabase Auth session
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session?.user && isMounted) {
+                    // Fetch user profile from public.users
+                    const { data: userProfile } = await supabase
+                        .from('users')
+                        .select('id, username, name, role, store_id, xp, level, avatar_url')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (userProfile && isMounted) {
+                        const { data: store } = userProfile.store_id
+                            ? await supabase.from('stores').select('code, name').eq('id', userProfile.store_id).single()
+                            : { data: null };
+
+                        const mappedUser: User = {
+                            id: userProfile.id,
+                            name: userProfile.name,
+                            username: userProfile.username,
+                            role: userProfile.role || 'EMPLOYEE',
+                            store: store?.code || '',
+                            xp: userProfile.xp || 0,
+                            level: userProfile.level || 1,
+                            avatar: userProfile.avatar_url || '',
+                            avatarUrl: userProfile.avatar_url || '',
+                        };
+                        setUser(mappedUser);
+                    }
                 }
             } catch (error) {
                 console.error('[UserContext] Session check failed:', error);
-                sessionStorage.clear();
             } finally {
-                setIsLoading(false);
+                if (isMounted) setIsLoading(false);
             }
         };
 
-        checkSession();
+        initSession();
+
+        // Listen for Supabase Auth state changes (login, logout, token refresh)
+        let subscription: { unsubscribe: () => void } | null = null;
+
+        if (isSupabaseConfigured()) {
+            const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+                console.log('[UserContext] Auth state change:', event);
+
+                if (event === 'SIGNED_OUT' || !session) {
+                    if (isMounted) setUser(null);
+                }
+                // SIGNED_IN is handled by login() directly, not here
+                // to avoid double-fetching
+            });
+            subscription = data.subscription;
+        }
+
+        return () => {
+            isMounted = false;
+            subscription?.unsubscribe();
+        };
     }, []);
 
     const login = useCallback(async (username: string, password: string) => {
         try {
             const result = await AuthService.login(username, password);
 
-            if (result.success && result.user && result.token) {
+            if (result.success && result.user) {
                 setUser(result.user);
-                sessionStorage.setItem('sunmart_token', result.token);
+                // Also store in sessionStorage as backup for page refresh
                 sessionStorage.setItem('sunmart_user', JSON.stringify(result.user));
                 return { success: true };
             }
@@ -116,10 +152,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     );
 };
 
-// ===========================================================================
-// HOOK
-// ===========================================================================
-
 export const useUser = (): UserContextType => {
     const context = useContext(UserContext);
     if (context === undefined) {
@@ -127,10 +159,6 @@ export const useUser = (): UserContextType => {
     }
     return context;
 };
-
-// ===========================================================================
-// CONVENIENCE HOOKS
-// ===========================================================================
 
 export const useCurrentUser = (): User | null => {
     const { user } = useUser();
@@ -143,3 +171,4 @@ export const useIsAdmin = (): boolean => {
 };
 
 export default UserContext;
+

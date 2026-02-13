@@ -1,5 +1,20 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
+const NV_ALLOWED_FIELDS = ['actual_stock', 'note', 'diff_reason'] as const;
+const ADMIN_ALLOWED_FIELDS = [...NV_ALLOWED_FIELDS, 'system_stock', 'status'] as const;
+const MIN_CHECK_THRESHOLD = 0.95;
+
+export const DIFF_REASON_OPTIONS = [
+    { value: 'DAMAGED', label: 'Hàng hỏng', icon: 'broken_image' },
+    { value: 'EXPIRED', label: 'Hết hạn', icon: 'event_busy' },
+    { value: 'LOST', label: 'Mất mát', icon: 'search_off' },
+    { value: 'MISCOUNT', label: 'Nhầm lẫn nhập/xuất', icon: 'swap_horiz' },
+    { value: 'IN_TRANSIT', label: 'Đang vận chuyển', icon: 'local_shipping' },
+    { value: 'OTHER', label: 'Khác', icon: 'more_horiz' },
+] as const;
+
+export type DiffReason = typeof DIFF_REASON_OPTIONS[number]['value'];
+
 export interface InventoryProduct {
     id: string;
     productName: string;
@@ -10,6 +25,8 @@ export interface InventoryProduct {
     diff: number;
     status: 'PENDING' | 'MATCHED' | 'MISSING' | 'OVER';
     note: string;
+    diffReason?: DiffReason | null;
+    snapshotAt?: string | null;
 }
 
 export interface MasterItem {
@@ -83,10 +100,40 @@ export const InventoryService = {
         id: string,
         field: string,
         value: any,
-        userId?: string
+        userId?: string,
+        userRole?: 'ADMIN' | 'EMPLOYEE'
     ): Promise<{ success: boolean }> {
         if (!id || !field) {
             return { success: false };
+        }
+
+        const allowedFields = userRole === 'ADMIN'
+            ? ADMIN_ALLOWED_FIELDS as readonly string[]
+            : NV_ALLOWED_FIELDS as readonly string[];
+        if (!allowedFields.includes(field)) {
+            console.error(`[Inventory] SEC: Blocked update to '${field}' by role '${userRole || 'unknown'}'`);
+            return { success: false };
+        }
+
+        if (field === 'actual_stock' && value !== null && value !== '') {
+            const numVal = Number(value);
+            if (isNaN(numVal) || numVal < 0 || numVal > 99999) {
+                console.error(`[Inventory] SEC: Invalid actual_stock value: ${value}`);
+                return { success: false };
+            }
+        }
+
+        if (field === 'note' && typeof value === 'string' && value.length > 500) {
+            console.error(`[Inventory] SEC: Note too long: ${value.length} chars`);
+            return { success: false };
+        }
+
+        if (field === 'diff_reason' && value !== null) {
+            const validReasons = DIFF_REASON_OPTIONS.map(r => r.value);
+            if (!validReasons.includes(value)) {
+                console.error(`[Inventory] SEC: Invalid diff_reason: ${value}`);
+                return { success: false };
+            }
         }
 
         if (isSupabaseConfigured()) {
@@ -96,7 +143,7 @@ export const InventoryService = {
                     updated_at: new Date().toISOString(),
                 };
 
-                if (field === 'actual_stock' && value !== null) {
+                if (field === 'actual_stock' && value !== null && value !== '') {
                     const { data: itemData } = await supabase
                         .from('inventory_items')
                         .select('system_stock')
@@ -133,14 +180,15 @@ export const InventoryService = {
         shift: number,
         userId: string
     ): Promise<{ success: boolean; message?: string }> {
-        // Input validation
         if (!storeCode || !shift || !userId) {
             return { success: false, message: 'Thiếu thông tin bắt buộc' };
+        }
+        if (shift < 1 || shift > 3) {
+            return { success: false, message: 'Ca không hợp lệ' };
         }
 
         if (isSupabaseConfigured()) {
             try {
-                // Get store ID
                 const { data: store } = await supabase
                     .from('stores')
                     .select('id')
@@ -151,7 +199,6 @@ export const InventoryService = {
                     return { success: false, message: 'Cửa hàng không tồn tại' };
                 }
 
-                // Get current inventory items
                 const { data: items, error: itemsError } = await supabase
                     .from('inventory_items')
                     .select('*')
@@ -161,6 +208,26 @@ export const InventoryService = {
                 if (itemsError) throw itemsError;
                 if (!items || items.length === 0) {
                     return { success: false, message: 'Không có dữ liệu kiểm kê' };
+                }
+
+                const checkedItems = items.filter((i: any) => i.actual_stock !== null);
+                const checkPercent = checkedItems.length / items.length;
+                if (checkPercent < MIN_CHECK_THRESHOLD) {
+                    const needed = Math.ceil(items.length * MIN_CHECK_THRESHOLD) - checkedItems.length;
+                    return {
+                        success: false,
+                        message: `Cần kiểm thêm ${needed} sản phẩm nữa (tối thiểu ${Math.round(MIN_CHECK_THRESHOLD * 100)}%)`
+                    };
+                }
+
+                const unreasonedItems = items.filter((i: any) =>
+                    i.actual_stock !== null && i.diff !== 0 && !i.diff_reason
+                );
+                if (unreasonedItems.length > 0) {
+                    return {
+                        success: false,
+                        message: `Còn ${unreasonedItems.length} sản phẩm chênh lệch chưa có lý do`
+                    };
                 }
 
                 // Create history records
@@ -175,6 +242,7 @@ export const InventoryService = {
                     diff: item.diff,
                     status: item.status,
                     note: item.note,
+                    diff_reason: item.diff_reason || null,
                     checked_by: userId,
                 }));
 
@@ -192,6 +260,7 @@ export const InventoryService = {
                         check_date: checkDate,
                         shift: shift,
                         submitted_by: userId,
+                        submitted_at: new Date().toISOString(),
                         status: 'PENDING'
                     }, { onConflict: 'store_id,check_date,shift' });
 
@@ -199,7 +268,7 @@ export const InventoryService = {
 
                 return {
                     success: true,
-                    message: `Đã lưu lịch sử kiểm kê (${items.length} SP)`
+                    message: `Đã lưu lịch sử kiểm kê (${checkedItems.length}/${items.length} SP)`
                 };
             } catch (e: any) {
                 console.error('[Inventory] Submit report error:', e);
@@ -288,10 +357,14 @@ export const InventoryService = {
 
     async distributeToStore(
         storeCode: string,
-        shift: number
+        shift: number,
+        stockMap?: Record<string, number> 
     ): Promise<{ success: boolean; message?: string }> {
         if (!storeCode || !shift) {
             return { success: false, message: 'Thiếu thông tin bắt buộc' };
+        }
+        if (shift < 1 || shift > 3) {
+            return { success: false, message: 'Ca không hợp lệ (1-3)' };
         }
 
         if (isSupabaseConfigured()) {
@@ -299,7 +372,7 @@ export const InventoryService = {
                 // Get store ID
                 const { data: store } = await supabase
                     .from('stores')
-                    .select('id')
+                    .select('id, kiotviet_branch_name')
                     .eq('code', storeCode)
                     .single();
 
@@ -307,36 +380,45 @@ export const InventoryService = {
                     return { success: false, message: 'Cửa hàng không tồn tại' };
                 }
 
-                // Get all products
                 const { data: products } = await supabase
                     .from('products')
-                    .select('id');
+                    .select('id, barcode');
 
                 if (!products || products.length === 0) {
                     return { success: false, message: 'Không có sản phẩm' };
                 }
 
-                // Create inventory items
-                const today = new Date().toISOString().split('T')[0];
-                const inventoryItems = products.map((p: any) => ({
-                    store_id: store.id,
-                    product_id: p.id,
-                    shift: shift,
-                    check_date: today,
-                    system_stock: 0,
-                    actual_stock: null,
-                    status: 'PENDING' as const,
-                }));
+                const now = new Date().toISOString();
+                const today = now.split('T')[0];
+                const inventoryItems = products.map((p: any) => {
+                    const realStock = stockMap && p.barcode ? (stockMap[p.barcode] ?? 0) : 0;
+                    return {
+                        store_id: store.id,
+                        product_id: p.id,
+                        shift: shift,
+                        check_date: today,
+                        system_stock: realStock,
+                        actual_stock: null,
+                        diff: null,
+                        diff_reason: null,
+                        status: 'PENDING' as const,
+                        snapshot_at: stockMap ? now : null,
+                    };
+                });
 
                 const { error } = await supabase
                     .from('inventory_items')
-                    .insert(inventoryItems);
+                    .upsert(inventoryItems, {
+                        onConflict: 'store_id,product_id,shift,check_date',
+                        ignoreDuplicates: true
+                    });
 
                 if (error) throw error;
 
+                const hasStock = stockMap ? ' (có dữ liệu KiotViet)' : ' (chưa có KiotViet)';
                 return {
                     success: true,
-                    message: `Đã phân phối ${products.length} sản phẩm`
+                    message: `Đã phân phối ${products.length} sản phẩm${hasStock}`
                 };
             } catch (e: any) {
                 console.error('[Inventory] Distribute error:', e);
@@ -393,16 +475,18 @@ export const InventoryService = {
         return { success: false, data: [] };
     },
 
-    // ======================= MASTER ITEM MANAGEMENT =======================
-
     async updateMasterItem(id: string, data: {
         name?: string;
         barcode?: string;
         unit?: string;
         category?: string;
         unit_price?: number;
-    }): Promise<{ success: boolean; error?: string }> {
+    }, userRole?: string): Promise<{ success: boolean; error?: string }> {
         if (!id) return { success: false, error: 'ID sản phẩm không hợp lệ' };
+        if (userRole !== 'ADMIN') {
+            console.error(`[Inventory] SEC-4: Unauthorized updateMasterItem by role '${userRole}'`);
+            return { success: false, error: 'Chỉ Admin mới có quyền sửa sản phẩm' };
+        }
 
         if (isSupabaseConfigured()) {
             try {
@@ -410,7 +494,7 @@ export const InventoryService = {
 
                 const { error } = await supabase
                     .from('products')
-                    .update(data) // updated_at auto-updated by trigger
+                    .update(data)
                     .eq('id', id);
 
                 if (error) {
@@ -428,8 +512,12 @@ export const InventoryService = {
         return { success: false, error: 'Database disconnected' };
     },
 
-    async deleteMasterItem(id: string): Promise<{ success: boolean; error?: string }> {
+    async deleteMasterItem(id: string, userRole?: string): Promise<{ success: boolean; error?: string }> {
         if (!id) return { success: false, error: 'ID sản phẩm không hợp lệ' };
+        if (userRole !== 'ADMIN') {
+            console.error(`[Inventory] Unauthorized deleteMasterItem by role '${userRole}'`);
+            return { success: false, error: 'Chỉ Admin mới có quyền xóa sản phẩm' };
+        }
 
         if (isSupabaseConfigured()) {
             try {
@@ -502,8 +590,6 @@ export const InventoryService = {
         return { success: false, imported: 0, errors: ['Database disconnected'] };
     },
 
-    // ======================= STORE MANAGEMENT =======================
-
     async getStores(): Promise<{ success: boolean; stores: any[] }> {
         if (isSupabaseConfigured()) {
             try {
@@ -525,8 +611,7 @@ export const InventoryService = {
     async updateStore(id: string, data: {
         name?: string;
         code?: string;
-        is_active?: boolean;
-        shifts_enabled?: number[];
+        address?: string;
     }): Promise<{ success: boolean; error?: string }> {
         if (!id) return { success: false, error: 'ID cửa hàng không hợp lệ' };
 
@@ -534,10 +619,7 @@ export const InventoryService = {
             try {
                 const { error } = await supabase
                     .from('stores')
-                    .update({
-                        ...data,
-                        updated_at: new Date().toISOString()
-                    })
+                    .update(data)
                     .eq('id', id);
 
                 if (error) throw error;
@@ -565,7 +647,6 @@ export const InventoryService = {
                     .insert([{
                         name: data.name,
                         code: data.code.toUpperCase(),
-                        is_active: true
                     }]);
 
                 if (error) throw error;
@@ -611,34 +692,40 @@ export const InventoryService = {
                 const { data, error } = await query;
                 if (error) throw error;
 
-                // Get stats for each report
-                const reportsWithStats = await Promise.all((data || []).map(async (report: any) => {
-                    const { data: items } = await supabase
-                        .from('inventory_history')
-                        .select('status')
-                        .eq('store_id', report.stores.id)
-                        .eq('shift', report.shift)
-                        .eq('check_date', report.check_date);
+                const reportsList = data || [];
+                const storeIds = [...new Set(reportsList.map((r: any) => r.stores?.id).filter(Boolean))];
+                const { data: allStats } = storeIds.length > 0
+                    ? await supabase
+                        .from('inventory_report_stats')
+                        .select('store_id, check_date, shift, total_items, matched_items, missing_items, over_items')
+                        .in('store_id', storeIds)
+                    : { data: [] };
 
-                    const stats = (items || []).reduce((acc: any, item: any) => {
-                        acc.total++;
-                        if (item.status === 'MATCHED') acc.matched++;
-                        if (item.status === 'MISSING') acc.missing++;
-                        if (item.status === 'OVER') acc.over++;
-                        return acc;
-                    }, { total: 0, matched: 0, missing: 0, over: 0 });
+                // Create a lookup map for stats
+                const statsMap = new Map<string, any>();
+                (allStats || []).forEach((s: any) => {
+                    const key = `${s.store_id}_${s.check_date}_${s.shift}`;
+                    statsMap.set(key, s);
+                });
+
+                const reportsWithStats = reportsList.map((report: any) => {
+                    const key = `${report.stores?.id}_${report.check_date}_${report.shift}`;
+                    const stats = statsMap.get(key);
 
                     return {
                         id: report.id,
-                        store: report.stores.code,
+                        store: report.stores?.code,
                         shift: report.shift,
                         date: report.check_date,
                         submittedBy: report.users?.name || 'Unknown',
                         submittedAt: report.created_at,
                         status: report.status,
-                        ...stats
+                        total: stats?.total_items || 0,
+                        matched: stats?.matched_items || 0,
+                        missing: stats?.missing_items || 0,
+                        over: stats?.over_items || 0
                     };
-                }));
+                });
 
                 return { success: true, reports: reportsWithStats };
             } catch (e) {
@@ -730,6 +817,13 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
+                const { data: report, error: fetchErr } = await supabase
+                    .from('inventory_reports')
+                    .select('store_id, check_date, shift')
+                    .eq('id', reportId)
+                    .single();
+                if (fetchErr) throw fetchErr;
+
                 const { error } = await supabase
                     .from('inventory_reports')
                     .update({
@@ -741,6 +835,21 @@ export const InventoryService = {
                     .eq('id', reportId);
 
                 if (error) throw error;
+
+                if (status === 'APPROVED' && report) {
+                    const { error: stockErr } = await supabase.rpc(
+                        'apply_approved_stock_update',
+                        {
+                            p_store_id: report.store_id,
+                            p_check_date: report.check_date,
+                            p_shift: report.shift
+                        }
+                    );
+                    if (stockErr) {
+                        console.warn('[Inventory] Stock update RPC failed (non-blocking):', stockErr);
+                    }
+                }
+
                 return { success: true };
             } catch (e: any) {
                 console.error('[Inventory] Review report error:', e);
@@ -789,8 +898,7 @@ export const InventoryService = {
             // Get all stores with their inventory items for the date
             const { data: storesData, error: storesError } = await supabase
                 .from('stores')
-                .select('id, code, name, bg_color, color')
-                .eq('active', true)
+                .select('id, code, name')
                 .order('code');
 
             if (storesError) throw storesError;
@@ -821,23 +929,15 @@ export const InventoryService = {
 
             if (reportsError) throw reportsError;
 
-            // Build store progress map
             const stores = (storesData || []).map(store => {
-                // Get items for this store
                 const storeItems = (itemsData || []).filter(item => item.store_id === store.id);
-
-                // Get report for this store (assuming 1 report per store per day)
                 const storeReport = (reportsData || []).find(r => r.store_id === store.id);
-
-                // Calculate progress
                 const total = storeItems.length;
                 const checked = storeItems.filter(item => item.actual_stock !== null).length;
                 const matched = storeItems.filter(item => item.status === 'MATCHED').length;
                 const missing = storeItems.filter(item => item.status === 'MISSING').length;
                 const over = storeItems.filter(item => item.status === 'OVER').length;
                 const percentage = total > 0 ? Math.round((checked / total) * 100) : 0;
-
-                // Get last update time
                 const lastUpdate = storeItems.length > 0
                     ? storeItems.reduce((latest, item) => {
                         const itemTime = new Date(item.updated_at || 0).getTime();
@@ -849,7 +949,7 @@ export const InventoryService = {
                     id: store.id,
                     code: store.code,
                     name: store.name,
-                    color: store.color || '#6B7280',
+                    color: '#6B7280',
                     shift: storeItems[0]?.shift || 1,
                     employee: (storeReport?.users && typeof storeReport.users === 'object' && 'id' in storeReport.users) ? {
                         id: (storeReport.users as any).id,
@@ -888,10 +988,6 @@ export const InventoryService = {
         }
     },
 
-    // ============================================================================
-    // REPORT COMMENTS
-    // ============================================================================
-
     async getReportComments(reportId: string): Promise<{ success: boolean; comments?: any[] }> {
         if (!isSupabaseConfigured()) {
             return { success: false };
@@ -907,8 +1003,7 @@ export const InventoryService = {
                     updated_at,
                     users (
                         id,
-                        name,
-                        email
+                        name
                     )
                 `)
                 .eq('report_id', reportId)
@@ -921,7 +1016,7 @@ export const InventoryService = {
                 comment: c.comment,
                 created_at: c.created_at,
                 updated_at: c.updated_at,
-                user_name: c.users?.name || c.users?.email || 'Unknown',
+                user_name: c.users?.name || 'Unknown',
                 user_id: c.users?.id
             }));
 
@@ -932,12 +1027,10 @@ export const InventoryService = {
         }
     },
 
-    /**
-     * Add comment to a report
-     */
     async addReportComment(
         reportId: string,
-        comment: string
+        comment: string,
+        userId?: string
     ): Promise<{ success: boolean; error?: string }> {
         if (!isSupabaseConfigured()) {
             return { success: false, error: 'Database not configured' };
@@ -948,8 +1041,12 @@ export const InventoryService = {
         }
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
+            let resolvedUserId = userId;
+            if (!resolvedUserId) {
+                const { data: { session } } = await supabase.auth.getSession();
+                resolvedUserId = session?.user?.id;
+            }
+            if (!resolvedUserId) {
                 return { success: false, error: 'Not logged in' };
             }
 
@@ -959,7 +1056,7 @@ export const InventoryService = {
                 .from('inventory_report_comments')
                 .insert([{
                     report_id: reportId,
-                    user_id: session.user.id,
+                    user_id: resolvedUserId,
                     comment: comment.trim()
                 }]);
 
@@ -976,9 +1073,6 @@ export const InventoryService = {
         }
     },
 
-    /**
-     * Update a comment
-     */
     async updateReportComment(
         commentId: string,
         newComment: string
@@ -1005,9 +1099,6 @@ export const InventoryService = {
         }
     },
 
-    /**
-     * Delete a comment
-     */
     async deleteReportComment(commentId: string): Promise<{ success: boolean; error?: string }> {
         if (!isSupabaseConfigured()) {
             return { success: false, error: 'Database not configured' };

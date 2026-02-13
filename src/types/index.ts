@@ -6,7 +6,7 @@ export interface User {
     store: string;
     xp: number;
     level: number;
-    avatar: string;  // For backward compatibility
+    avatar: string; 
     avatarUrl?: string;
 }
 
@@ -15,11 +15,16 @@ export interface Task {
     title: string;
     description?: string;
     type: 'INVENTORY' | 'EXPIRY' | 'RECOVERY' | 'OTHER' | 'AUDIT' | 'GENERAL';
-    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+    status: 'NOT_STARTED' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'SUBMITTED';
     assignee: string;
+    assigneeId?: string;
+    storeId?: string;
+    storeName?: string;
     target_items: number;
     completed_items: number;
+    progress?: number;
     dueDate?: string;
+    shift?: number;
 }
 
 
@@ -42,7 +47,7 @@ export interface Product {
 }
 
 export interface InventoryProduct {
-    id: string | number;
+    id: string;
     productName: string;
     barcode?: string;
     pvn?: string;
@@ -109,5 +114,4 @@ export type ViewName =
     | 'RECOVERY_HUB'
     | 'PROFILE';
 
-// Re-export recovery types
 export * from './recovery';

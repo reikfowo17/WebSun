@@ -1,14 +1,5 @@
-/**
- * Expiry Service
- * 
- * Handles expiry date tracking and management
- */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { ExpiryProduct } from '../types';
-
-// ===========================================================================
-// TYPES
-// ===========================================================================
 
 export type { ExpiryProduct };
 
@@ -31,10 +22,6 @@ export interface ExpiryReport {
     status: 'SUBMITTED' | 'REVIEWED';
 }
 
-// ===========================================================================
-// UTILITY FUNCTIONS
-// ===========================================================================
-
 const getDaysLeft = (expiryDate: string | null): number => {
     if (!expiryDate) return 999;
     const today = new Date();
@@ -44,23 +31,16 @@ const getDaysLeft = (expiryDate: string | null): number => {
     return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const getStatus = (daysLeft: number): string => {
+const getStatus = (daysLeft: number, nearExpiryDays: number = 30): string => {
     if (daysLeft < 0) return 'Hết hạn';
-    if (daysLeft <= 30) return 'Cận hạn';
+    if (daysLeft <= nearExpiryDays) return 'Cận hạn';
     return 'Còn hạn';
 };
-
-// ===========================================================================
-// EXPIRY SERVICE
-// ===========================================================================
 
 export const ExpiryService = {
     getDaysLeft,
     getStatus,
 
-    /**
-     * Get expiry items for a store and type
-     */
     async getItems(
         store: string,
         type: string
@@ -151,7 +131,6 @@ export const ExpiryService = {
                 const dbUpdates: any = {};
                 if (updates.enabled !== undefined) dbUpdates.enabled = updates.enabled;
                 if (updates.nearExpiryDays !== undefined) dbUpdates.near_expiry_days = updates.nearExpiryDays;
-                // Add others if needed
 
                 const { error } = await supabase
                     .from('expiry_configs')
@@ -224,7 +203,7 @@ export const ExpiryService = {
                 .from('expiry_reports')
                 .insert({
                     store_id: store.id,
-                    check_date: new Date().toISOString(),
+                    check_date: new Date().toISOString().split('T')[0],  
                     scanned_count: scannedCount,
                     near_expiry_count: nearExpiryCount,
                     expired_count: expiredCount,

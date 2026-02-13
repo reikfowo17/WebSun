@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { useToast } from '../contexts';
 import { ExpiryService, ExpiryConfig, ExpiryReport } from '../services';
+import ConfirmModal from '../components/ConfirmModal';
 
 const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     const toast = useToast();
@@ -87,9 +88,16 @@ const ExpiryConfigView: React.FC<{ toast: any }> = ({ toast }) => {
         setLoading(false);
     };
 
-    const handleToggle = async (cfg: ExpiryConfig) => {
-        if (!confirm(`Xác nhận ${cfg.enabled ? 'tắt' : 'bật'} cấu hình này?`)) return;
+    const [pendingToggle, setPendingToggle] = useState<ExpiryConfig | null>(null);
 
+    const handleToggle = (cfg: ExpiryConfig) => {
+        setPendingToggle(cfg);
+    };
+
+    const executeToggle = async () => {
+        if (!pendingToggle) return;
+        const cfg = pendingToggle;
+        setPendingToggle(null);
         const res = await ExpiryService.updateConfig(cfg.id, { enabled: !cfg.enabled });
         if (res.success) {
             toast.success('Đã cập nhật cấu hình');
@@ -147,6 +155,16 @@ const ExpiryConfigView: React.FC<{ toast: any }> = ({ toast }) => {
                 <span className="material-symbols-outlined text-3xl">add_circle</span>
                 <span className="font-bold text-sm">Thêm Cấu Hình Loại SP</span>
             </button>
+
+            <ConfirmModal
+                isOpen={!!pendingToggle}
+                title="Thay đổi cấu hình"
+                message={pendingToggle ? `Xác nhận ${pendingToggle.enabled ? 'tắt' : 'bật'} cấu hình này?` : ''}
+                variant="warning"
+                confirmText="Xác nhận"
+                onConfirm={executeToggle}
+                onCancel={() => setPendingToggle(null)}
+            />
         </div>
     );
 };

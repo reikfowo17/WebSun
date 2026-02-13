@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InventoryService } from '../../../services/inventory';
+import { useCurrentUser } from '../../../contexts';
+import ConfirmModal from '../../../components/ConfirmModal';
 
 interface ReportCommentsSectionProps {
     reportId: string;
@@ -16,12 +18,14 @@ interface Comment {
 }
 
 const ReportCommentsSection: React.FC<ReportCommentsSectionProps> = ({ reportId, toast }) => {
+    const currentUser = useCurrentUser();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editText, setEditText] = useState('');
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
     useEffect(() => {
         loadComments();
@@ -49,7 +53,7 @@ const ReportCommentsSection: React.FC<ReportCommentsSectionProps> = ({ reportId,
 
         setSubmitting(true);
         try {
-            const result = await InventoryService.addReportComment(reportId, newComment);
+            const result = await InventoryService.addReportComment(reportId, newComment, currentUser?.id);
             if (result.success) {
                 toast.success('Đã thêm bình luận');
                 setNewComment('');
@@ -96,8 +100,13 @@ const ReportCommentsSection: React.FC<ReportCommentsSectionProps> = ({ reportId,
     };
 
     const handleDelete = async (commentId: string) => {
-        if (!confirm('Xác nhận xóa bình luận này?')) return;
+        setDeleteTarget(commentId);
+    };
 
+    const executeDelete = async () => {
+        if (!deleteTarget) return;
+        const commentId = deleteTarget;
+        setDeleteTarget(null);
         try {
             const result = await InventoryService.deleteReportComment(commentId);
             if (result.success) {
@@ -268,6 +277,16 @@ const ReportCommentsSection: React.FC<ReportCommentsSectionProps> = ({ reportId,
                     ))
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={!!deleteTarget}
+                title="Xóa bình luận"
+                message="Xác nhận xóa bình luận này?"
+                variant="danger"
+                confirmText="Xóa"
+                onConfirm={executeDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </div>
     );
 };

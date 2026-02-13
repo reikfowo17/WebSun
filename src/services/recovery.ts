@@ -80,7 +80,6 @@ class RecoveryServiceClass {
             return { success: false, error: 'Database not configured' };
         }
 
-        // Validation
         if (!input.product_name) {
             return { success: false, error: 'Tên sản phẩm là bắt buộc' };
         }
@@ -191,6 +190,7 @@ class RecoveryServiceClass {
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
+                    status_enum: 'PENDING',
                     submitted_at: new Date().toISOString()
                 })
                 .eq('id', id)

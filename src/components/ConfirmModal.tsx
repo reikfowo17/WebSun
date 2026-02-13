@@ -12,86 +12,70 @@ export interface ConfirmModalProps {
     loading?: boolean;
 }
 
+const variantMap = {
+    danger: { icon: 'delete_forever', iconBg: '#fef2f2', iconColor: '#dc2626', btnBg: '#dc2626', btnHover: '#b91c1c' },
+    warning: { icon: 'warning', iconBg: '#fffbeb', iconColor: '#d97706', btnBg: '#d97706', btnHover: '#b45309' },
+    info: { icon: 'help', iconBg: '#eef2ff', iconColor: '#4f46e5', btnBg: '#4f46e5', btnHover: '#4338ca' },
+};
+
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
-    isOpen,
-    title = 'Xác nhận hành động',
-    message,
-    confirmText = 'Xác nhận',
-    cancelText = 'Hủy bỏ',
-    variant = 'warning',
-    onConfirm,
-    onCancel,
-    loading = false
+    isOpen, title = 'Xác nhận', message, confirmText = 'Xác nhận',
+    cancelText = 'Hủy', variant = 'warning', onConfirm, onCancel, loading = false,
 }) => {
     if (!isOpen) return null;
-
-    const variantStyles = {
-        danger: {
-            icon: 'delete_forever',
-            iconBg: 'bg-red-100',
-            iconColor: 'text-red-600',
-            buttonBg: 'bg-red-600 hover:bg-red-700',
-            shadow: 'shadow-red-200'
-        },
-        warning: {
-            icon: 'warning',
-            iconBg: 'bg-amber-100',
-            iconColor: 'text-amber-600',
-            buttonBg: 'bg-amber-600 hover:bg-amber-700',
-            shadow: 'shadow-amber-200'
-        },
-        info: {
-            icon: 'help',
-            iconBg: 'bg-indigo-100',
-            iconColor: 'text-indigo-600',
-            buttonBg: 'bg-indigo-600 hover:bg-indigo-700',
-            shadow: 'shadow-indigo-200'
-        }
-    };
-
-    const styles = variantStyles[variant];
+    const v = variantMap[variant];
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl w-full max-w-[400px] shadow-2xl animate-in zoom-in-95 duration-200">
-                {/* Icon */}
-                <div className="flex flex-col items-center pt-8 pb-4">
-                    <div className={`w-14 h-14 rounded-full ${styles.iconBg} flex items-center justify-center mb-4`}>
-                        <span className={`material-symbols-outlined text-3xl ${styles.iconColor}`}>
-                            {styles.icon}
-                        </span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+        <div style={S.overlay} onClick={onCancel}>
+            <div style={S.card} onClick={e => e.stopPropagation()}>
+                <div style={{ ...S.iconWrap, background: v.iconBg }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 28, color: v.iconColor }}>{v.icon}</span>
                 </div>
-
-                {/* Message */}
-                <div className="px-6 pb-6">
-                    <p className="text-center text-gray-600 text-sm">{message}</p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 px-6 pb-6">
+                <h3 style={S.title}>{title}</h3>
+                <p style={S.msg}>{message}</p>
+                <div style={S.actions}>
+                    <button style={S.cancelBtn} onClick={onCancel} disabled={loading}>{cancelText}</button>
                     <button
-                        onClick={onCancel}
-                        disabled={loading}
-                        className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+                        style={{ ...S.confirmBtn, background: v.btnBg, opacity: loading ? 0.6 : 1 }}
+                        onClick={onConfirm} disabled={loading}
                     >
-                        {cancelText}
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={loading}
-                        className={`flex-1 py-2.5 px-4 text-white font-bold text-sm rounded-xl transition-all shadow-lg ${styles.buttonBg} ${styles.shadow} disabled:opacity-50 flex items-center justify-center gap-2`}
-                    >
-                        {loading && (
-                            <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                        )}
+                        {loading && <span className="material-symbols-outlined" style={{ fontSize: 16, animation: 'spin 1s linear infinite' }}>sync</span>}
                         {confirmText}
                     </button>
                 </div>
             </div>
         </div>
     );
+};
+
+const S: Record<string, React.CSSProperties> = {
+    overlay: {
+        position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)',
+        zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        animation: 'fadeIn .15s ease',
+    },
+    card: {
+        background: '#fff', borderRadius: 20, width: '100%', maxWidth: 380, padding: '32px 28px 24px',
+        textAlign: 'center', boxShadow: '0 25px 60px -12px rgba(0,0,0,.25)',
+        animation: 'fadeIn .2s ease',
+    },
+    iconWrap: {
+        width: 56, height: 56, borderRadius: '50%', display: 'inline-flex',
+        alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    },
+    title: { fontSize: 17, fontWeight: 800, color: '#1e293b', margin: '0 0 8px' },
+    msg: { fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: '0 0 20px' },
+    actions: { display: 'flex', gap: 10 },
+    cancelBtn: {
+        flex: 1, padding: '11px 16px', background: '#f1f5f9', color: '#475569',
+        border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+    },
+    confirmBtn: {
+        flex: 1, padding: '11px 16px', color: '#fff', border: 'none', borderRadius: 10,
+        fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex',
+        alignItems: 'center', justifyContent: 'center', gap: 6,
+        boxShadow: '0 4px 14px -3px rgba(0,0,0,.25)',
+    },
 };
 
 export default ConfirmModal;

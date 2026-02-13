@@ -1,16 +1,10 @@
-/**
- * Services barrel export
- * 
- * Import services from here instead of individual files
- */
-
 // Auth
 export { AuthService } from './auth';
 export type { LoginResult, RegisterResult } from './auth';
 
 // Inventory
-export { InventoryService } from './inventory';
-export type { InventoryProduct, MasterItem } from './inventory';
+export { InventoryService, DIFF_REASON_OPTIONS } from './inventory';
+export type { InventoryProduct, MasterItem, DiffReason } from './inventory';
 
 // Expiry
 export { ExpiryService } from './expiry';

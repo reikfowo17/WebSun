@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, InventoryProduct } from '../types';
-import { InventoryService } from '../services';
+import { InventoryService, DIFF_REASON_OPTIONS } from '../services';
+import type { DiffReason } from '../services/inventory';
 import { useToast } from '../contexts';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -10,10 +11,6 @@ interface InventoryProps {
   onBack?: () => void;
 }
 
-/**
- * Config aligned with GAS SMInvLib.js
- * Shifts match the store operation hours
- */
 const INVENTORY_CONFIG = {
   SHIFTS: [
     { id: 1, name: 'Ca 1', time: '06:00 - 14:00', icon: 'wb_sunny', color: 'from-amber-400 to-orange-400' },
@@ -45,6 +42,8 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'CARD' | 'TABLE'>('CARD');
   const [showSyncModal, setShowSyncModal] = useState(false);
+  // E-1: Blind count — hide system_stock until employee finishes entering actual_stock
+  const [blindCount, setBlindCount] = useState(true);
   const [confirmSubmit, setConfirmSubmit] = useState<{
     show: boolean;
     message: string;
@@ -89,13 +88,15 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
         }
       } else if (field === 'note') {
         updated.note = value;
+      } else if (field === 'diffReason') {
+        (updated as any).diffReason = value || null;
       }
 
-      // Debounced save to backend
-      InventoryService.updateItem(String(p.id), field, value, user.id);
+      const backendField = field === 'actualStock' ? 'actual_stock' : field === 'diffReason' ? 'diff_reason' : field;
+      InventoryService.updateItem(String(p.id), backendField, value, user.id, (user as any).role || 'EMPLOYEE');
       return updated;
     }));
-  }, [user.id]);
+  }, [user.id, user]);
 
   const handleSubmit = () => {
     const pending = stats.pending;
@@ -135,6 +136,55 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
       setSubmitting(false);
     }
   };
+
+  const handlePrint = useCallback(() => {
+    if (products.length === 0) {
+      toast.error('Không có sản phẩm nào để in');
+      return;
+    }
+
+    const currentShiftInfo = INVENTORY_CONFIG.SHIFTS.find(s => s.id === shift)!;
+    const now = new Date();
+
+    const tableRows = products.map((p, i) => {
+      const sapoStr = p.systemStock != null ? String(p.systemStock) : '';
+      const thucTeStr = p.actualStock != null ? String(p.actualStock) : '';
+      const isChecked = sapoStr.trim() !== '' && thucTeStr.trim() !== '';
+      const nameStr = p.productName?.trim() || '';
+      const barcodeStr = (p.barcode || '').trim();
+      const barcodeLast6 = barcodeStr.length >= 6 ? '.....' + barcodeStr.slice(-6) : barcodeStr;
+
+      return `<tr class="${isChecked ? 'checked-row' : ''}">
+        <td class="stt-col">${i + 1}</td>
+        <td class="name-col">${nameStr}</td>
+        <td class="barcode-col">${barcodeLast6}</td>
+        <td class="sapo-col">${sapoStr}</td>
+        <td class="thucte-col">${thucTeStr}</td>
+      </tr>`;
+    }).join('');
+
+    // CSS from SMInvLib.js PRINT_CSS_CACHE — optimized for K80 thermal printers
+    const printCSS = `*{box-sizing:border-box}@media print{body{margin:0;padding:3mm;font-size:9px}.no-print{display:none}@page{size:80mm auto;margin:2mm}}body{font-family:"Segoe UI","Arial Unicode MS","Tahoma","Arial",sans-serif;margin:0;padding:3mm;font-size:9px;width:100%;max-width:80mm;line-height:1.2;color:#000}.header{text-align:center;margin-bottom:1mm;border-bottom:2px solid #000;padding-bottom:0.5mm}.header h2{margin:0;font-size:12px;font-weight:800;text-transform:uppercase;padding:0.5mm 1mm}.info{margin-bottom:2mm;font-size:8px;border-bottom:1px solid #ccc;padding:1mm 2mm}.info p{margin:1px 0;font-weight:500}.product-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:2mm}.product-table th{background:#fff;color:#000;font-weight:900;text-align:center;padding:1mm;border-bottom:1px solid #000;font-size:9px;text-transform:uppercase;white-space:nowrap}.product-table td{padding:1mm;border-bottom:1px solid #ccc;vertical-align:top;font-weight:600;color:#000}.product-table tr:nth-child(even){background:#f8f8f8}.stt-col{width:7%;text-align:center;font-weight:900;font-size:10px}.name-col{width:42%;text-align:left;padding-left:2mm;word-wrap:break-word;line-height:1.4;font-weight:700;font-size:9px}.barcode-col{width:15%;text-align:center;font-weight:800;font-size:10px;font-family:"Courier New",monospace;color:#333}.sapo-col,.thucte-col{width:18%;text-align:center;font-weight:800;font-size:10px}.checked-row{background:#e8f5e8!important}.checked-row .sapo-col,.checked-row .thucte-col{background:#d4edda;font-weight:bold;color:#155724}.footer{margin-top:2mm;text-align:center;font-size:7px;border-top:1px solid #ccc;padding:1mm}.footer p{margin:1px 0}`;
+
+    const html = `<!DOCTYPE html><html><head><title>Danh sách kiểm tra - ${user.store}</title><meta charset="UTF-8"><style>${printCSS}</style></head><body>
+      <div class="header"><h2>DANH SÁCH KIỂM TRA SẢN PHẨM</h2></div>
+      <div class="info"><p><strong>Ca:</strong> ${currentShiftInfo.name} (${currentShiftInfo.time}) | <strong>Cửa hàng:</strong> ${user.store} | <strong>Tổng SP:</strong> ${products.length}</p></div>
+      <table class="product-table">
+        <thead><tr><th class="stt-col">STT</th><th class="name-col">TÊN SẢN PHẨM</th><th class="barcode-col">BARCODE</th><th class="sapo-col">SAPO</th><th class="thucte-col">THỰC TẾ</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <div class="footer"><p>In lúc: ${now.toLocaleString('vi-VN')}</p></div>
+      <script>window.onload=()=>setTimeout(()=>window.print(),300);</script>
+    </body></html>`;
+
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } else {
+      toast.error('Trình duyệt chặn popup. Hãy cho phép popup để in.');
+    }
+  }, [products, shift, user.store, toast]);
 
   // Filtered products
   const filteredProducts = useMemo(() => {
@@ -189,6 +239,16 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Print Button */}
+            <button
+              onClick={handlePrint}
+              disabled={products.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-lg">print</span>
+              <span className="hidden sm:inline">In</span>
+            </button>
+
             {/* Sync Button */}
             <button
               onClick={() => setShowSyncModal(true)}
@@ -246,85 +306,6 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
 
       <main className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-6xl mx-auto space-y-6">
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {/* Total */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-100 p-4 relative overflow-hidden">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">inventory</span>
-                </div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Tổng SP</span>
-              </div>
-              <p className="text-2xl font-black text-gray-800">{stats.total}</p>
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-gray-100 rounded-full opacity-30" />
-            </div>
-
-            {/* Matched */}
-            <div
-              onClick={() => setFilterStatus(filterStatus === 'MATCHED' ? 'ALL' : 'MATCHED')}
-              className={`bg-white/70 backdrop-blur-sm rounded-2xl border p-4 relative overflow-hidden cursor-pointer transition-all hover:shadow-md ${filterStatus === 'MATCHED' ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">check_circle</span>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 uppercase">Khớp</span>
-              </div>
-              <p className="text-2xl font-black text-emerald-600">{stats.matched}</p>
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-emerald-100 rounded-full opacity-30" />
-            </div>
-
-            {/* Missing */}
-            <div
-              onClick={() => setFilterStatus(filterStatus === 'MISSING' ? 'ALL' : 'MISSING')}
-              className={`bg-white/70 backdrop-blur-sm rounded-2xl border p-4 relative overflow-hidden cursor-pointer transition-all hover:shadow-md ${filterStatus === 'MISSING' ? 'border-red-400 ring-2 ring-red-200' : 'border-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">trending_down</span>
-                </div>
-                <span className="text-[10px] font-bold text-red-600 uppercase">Thiếu</span>
-              </div>
-              <p className="text-2xl font-black text-red-600">{stats.missing}</p>
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-red-100 rounded-full opacity-30" />
-            </div>
-
-            {/* Over */}
-            <div
-              onClick={() => setFilterStatus(filterStatus === 'OVER' ? 'ALL' : 'OVER')}
-              className={`bg-white/70 backdrop-blur-sm rounded-2xl border p-4 relative overflow-hidden cursor-pointer transition-all hover:shadow-md ${filterStatus === 'OVER' ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-lg">trending_up</span>
-                </div>
-                <span className="text-[10px] font-bold text-blue-600 uppercase">Thừa</span>
-              </div>
-              <p className="text-2xl font-black text-blue-600">{stats.over}</p>
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-blue-100 rounded-full opacity-30" />
-            </div>
-
-            {/* Pending */}
-            <div
-              onClick={() => setFilterStatus(filterStatus === 'PENDING' ? 'ALL' : 'PENDING')}
-              className={`bg-white/70 backdrop-blur-sm rounded-2xl border p-4 relative overflow-hidden cursor-pointer transition-all hover:shadow-md ${filterStatus === 'PENDING' ? 'border-amber-400 ring-2 ring-amber-200' : 'border-gray-100'
-                }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center animate-pulse">
-                  <span className="material-symbols-outlined text-lg">pending</span>
-                </div>
-                <span className="text-[10px] font-bold text-amber-600 uppercase">Chờ</span>
-              </div>
-              <p className="text-2xl font-black text-amber-600">{stats.pending}</p>
-              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-amber-100 rounded-full opacity-30" />
-            </div>
-          </div>
 
           {/* Progress Bar */}
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-100 p-4">
@@ -433,12 +414,14 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                       </span>
                     </div>
 
-                    {/* Input Grid */}
+                    {/* Input Grid: Blind Count hides systemStock */}
                     <div className="grid grid-cols-3 gap-3 mb-4">
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1.5">Hệ thống</label>
                         <div className="h-11 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-center text-sm font-bold text-gray-600">
-                          {p.systemStock ?? '-'}
+                          {blindCount && p.actualStock === null ? (
+                            <span className="material-symbols-outlined text-gray-300 text-lg">visibility_off</span>
+                          ) : (p.systemStock ?? '-')}
                         </div>
                       </div>
                       <div>
@@ -462,10 +445,34 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                               ? 'bg-red-50 border-red-200 text-red-600'
                               : 'bg-blue-50 border-blue-200 text-blue-600'
                           }`}>
-                          {p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff}
+                          {blindCount && p.actualStock === null ? (
+                            <span className="material-symbols-outlined text-gray-300 text-lg">visibility_off</span>
+                          ) : (p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff)}
                         </div>
                       </div>
                     </div>
+
+                    {/* Discrepancy Reason: shown when diff != 0 */}
+                    {p.diff !== null && p.diff !== undefined && p.diff !== 0 && (
+                      <div className="mb-3">
+                        <label className="block text-[10px] uppercase font-bold text-amber-600 mb-1.5">
+                          <span className="material-symbols-outlined text-xs align-middle">report</span> Lý do chênh lệch
+                        </label>
+                        <select
+                          value={(p as any).diffReason || ''}
+                          onChange={e => updateField(String(p.id), 'diffReason', e.target.value)}
+                          className={`w-full h-10 px-3 border rounded-xl text-xs font-medium outline-none transition-all ${(p as any).diffReason
+                            ? 'bg-amber-50 border-amber-300 text-amber-800'
+                            : 'bg-red-50 border-red-300 text-red-600 animate-pulse'
+                            }`}
+                        >
+                          <option value="">-- Chọn lý do --</option>
+                          {DIFF_REASON_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     {/* Note */}
                     <input
@@ -487,9 +494,9 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                   <thead className="bg-gray-50/80 border-b border-gray-100">
                     <tr>
                       <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Sản phẩm</th>
-                      <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase w-24">Hệ thống</th>
+                      <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase w-24">{blindCount ? '🔒' : 'Hệ thống'}</th>
                       <th className="px-4 py-3 text-center text-[10px] font-bold text-primary uppercase w-28">Thực tế</th>
-                      <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase w-24">Chênh lệch</th>
+                      <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase w-24">{blindCount ? '🔒' : 'Chênh lệch'}</th>
                       <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase w-40">Ghi chú</th>
                     </tr>
                   </thead>
@@ -509,7 +516,11 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center font-bold text-gray-600">{p.systemStock ?? '-'}</td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-600">
+                            {blindCount && p.actualStock === null ? (
+                              <span className="material-symbols-outlined text-gray-300 text-sm">visibility_off</span>
+                            ) : (p.systemStock ?? '-')}
+                          </td>
                           <td className="px-4 py-3">
                             <input
                               type="number"
@@ -521,16 +532,20 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-block px-2 py-1 rounded-lg text-xs font-black ${p.diff === null || p.diff === undefined
-                              ? 'bg-gray-100 text-gray-400'
-                              : p.diff === 0
-                                ? 'bg-emerald-100 text-emerald-600'
-                                : p.diff < 0
-                                  ? 'bg-red-100 text-red-600'
-                                  : 'bg-blue-100 text-blue-600'
-                              }`}>
-                              {p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff}
-                            </span>
+                            {blindCount && p.actualStock === null ? (
+                              <span className="material-symbols-outlined text-gray-300 text-sm">visibility_off</span>
+                            ) : (
+                              <span className={`inline-block px-2 py-1 rounded-lg text-xs font-black ${p.diff === null || p.diff === undefined
+                                ? 'bg-gray-100 text-gray-400'
+                                : p.diff === 0
+                                  ? 'bg-emerald-100 text-emerald-600'
+                                  : p.diff < 0
+                                    ? 'bg-red-100 text-red-600'
+                                    : 'bg-blue-100 text-blue-600'
+                                }`}>
+                                {p.diff === null || p.diff === undefined ? '-' : p.diff > 0 ? `+${p.diff}` : p.diff}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <input
