@@ -29,7 +29,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [processing, setProcessing] = useState<string | null>(null);
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<any>(null);
-    const [productForm, setProductForm] = useState({ barcode: '', name: '', unit: '', category: '' });
+    const [productForm, setProductForm] = useState({ barcode: '', name: '', pvn: '', category: '' });
     const [confirmDelete, setConfirmDelete] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'newSession'; message: string } | null>(null);
@@ -72,25 +72,11 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setConfirmAction(null);
         setProcessing('DISTRIBUTE');
         try {
-            let stockMap: Record<string, number> | undefined;
-            try {
-                const { data: fnData, error: fnErr } = await (await import('../../lib/supabase')).supabase
-                    .functions.invoke('kiotviet-stock', {
-                        body: { storeCode: selectedStore === 'ALL' ? undefined : selectedStore }
-                    });
-                if (!fnErr && fnData?.stockMap) {
-                    stockMap = fnData.stockMap;
-                    toast.info('Đã lấy dữ liệu tồn kho KiotViet');
-                }
-            } catch {
-                console.warn('[DistributionHub] KiotViet stock fetch skipped');
-            }
-
             if (selectedStore === 'ALL') {
-                for (const s of STORES) { await InventoryService.distributeToStore(s.id, selectedShift, stockMap); }
+                for (const s of STORES) { await InventoryService.distributeToStore(s.id, selectedShift); }
                 toast.success(`Đã phân phối cho tất cả cửa hàng (Ca ${selectedShift})`);
             } else {
-                const r = await InventoryService.distributeToStore(selectedStore, selectedShift, stockMap);
+                const r = await InventoryService.distributeToStore(selectedStore, selectedShift);
                 r.success ? toast.success(r.message || 'Đã phân phối thành công!') : toast.error(r.message || 'Lỗi phân phối');
             }
         } catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); }
@@ -105,14 +91,14 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setProducts([]); setFilteredProducts([]); toast.info('Đã làm mới phiên làm việc');
     };
 
-    const openAddProduct = () => { setEditingProduct(null); setProductForm({ barcode: '', name: '', unit: '', category: '' }); setShowProductModal(true); };
-    const openEditProduct = (p: any) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', unit: p.unit || '', category: p.category || '' }); setShowProductModal(true); };
+    const openAddProduct = () => { setEditingProduct(null); setProductForm({ barcode: '', name: '', pvn: '', category: '' }); setShowProductModal(true); };
+    const openEditProduct = (p: any) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', pvn: p.pvn || '', category: p.category || '' }); setShowProductModal(true); };
 
     const saveProduct = async () => {
         if (!productForm.barcode || !productForm.name) { toast.error('Barcode và tên sản phẩm là bắt buộc'); return; }
         setProcessing('SAVE_PRODUCT');
         try {
-            const d = { barcode: productForm.barcode, name: productForm.name, unit: productForm.unit, category: productForm.category };
+            const d = { barcode: productForm.barcode, name: productForm.name, pvn: productForm.pvn, category: productForm.category };
             const r = editingProduct ? await InventoryService.updateMasterItem(editingProduct.id, d, 'ADMIN') : await InventoryService.addMasterItem(d);
             if (r.success) { toast.success(editingProduct ? 'Đã cập nhật' : 'Đã thêm mới'); setShowProductModal(false); loadMasterProducts(); }
             else toast.error(r.error || 'Có lỗi xảy ra');
@@ -179,17 +165,15 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                         ) : (
                             <table className="dh-table">
                                 <thead><tr>
-                                    <th style={{ width: 48, textAlign: 'center' }}>#</th>
+                                    <th style={{ width: 48, textAlign: 'center' }}>STT</th>
                                     <th style={{ width: 110 }}>Mã hàng</th>
                                     <th style={{ width: 140 }}>Mã vạch</th>
                                     <th>Tên sản phẩm</th>
-                                    <th style={{ width: 90 }}>Danh mục</th>
-                                    <th style={{ width: 56, textAlign: 'center' }}>ĐVT</th>
-                                    <th style={{ width: 76, textAlign: 'center' }}>Thao tác</th>
+                                    <th style={{ width: 100 }}>Danh mục</th>
                                 </tr></thead>
                                 <tbody>
                                     {filteredProducts.length === 0 ? (
-                                        <tr><td colSpan={7} className="dh-empty-td">
+                                        <tr><td colSpan={5} className="dh-empty-td">
                                             <div className="dh-empty"><div className="dh-empty-icon"><span className="material-symbols-outlined" style={{ fontSize: 40, color: '#d1d5db' }}>playlist_add</span></div>
                                                 <p className="dh-empty-title">Chưa có dữ liệu</p><p className="dh-empty-sub">Thêm sản phẩm hoặc import từ Excel</p>
                                                 <button onClick={loadMasterProducts} className="dh-empty-btn"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span> Tải lại</button></div>
@@ -200,13 +184,16 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                             <td style={{ textAlign: 'center' }}><span className="dh-rownum">{i + 1}</span></td>
                                             <td><span className="dh-code">{p.pvn || '---'}</span></td>
                                             <td><span className="dh-barcode">{p.barcode}</span></td>
-                                            <td><span className="dh-name">{p.name}</span></td>
+                                            <td>
+                                                <div className="dh-name-cell">
+                                                    <span className="dh-name">{p.name}</span>
+                                                    <div className="dh-actions">
+                                                        <button onClick={() => openEditProduct(p)} className="dh-act-btn" title="Sửa"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span></button>
+                                                        <button onClick={() => setConfirmDelete(p)} className="dh-act-btn dh-act-del" title="Xóa"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span></button>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td>{p.category && <span className="dh-cat" style={{ background: cs.bg, color: cs.text }}>{p.category}</span>}</td>
-                                            <td style={{ textAlign: 'center' }}><span className="dh-unit">{p.unit}</span></td>
-                                            <td style={{ textAlign: 'center' }}><div className="dh-actions">
-                                                <button onClick={() => openEditProduct(p)} className="dh-act-btn" title="Sửa"><span className="material-symbols-outlined" style={{ fontSize: 17 }}>edit</span></button>
-                                                <button onClick={() => setConfirmDelete(p)} className="dh-act-btn dh-act-del" title="Xóa"><span className="material-symbols-outlined" style={{ fontSize: 17 }}>delete</span></button>
-                                            </div></td>
                                         </tr>);
                                     })}
                                 </tbody>
@@ -268,16 +255,13 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                 <div className="dh-modal-body">
                     <div className="dh-form-group"><label className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>barcode</span> Barcode <span style={{ color: '#ef4444' }}>*</span></label>
                         <input value={productForm.barcode} onChange={e => setProductForm(p => ({ ...p, barcode: e.target.value }))} placeholder="8934567890123" className="dh-form-input" /></div>
+                    <div className="dh-form-group"><label className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>tag</span> Mã SP</label>
+                        <input value={productForm.pvn} onChange={e => setProductForm(p => ({ ...p, pvn: e.target.value }))} placeholder="SP001" className="dh-form-input" /></div>
                     <div className="dh-form-group"><label className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>label</span> Tên SP <span style={{ color: '#ef4444' }}>*</span></label>
                         <input value={productForm.name} onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))} placeholder="Bánh mì sữa tươi" className="dh-form-input" /></div>
-                    <div className="dh-form-row">
-                        <div style={{ flex: 1 }}><label className="dh-form-label">Đơn vị</label><select value={productForm.unit} onChange={e => setProductForm(p => ({ ...p, unit: e.target.value }))} className="dh-form-select">
-                            <option value="">Chọn...</option><option value="Cái">Cái</option><option value="Hộp">Hộp</option><option value="Lon">Lon</option><option value="Chai">Chai</option><option value="Kg">Kg</option><option value="Gói">Gói</option>
-                        </select></div>
-                        <div style={{ flex: 1 }}><label className="dh-form-label">Danh mục</label><select value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))} className="dh-form-select">
-                            <option value="">Chọn...</option><option value="Bánh Mì">Bánh Mì</option><option value="Thức Uống">Thức Uống</option><option value="Đồ Ăn Vặt">Đồ Ăn Vặt</option><option value="Tủ Mát">Tủ Mát</option><option value="Đông Lạnh">Đông Lạnh</option><option value="Khác">Khác</option>
-                        </select></div>
-                    </div>
+                    <div className="dh-form-group"><label className="dh-form-label">Danh mục</label><select value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))} className="dh-form-select">
+                        <option value="">Chọn...</option><option value="Bánh Mì">Bánh Mì</option><option value="Thức Uống">Thức Uống</option><option value="Đồ Ăn Vặt">Đồ Ăn Vặt</option><option value="Tủ Mát">Tủ Mát</option><option value="Đông Lạnh">Đông Lạnh</option><option value="Khác">Khác</option>
+                    </select></div>
                 </div>
                 <div className="dh-modal-footer">
                     <button onClick={() => setShowProductModal(false)} className="dh-btn-cancel">Hủy</button>
@@ -363,10 +347,10 @@ const CSS_TEXT = `
 .dh-code { display:inline-block; padding:2px 8px; background:#eef2ff; color:#4f46e5; border-radius:6px; font-size:11px; font-weight:700; font-family:monospace; letter-spacing:.03em; }
 .dh-barcode { font-size:12px; font-family:monospace; color:#64748b; letter-spacing:.02em; }
 .dh-name { font-size:13px; font-weight:600; color:#1e293b; }
+.dh-name-cell { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .dh-cat { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
-.dh-unit { font-size:12px; color:#64748b; }
-.dh-actions { display:flex; align-items:center; justify-content:center; gap:4px; opacity:0; transition:opacity .15s; }
-.dh-act-btn { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#6366f1; background:transparent; border:none; cursor:pointer; transition:background .15s,transform .1s; }
+.dh-actions { display:flex; align-items:center; gap:2px; opacity:0; transition:opacity .15s; flex-shrink:0; }
+.dh-act-btn { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#6366f1; background:transparent; border:none; cursor:pointer; transition:background .15s,transform .1s; }
 .dh-act-btn:hover { background:#eef2ff; transform:scale(1.08); }
 .dh-act-del { color:#ef4444; }
 .dh-act-del:hover { background:#fef2f2 !important; }

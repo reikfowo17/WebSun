@@ -2,7 +2,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const NV_ALLOWED_FIELDS = ['actual_stock', 'note', 'diff_reason'] as const;
 const ADMIN_ALLOWED_FIELDS = [...NV_ALLOWED_FIELDS, 'system_stock', 'status'] as const;
-const MIN_CHECK_THRESHOLD = 0.95;
 
 export const DIFF_REASON_OPTIONS = [
     { value: 'DAMAGED', label: 'Hàng hỏng', icon: 'broken_image' },
@@ -211,24 +210,6 @@ export const InventoryService = {
                 }
 
                 const checkedItems = items.filter((i: any) => i.actual_stock !== null);
-                const checkPercent = checkedItems.length / items.length;
-                if (checkPercent < MIN_CHECK_THRESHOLD) {
-                    const needed = Math.ceil(items.length * MIN_CHECK_THRESHOLD) - checkedItems.length;
-                    return {
-                        success: false,
-                        message: `Cần kiểm thêm ${needed} sản phẩm nữa (tối thiểu ${Math.round(MIN_CHECK_THRESHOLD * 100)}%)`
-                    };
-                }
-
-                const unreasonedItems = items.filter((i: any) =>
-                    i.actual_stock !== null && i.diff !== 0 && !i.diff_reason
-                );
-                if (unreasonedItems.length > 0) {
-                    return {
-                        success: false,
-                        message: `Còn ${unreasonedItems.length} sản phẩm chênh lệch chưa có lý do`
-                    };
-                }
 
                 // Create history records
                 const checkDate = new Date().toISOString().split('T')[0];
@@ -278,6 +259,52 @@ export const InventoryService = {
         return { success: false, message: 'Database disconnected' };
     },
 
+    async getReportStatus(
+        storeCode: string,
+        shift: number
+    ): Promise<{ submitted: boolean; report?: { submittedBy: string; submittedAt: string; status: string } }> {
+        if (!storeCode || !shift || !isSupabaseConfigured()) {
+            return { submitted: false };
+        }
+
+        try {
+            const today = new Date().toISOString().split('T')[0];
+
+            const { data, error } = await supabase
+                .from('inventory_reports')
+                .select(`
+                    id,
+                    status,
+                    submitted_at,
+                    created_at,
+                    stores!inner ( code ),
+                    users!inventory_reports_submitted_by_fkey ( name )
+                `)
+                .eq('stores.code', storeCode)
+                .eq('check_date', today)
+                .eq('shift', shift)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data) {
+                return {
+                    submitted: true,
+                    report: {
+                        submittedBy: (data as any).users?.name || 'Nhân viên',
+                        submittedAt: (data as any).submitted_at || (data as any).created_at || '',
+                        status: (data as any).status || 'PENDING'
+                    }
+                };
+            }
+
+            return { submitted: false };
+        } catch (e) {
+            console.error('[Inventory] Check report status error:', e);
+            return { submitted: false };
+        }
+    },
+
     async getMasterItems(): Promise<{ success: boolean; items: MasterItem[] }> {
         if (isSupabaseConfigured()) {
             try {
@@ -310,6 +337,7 @@ export const InventoryService = {
     async addMasterItem(product: {
         barcode: string;
         name: string;
+        pvn?: string;
         unit?: string;
         category?: string;
     }): Promise<{ success: boolean; error?: string }> {
@@ -319,33 +347,25 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
-                console.log('[Inventory] Adding product:', product);
-
-                // Check current session
-                const { data: { session } } = await supabase.auth.getSession();
-                console.log('[Inventory] Current session:', session?.user?.id ? 'Logged in' : 'Not logged in');
-
-                const { data, error } = await supabase
-                    .from('products')
-                    .insert([{
-                        barcode: product.barcode,
-                        name: product.name,
-                        unit: product.unit || '',
-                        category: product.category || '',
-                    }])
-                    .select();
+                const { data, error } = await supabase.rpc('admin_insert_product', {
+                    p_barcode: product.barcode,
+                    p_name: product.name,
+                    p_unit: product.unit || '',
+                    p_category: product.category || '',
+                    p_pvn: product.pvn || null,
+                });
 
                 if (error) {
-                    console.error('[Inventory] Insert error details:', {
-                        message: error.message,
-                        code: error.code,
-                        details: error.details,
-                        hint: error.hint
-                    });
+                    console.error('[Inventory] RPC insert error:', error);
                     throw error;
                 }
 
-                console.log('[Inventory] Product added successfully:', data);
+                const result = data as any;
+                if (!result?.success) {
+                    return { success: false, error: result?.error || 'Lỗi không xác định' };
+                }
+
+                console.log('[Inventory] Product added via RPC:', result);
                 return { success: true };
             } catch (e: any) {
                 console.error('[Inventory] Add master item error:', e);
@@ -357,8 +377,7 @@ export const InventoryService = {
 
     async distributeToStore(
         storeCode: string,
-        shift: number,
-        stockMap?: Record<string, number> 
+        shift: number
     ): Promise<{ success: boolean; message?: string }> {
         if (!storeCode || !shift) {
             return { success: false, message: 'Thiếu thông tin bắt buộc' };
@@ -369,10 +388,9 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
-                // Get store ID
                 const { data: store } = await supabase
                     .from('stores')
-                    .select('id, kiotviet_branch_name')
+                    .select('id')
                     .eq('code', storeCode)
                     .single();
 
@@ -388,23 +406,18 @@ export const InventoryService = {
                     return { success: false, message: 'Không có sản phẩm' };
                 }
 
-                const now = new Date().toISOString();
-                const today = now.split('T')[0];
-                const inventoryItems = products.map((p: any) => {
-                    const realStock = stockMap && p.barcode ? (stockMap[p.barcode] ?? 0) : 0;
-                    return {
-                        store_id: store.id,
-                        product_id: p.id,
-                        shift: shift,
-                        check_date: today,
-                        system_stock: realStock,
-                        actual_stock: null,
-                        diff: null,
-                        diff_reason: null,
-                        status: 'PENDING' as const,
-                        snapshot_at: stockMap ? now : null,
-                    };
-                });
+                const today = new Date().toISOString().split('T')[0];
+                const inventoryItems = products.map((p: any) => ({
+                    store_id: store.id,
+                    product_id: p.id,
+                    shift: shift,
+                    check_date: today,
+                    system_stock: 0,
+                    actual_stock: null,
+                    diff_reason: null,
+                    status: 'PENDING' as const,
+                    snapshot_at: null,
+                }));
 
                 const { error } = await supabase
                     .from('inventory_items')
@@ -415,10 +428,9 @@ export const InventoryService = {
 
                 if (error) throw error;
 
-                const hasStock = stockMap ? ' (có dữ liệu KiotViet)' : ' (chưa có KiotViet)';
                 return {
                     success: true,
-                    message: `Đã phân phối ${products.length} sản phẩm${hasStock}`
+                    message: `Đã phân phối ${products.length} sản phẩm`
                 };
             } catch (e: any) {
                 console.error('[Inventory] Distribute error:', e);
@@ -426,6 +438,82 @@ export const InventoryService = {
             }
         }
         return { success: false, message: 'Database disconnected' };
+    },
+
+    async syncKiotVietStock(
+        storeCode: string,
+        shift: number
+    ): Promise<{ success: boolean; message?: string; synced?: number }> {
+        if (!storeCode || !shift) {
+            return { success: false, message: 'Thiếu thông tin' };
+        }
+
+        if (!isSupabaseConfigured()) {
+            return { success: false, message: 'Database disconnected' };
+        }
+
+        try {
+            // Call Edge Function to get stock map
+            const { data: fnData, error: fnErr } = await supabase
+                .functions.invoke('kiotviet-stock', {
+                    body: { storeCode }
+                });
+
+            if (fnErr || !fnData?.stockMap) {
+                console.error('[Inventory] KiotViet sync error:', fnErr, fnData);
+                return { success: false, message: fnData?.error || 'Không thể kết nối KiotViet' };
+            }
+
+            const stockMap: Record<string, number> = fnData.stockMap;
+
+            // Get store ID
+            const { data: store } = await supabase
+                .from('stores')
+                .select('id')
+                .eq('code', storeCode)
+                .single();
+
+            if (!store) {
+                return { success: false, message: 'Cửa hàng không tồn tại' };
+            }
+
+            // Get current inventory items with barcode
+            const today = new Date().toISOString().split('T')[0];
+            const { data: items } = await supabase
+                .from('inventory_items')
+                .select('id, product_id, products(barcode)')
+                .eq('store_id', store.id)
+                .eq('shift', shift)
+                .eq('check_date', today);
+
+            if (!items || items.length === 0) {
+                return { success: false, message: 'Chưa có danh sách kiểm. Hãy yêu cầu Admin phân phối trước.' };
+            }
+
+            // Update system_stock for each item
+            const now = new Date().toISOString();
+            let syncedCount = 0;
+
+            for (const item of items) {
+                const barcode = (item as any).products?.barcode;
+                if (barcode && stockMap[barcode] !== undefined) {
+                    await supabase
+                        .from('inventory_items')
+                        .update({ system_stock: stockMap[barcode], snapshot_at: now })
+                        .eq('id', item.id);
+                    syncedCount++;
+                }
+            }
+
+            return {
+                success: true,
+                synced: syncedCount,
+                message: `Đã đồng bộ ${syncedCount}/${items.length} sản phẩm từ KiotViet`
+            };
+        } catch (e: any) {
+            console.error('[Inventory] KiotViet sync error:', e);
+            return { success: false, message: 'Lỗi: ' + e.message };
+        }
     },
 
     async getMonitoringStats(date: string): Promise<{ success: boolean; data: any[] }> {
@@ -549,38 +637,34 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
-                const errors: string[] = [];
-                let imported = 0;
-
-                // Process in batches of 100
-                const batchSize = 100;
-                for (let i = 0; i < products.length; i += batchSize) {
-                    const batch = products.slice(i, i + batchSize).map(p => ({
+                const cleanProducts = products
+                    .map(p => ({
                         barcode: p.barcode?.trim(),
                         name: p.name?.trim(),
                         unit: p.unit?.trim() || '',
                         category: p.category?.trim() || '',
-                        unit_price: p.unit_price || 0
-                    })).filter(p => p.barcode && p.name);
+                    }))
+                    .filter(p => p.barcode && p.name);
 
-                    if (batch.length === 0) continue;
-
-                    const { error, data } = await supabase
-                        .from('products')
-                        .upsert(batch, { onConflict: 'barcode', ignoreDuplicates: false })
-                        .select();
-
-                    if (error) {
-                        errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${error.message}`);
-                    } else {
-                        imported += data?.length || 0;
-                    }
+                if (cleanProducts.length === 0) {
+                    return { success: false, imported: 0, errors: ['Không có dữ liệu hợp lệ'] };
                 }
 
+                // Use SECURITY DEFINER function to bypass RLS
+                const { data, error } = await supabase.rpc('admin_upsert_products', {
+                    p_products: cleanProducts,
+                });
+
+                if (error) {
+                    console.error('[Inventory] RPC import error:', error);
+                    return { success: false, imported: 0, errors: [error.message] };
+                }
+
+                const result = data as any;
                 return {
-                    success: errors.length === 0,
-                    imported,
-                    errors
+                    success: result?.success ?? false,
+                    imported: result?.imported ?? 0,
+                    errors: result?.errors || [],
                 };
             } catch (e: any) {
                 console.error('[Inventory] Import products error:', e);
