@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { InventoryService } from '../../../services/inventory';
+import { InventoryService } from '../../../services';
 import ReportCommentsSection from './ReportCommentsSection';
+
+interface ToastFn {
+    success: (msg: string) => void;
+    error: (msg: string) => void;
+    info: (msg: string) => void;
+    warning: (msg: string) => void;
+}
 
 interface ReportDetailModalProps {
     reportId: string;
-    toast: any;
+    toast: ToastFn;
     onClose: () => void;
 }
 
@@ -91,9 +98,16 @@ const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ reportId, toast, 
         });
     };
 
-    const getCompletionPercentage = () => {
+    // FIX #5: Separate accuracy (matched/total) from completion (checked/total)
+    const getAccuracyPercentage = () => {
         if (!report || report.total_items === 0) return 0;
         return Math.round((report.matched_items / report.total_items) * 100);
+    };
+
+    const getCompletionPercentage = () => {
+        if (!report || report.total_items === 0) return 0;
+        const checked = report.matched_items + report.missing_items + report.over_items;
+        return Math.round((checked / report.total_items) * 100);
     };
 
     return (
@@ -183,17 +197,33 @@ const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ reportId, toast, 
                                     </div>
                                 </div>
 
-                                {/* Progress Bar */}
-                                <div className="mt-6">
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-medium text-gray-700">Độ chính xác</span>
-                                        <span className="font-bold text-indigo-600">{getCompletionPercentage()}%</span>
+                                {/* Progress Bars */}
+                                <div className="mt-6 space-y-4">
+                                    {/* Completion */}
+                                    <div>
+                                        <div className="flex justify-between text-sm mb-2">
+                                            <span className="font-medium text-gray-700">Tiến độ kiểm</span>
+                                            <span className="font-bold text-indigo-600">{getCompletionPercentage()}%</span>
+                                        </div>
+                                        <div className="h-3 bg-white/50 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
+                                                style={{ width: `${getCompletionPercentage()}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="h-3 bg-white/50 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
-                                            style={{ width: `${getCompletionPercentage()}%` }}
-                                        />
+                                    {/* Accuracy */}
+                                    <div>
+                                        <div className="flex justify-between text-sm mb-2">
+                                            <span className="font-medium text-gray-700">Tỷ lệ khớp</span>
+                                            <span className="font-bold text-green-600">{getAccuracyPercentage()}%</span>
+                                        </div>
+                                        <div className="h-3 bg-white/50 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all"
+                                                style={{ width: `${getAccuracyPercentage()}%` }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

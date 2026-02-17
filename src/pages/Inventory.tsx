@@ -253,7 +253,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
     });
   }, [products, search, filterStatus]);
 
-  const progressPercent = stats.total > 0 ? Math.round((stats.checked / stats.total) * 100) : 0;
+  const progressPercent = shiftSubmitted.submitted ? 100 : stats.total > 0 ? Math.round((stats.checked / stats.total) * 100) : 0;
   const currentShift = INVENTORY_CONFIG.SHIFTS.find(s => s.id === shift)!;
 
   const getStatusConfig = (status: string) => {
@@ -377,7 +377,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
               />
             </div>
             <div className="flex justify-between mt-2 text-xs text-gray-400">
-              <span>Đã kiểm {stats.checked}/{stats.total} sản phẩm</span>
+              <span>Đã kiểm {shiftSubmitted.submitted ? stats.total : stats.checked}/{stats.total} sản phẩm</span>
               {stats.missing > 0 && (
                 <span className="text-red-500 font-medium">
                   Thiếu: {stats.missingValue} đơn vị
@@ -465,36 +465,50 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
             </div>
           ) : shiftSubmitted.submitted && shiftSubmitted.viewingData ? (
             /* ── READ-ONLY Report Detail ── */
-            <div className="space-y-5">
-              {/* Back + Header */}
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: false }))}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl text-sm font-bold text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50 transition-all cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-lg">arrow_back</span>
-                  Quay lại
-                </button>
-                <div className="text-right">
-                  <h3 className="text-sm font-black text-gray-800">Báo cáo kiểm kê</h3>
-                  <p className="text-xs text-gray-400">{currentShift.name} • {shiftSubmitted.submittedBy}</p>
-                </div>
-              </div>
-
-              {/* Summary strip */}
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { label: 'Tổng SP', value: stats.total, icon: 'inventory_2', bg: 'bg-gray-50', text: 'text-gray-700', ring: 'ring-gray-100' },
-                  { label: 'Khớp', value: stats.matched, icon: 'check_circle', bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-100' },
-                  { label: 'Thiếu', value: stats.missing, icon: 'error', bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-100' },
-                  { label: 'Thừa', value: stats.over, icon: 'add_circle', bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-100' },
-                ].map(s => (
-                  <div key={s.label} className={`${s.bg} rounded-2xl p-3 text-center ring-1 ${s.ring}`}>
-                    <span className={`material-symbols-outlined text-lg ${s.text}`} style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
-                    <p className={`text-2xl font-black ${s.text} tabular-nums`}>{s.value}</p>
-                    <p className={`text-[10px] font-bold ${s.text} uppercase tracking-wider opacity-60`}>{s.label}</p>
+            <div className="space-y-4">
+              {/* ── Report Header ── */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                {/* Back + Title + Status */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: false }))}
+                    className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-gray-600 text-lg">arrow_back</span>
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Báo cáo kiểm kê</h2>
+                    <p className="text-xs text-gray-400 font-medium">{currentShift.name} ({currentShift.time})</p>
                   </div>
-                ))}
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide flex-shrink-0 ${shiftSubmitted.status === 'APPROVED'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : shiftSubmitted.status === 'REJECTED'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                    <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {shiftSubmitted.status === 'APPROVED' ? 'verified' : shiftSubmitted.status === 'REJECTED' ? 'cancel' : 'schedule'}
+                    </span>
+                    {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Bị từ chối' : 'Chờ duyệt'}
+                  </span>
+                </div>
+
+                {/* Metadata line */}
+                <div className="flex items-center gap-3 text-xs text-gray-400 mt-3 pl-12">
+                  <div className="inline-flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">person</span>
+                    <span className="font-semibold text-gray-600">{shiftSubmitted.submittedBy}</span>
+                  </div>
+                  <span>•</span>
+                  <div className="inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">schedule</span>
+                    {shiftSubmitted.submittedAt
+                      ? new Date(shiftSubmitted.submittedAt).toLocaleString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                      })
+                      : 'Hôm nay'}
+                  </div>
+                </div>
               </div>
 
               {/* Search filter for report */}

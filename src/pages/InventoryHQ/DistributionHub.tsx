@@ -1,12 +1,26 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InventoryService } from '../../services';
+import type { MasterItem } from '../../services';
 import { STORES } from '../../constants';
 import ConfirmModal from '../../components/ConfirmModal';
 import * as XLSX from 'xlsx';
 
+interface ToastFn {
+    success: (msg: string) => void;
+    error: (msg: string) => void;
+    info: (msg: string) => void;
+    warning: (msg: string) => void;
+}
+
 interface DistributionHubProps {
-    toast: any;
+    toast: ToastFn;
     date: string;
+}
+
+const enum ProcessingState {
+    DISTRIBUTE = 'DISTRIBUTE',
+    IMPORT_EXCEL = 'IMPORT_EXCEL',
+    SAVE_PRODUCT = 'SAVE_PRODUCT',
 }
 
 const categoryColors: Record<string, { bg: string; text: string; dot: string }> = {
@@ -22,26 +36,24 @@ const getCatStyle = (c: string) => categoryColors[c] || categoryColors['Khác'];
 const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [selectedStore, setSelectedStore] = useState<string>('ALL');
     const [selectedShift, setSelectedShift] = useState<number>(1);
-    const [products, setProducts] = useState<any[]>([]);
-    const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
+    const [products, setProducts] = useState<MasterItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [processing, setProcessing] = useState<string | null>(null);
     const [showProductModal, setShowProductModal] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<any>(null);
+    const [editingProduct, setEditingProduct] = useState<MasterItem | null>(null);
     const [productForm, setProductForm] = useState({ barcode: '', name: '', pvn: '', category: '' });
-    const [confirmDelete, setConfirmDelete] = useState<any>(null);
+    const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'newSession'; message: string } | null>(null);
 
-    useEffect(() => { loadMasterProducts(); }, []);
-
-    useEffect(() => {
-        if (!searchQuery) { setFilteredProducts(products); return; }
+    // CRITICAL FIX #2: Derive filteredProducts from state via useMemo (no duplicate state)
+    const filteredProducts = useMemo(() => {
+        if (!searchQuery) return products;
         const q = searchQuery.toLowerCase();
-        setFilteredProducts(products.filter(p =>
-            (p.name?.toLowerCase().includes(q)) || (p.pvn?.toLowerCase().includes(q)) || (p.barcode?.includes(q))
-        ));
+        return products.filter(p =>
+            p.name?.toLowerCase().includes(q) || p.pvn?.toLowerCase().includes(q) || p.barcode?.includes(q)
+        );
     }, [searchQuery, products]);
 
     const stats = useMemo(() => {
@@ -50,15 +62,25 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         return { total: products.length, categories: cats };
     }, [products]);
 
-    const topCats = useMemo(() =>
-        Object.entries(stats.categories).sort((a, b) => b[1] - a[1]).slice(0, 4)
-        , [stats.categories]);
-
-    const loadMasterProducts = async () => {
+    // FIX #4: Show error on load failure instead of swallowing
+    const loadMasterProducts = useCallback(async () => {
         setLoading(true);
-        try { const r = await InventoryService.getMasterItems(); if (r.success) { setProducts(r.items); setFilteredProducts(r.items); } }
-        catch { } finally { setLoading(false); }
-    };
+        try {
+            const r = await InventoryService.getMasterItems();
+            if (r.success) {
+                setProducts(r.items);
+            } else {
+                toast.error('Không thể tải danh sách sản phẩm');
+            }
+        } catch {
+            toast.error('Lỗi kết nối khi tải sản phẩm');
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { loadMasterProducts(); }, []);
 
     const handleDistribute = async () => {
         if (!products.length) return toast.error('Danh sách sản phẩm trống');
@@ -68,60 +90,86 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         });
     };
 
+    // CRITICAL FIX #1: Parallel API calls with Promise.allSettled
     const executeDistribute = async () => {
         setConfirmAction(null);
-        setProcessing('DISTRIBUTE');
+        setProcessing(ProcessingState.DISTRIBUTE);
         try {
             if (selectedStore === 'ALL') {
-                for (const s of STORES) { await InventoryService.distributeToStore(s.id, selectedShift); }
-                toast.success(`Đã phân phối cho tất cả cửa hàng (Ca ${selectedShift})`);
+                const results = await Promise.allSettled(
+                    STORES.map(s => InventoryService.distributeToStore(s.id, selectedShift))
+                );
+                const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+                if (failed.length === 0) {
+                    toast.success(`Đã phân phối cho tất cả ${STORES.length} cửa hàng (Ca ${selectedShift})`);
+                } else if (failed.length < STORES.length) {
+                    toast.warning(`Phân phối xong nhưng ${failed.length}/${STORES.length} cửa hàng gặp lỗi`);
+                } else {
+                    toast.error('Phân phối thất bại cho tất cả cửa hàng');
+                }
             } else {
                 const r = await InventoryService.distributeToStore(selectedStore, selectedShift);
                 r.success ? toast.success(r.message || 'Đã phân phối thành công!') : toast.error(r.message || 'Lỗi phân phối');
             }
-        } catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); }
+        } catch {
+            toast.error('Lỗi hệ thống');
+        } finally {
+            setProcessing(null);
+        }
     };
 
+    // Làm mới phiên = xóa danh sách hiện tại để nhập danh sách mới
     const handleNewSession = () => {
-        setConfirmAction({ type: 'newSession', message: 'Tạo phiên kiểm mới sẽ xóa danh sách hiện tại?' });
+        setConfirmAction({ type: 'newSession', message: 'Xóa danh sách hiện tại để nhập danh sách mới?' });
     };
 
     const executeNewSession = () => {
         setConfirmAction(null);
-        setProducts([]); setFilteredProducts([]); toast.info('Đã làm mới phiên làm việc');
+        setProducts([]);
+        setSearchQuery('');
+        toast.info('Đã xóa danh sách');
     };
 
     const openAddProduct = () => { setEditingProduct(null); setProductForm({ barcode: '', name: '', pvn: '', category: '' }); setShowProductModal(true); };
-    const openEditProduct = (p: any) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', pvn: p.pvn || '', category: p.category || '' }); setShowProductModal(true); };
+    const openEditProduct = (p: MasterItem) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', pvn: p.pvn || '', category: p.category || '' }); setShowProductModal(true); };
 
+    // FIX #10: Add barcode format validation
     const saveProduct = async () => {
-        if (!productForm.barcode || !productForm.name) { toast.error('Barcode và tên sản phẩm là bắt buộc'); return; }
-        setProcessing('SAVE_PRODUCT');
+        const trimmedBarcode = productForm.barcode.trim();
+        const trimmedName = productForm.name.trim();
+        if (!trimmedBarcode || !trimmedName) { toast.error('Barcode và tên sản phẩm là bắt buộc'); return; }
+        if (!/^\d{4,13}$/.test(trimmedBarcode)) { toast.error('Barcode phải là số, từ 4-13 ký tự'); return; }
+        setProcessing(ProcessingState.SAVE_PRODUCT);
         try {
-            const d = { barcode: productForm.barcode, name: productForm.name, pvn: productForm.pvn, category: productForm.category };
+            const d = { barcode: trimmedBarcode, name: trimmedName, pvn: productForm.pvn.trim(), category: productForm.category };
             const r = editingProduct ? await InventoryService.updateMasterItem(editingProduct.id, d, 'ADMIN') : await InventoryService.addMasterItem(d);
             if (r.success) { toast.success(editingProduct ? 'Đã cập nhật' : 'Đã thêm mới'); setShowProductModal(false); loadMasterProducts(); }
             else toast.error(r.error || 'Có lỗi xảy ra');
         } catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); }
     };
 
-    const handleDeleteProduct = async (p: any) => {
+    const handleDeleteProduct = async (p: MasterItem) => {
         setProcessing('DELETE_' + p.id);
-        try { const r = await InventoryService.deleteMasterItem(p.id, 'ADMIN'); if (r.success) { toast.success('Đã xóa'); loadMasterProducts(); } else toast.error(r.error || 'Không thể xóa'); }
-        catch { toast.error('Lỗi hệ thống'); } finally { setProcessing(null); setConfirmDelete(null); }
+        try {
+            const r = await InventoryService.deleteMasterItem(p.id, 'ADMIN');
+            if (r.success) { toast.success('Đã xóa'); loadMasterProducts(); }
+            else toast.error(r.error || 'Không thể xóa');
+        } catch {
+            toast.error('Lỗi hệ thống');
+        } finally { setProcessing(null); setConfirmDelete(null); }
     };
 
     const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]; if (!file) return;
-        setProcessing('IMPORT_EXCEL');
+        setProcessing(ProcessingState.IMPORT_EXCEL);
         try {
             const wb = XLSX.read(await file.arrayBuffer());
-            const rows = XLSX.utils.sheet_to_json<any>(wb.Sheets[wb.SheetNames[0]]);
-            const items = rows.map((r: any) => ({
+            const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]]);
+            const items = rows.map((r) => ({
                 category: String(r['Mã hàng SP'] || r['Mã hàng'] || r['Product Code'] || r['ma_hang'] || ''),
                 barcode: String(r['Mã barcode'] || r['Barcode'] || r['Mã vạch'] || r['barcode'] || ''),
                 name: String(r['Tên sản phẩm'] || r['Tên SP'] || r['Name'] || r['name'] || ''), unit: '',
-            })).filter((p: any) => p.barcode && p.name);
+            })).filter(p => p.barcode && p.name);
             if (!items.length) { toast.error('Không tìm thấy dữ liệu hợp lệ'); return; }
             const res = await InventoryService.importProducts(items);
             if (res.success) { toast.success(`Đã import ${res.imported} SP`); if (res.errors?.length) toast.warning(`${res.errors.length} lỗi`); loadMasterProducts(); }
@@ -150,8 +198,8 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                 {searchQuery && <button onClick={() => setSearchQuery('')} className="dh-search-clear"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span></button>}
                             </div>
                             <input type="file" ref={fileInputRef} onChange={handleExcelUpload} accept=".xlsx,.xls,.csv" hidden />
-                            <button onClick={() => fileInputRef.current?.click()} disabled={processing === 'IMPORT_EXCEL'} className="dh-btn-import">
-                                <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{processing === 'IMPORT_EXCEL' ? 'sync' : 'upload_file'}</span> Import
+                            <button onClick={() => fileInputRef.current?.click()} disabled={processing === ProcessingState.IMPORT_EXCEL} className="dh-btn-import">
+                                <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{processing === ProcessingState.IMPORT_EXCEL ? 'sync' : 'upload_file'}</span> Import
                             </button>
                             <button onClick={openAddProduct} className="dh-btn-add">
                                 <span className="material-symbols-outlined" style={{ fontSize: 17 }}>add</span> Thêm SP
@@ -230,9 +278,9 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                     </div>
 
                     <div className="dh-ctrl-card dh-actions-card">
-                        <button onClick={handleNewSession} className="dh-btn-reset"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span> Làm mới phiên</button>
+                        <button onClick={handleNewSession} className="dh-btn-reset"><span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span> Làm mới danh sách</button>
                         <button onClick={handleDistribute} disabled={!!processing || !products.length} className="dh-btn-dist">
-                            {processing === 'DISTRIBUTE' ? <><span className="material-symbols-outlined dh-spin" style={{ fontSize: 20 }}>sync</span> Đang xử lý...</> :
+                            {processing === ProcessingState.DISTRIBUTE ? <><span className="material-symbols-outlined dh-spin" style={{ fontSize: 20 }}>sync</span> Đang xử lý...</> :
                                 <><span className="material-symbols-outlined" style={{ fontSize: 20 }}>send</span> Phân phối</>}
                         </button>
                     </div>
@@ -252,21 +300,22 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                     </div>
                     <button onClick={() => setShowProductModal(false)} className="dh-modal-close"><span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span></button>
                 </div>
+                {/* FIX #8: Form accessibility — htmlFor + id */}
                 <div className="dh-modal-body">
-                    <div className="dh-form-group"><label className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>barcode</span> Barcode <span style={{ color: '#ef4444' }}>*</span></label>
-                        <input value={productForm.barcode} onChange={e => setProductForm(p => ({ ...p, barcode: e.target.value }))} placeholder="8934567890123" className="dh-form-input" /></div>
-                    <div className="dh-form-group"><label className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>tag</span> Mã SP</label>
-                        <input value={productForm.pvn} onChange={e => setProductForm(p => ({ ...p, pvn: e.target.value }))} placeholder="SP001" className="dh-form-input" /></div>
-                    <div className="dh-form-group"><label className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>label</span> Tên SP <span style={{ color: '#ef4444' }}>*</span></label>
-                        <input value={productForm.name} onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))} placeholder="Bánh mì sữa tươi" className="dh-form-input" /></div>
-                    <div className="dh-form-group"><label className="dh-form-label">Danh mục</label><select value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))} className="dh-form-select">
+                    <div className="dh-form-group"><label htmlFor="dh-barcode" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>barcode</span> Barcode <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input id="dh-barcode" value={productForm.barcode} onChange={e => setProductForm(p => ({ ...p, barcode: e.target.value }))} placeholder="8934567890123" className="dh-form-input" inputMode="numeric" /></div>
+                    <div className="dh-form-group"><label htmlFor="dh-pvn" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>tag</span> Mã SP</label>
+                        <input id="dh-pvn" value={productForm.pvn} onChange={e => setProductForm(p => ({ ...p, pvn: e.target.value }))} placeholder="SP001" className="dh-form-input" /></div>
+                    <div className="dh-form-group"><label htmlFor="dh-name" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>label</span> Tên SP <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input id="dh-name" value={productForm.name} onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))} placeholder="Bánh mì sữa tươi" className="dh-form-input" /></div>
+                    <div className="dh-form-group"><label htmlFor="dh-category" className="dh-form-label">Danh mục</label><select id="dh-category" value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))} className="dh-form-select">
                         <option value="">Chọn...</option><option value="Bánh Mì">Bánh Mì</option><option value="Thức Uống">Thức Uống</option><option value="Đồ Ăn Vặt">Đồ Ăn Vặt</option><option value="Tủ Mát">Tủ Mát</option><option value="Đông Lạnh">Đông Lạnh</option><option value="Khác">Khác</option>
                     </select></div>
                 </div>
                 <div className="dh-modal-footer">
                     <button onClick={() => setShowProductModal(false)} className="dh-btn-cancel">Hủy</button>
                     <button onClick={saveProduct} disabled={!!processing} className="dh-btn-save">
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{processing === 'SAVE_PRODUCT' ? 'sync' : 'save'}</span> Lưu
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{processing === ProcessingState.SAVE_PRODUCT ? 'sync' : 'save'}</span> Lưu
                     </button>
                 </div>
             </div></div>)}

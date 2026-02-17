@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { InventoryService } from '../../../services/inventory';
+import { InventoryService } from '../../../services';
 import { useCurrentUser } from '../../../contexts';
 import ConfirmModal from '../../../components/ConfirmModal';
 
+interface ToastFn {
+    success: (msg: string) => void;
+    error: (msg: string) => void;
+    info: (msg: string) => void;
+    warning: (msg: string) => void;
+}
+
 interface ReportCommentsSectionProps {
     reportId: string;
-    toast: any;
+    toast: ToastFn;
 }
 
 interface Comment {
