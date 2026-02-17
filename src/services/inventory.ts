@@ -347,6 +347,11 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    return { success: false, error: 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' };
+                }
+
                 const { data, error } = await supabase.rpc('admin_insert_product', {
                     p_barcode: product.barcode,
                     p_name: product.name,

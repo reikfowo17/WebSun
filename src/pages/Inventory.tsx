@@ -388,24 +388,53 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
 
           {/* Shift Already Submitted Overlay */}
           {shiftSubmitted.submitted && !shiftSubmitted.viewingData ? (
-            <div className="bg-white rounded-2xl border border-emerald-200 shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-8 text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-200 mb-4">
-                  <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                </div>
-                <h2 className="text-2xl font-black text-gray-800 mb-1">Đã kiểm tra xong!</h2>
-                <p className="text-sm text-gray-500">
-                  {currentShift.name} ({currentShift.time}) đã được nộp báo cáo
-                </p>
-              </div>
+            <div className="relative bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
+              {/* Subtle gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
 
-              <div className="p-6 space-y-4">
+              <div className="relative px-8 pt-10 pb-8">
+                {/* Animated success icon */}
+                <div className="flex justify-center mb-6">
+                  <div className="relative">
+                    <div className="absolute inset-0 w-24 h-24 rounded-full bg-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
+                    <div className="absolute inset-2 w-20 h-20 rounded-full bg-emerald-400/10 animate-pulse" />
+                    <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-2xl shadow-emerald-200/60">
+                      <span className="material-symbols-outlined text-white text-5xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 600" }}>check_circle</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-1.5">Đã kiểm tra xong!</h2>
+                  <p className="text-sm text-gray-500 font-medium">
+                    {currentShift.name} ({currentShift.time}) đã được nộp báo cáo
+                  </p>
+                </div>
+
                 {/* Submitter info */}
-                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                  <span className="material-symbols-outlined text-gray-400">person</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-700">{shiftSubmitted.submittedBy}</p>
-                    <p className="text-xs text-gray-400">
+                <div className="flex items-start gap-4 bg-white/80 backdrop-blur-sm rounded-2xl p-4 ring-1 ring-gray-100 shadow-sm mb-8">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-lg">person</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-gray-800">{shiftSubmitted.submittedBy}</p>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${shiftSubmitted.status === 'APPROVED'
+                        ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                        : shiftSubmitted.status === 'REJECTED'
+                          ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
+                          : 'bg-amber-100 text-amber-700 ring-1 ring-amber-200'
+                        }`}>
+                        <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          {shiftSubmitted.status === 'APPROVED' ? 'verified' : shiftSubmitted.status === 'REJECTED' ? 'cancel' : 'schedule'}
+                        </span>
+                        {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Bị từ chối' : 'Chờ duyệt'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">schedule</span>
                       {shiftSubmitted.submittedAt
                         ? new Date(shiftSubmitted.submittedAt).toLocaleString('vi-VN', {
                           hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
@@ -413,52 +442,165 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                         : 'Hôm nay'}
                     </p>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${shiftSubmitted.status === 'APPROVED'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : shiftSubmitted.status === 'REJECTED'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-amber-100 text-amber-700'
-                    }`}>
-                    {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Bị từ chối' : 'Chờ duyệt'}
-                  </span>
                 </div>
 
-                {/* Summary stats */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                    <p className="text-2xl font-black text-emerald-600">{stats.matched}</p>
-                    <p className="text-[10px] font-bold text-emerald-500 uppercase">Khớp</p>
-                  </div>
-                  <div className="bg-red-50 rounded-xl p-3 text-center">
-                    <p className="text-2xl font-black text-red-600">{stats.missing}</p>
-                    <p className="text-[10px] font-bold text-red-500 uppercase">Thiếu</p>
-                  </div>
-                  <div className="bg-amber-50 rounded-xl p-3 text-center">
-                    <p className="text-2xl font-black text-amber-600">{stats.over}</p>
-                    <p className="text-[10px] font-bold text-amber-500 uppercase">Thừa</p>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-2">
+                {/* Action buttons — prominent, clearly separated */}
+                <div className="flex gap-4">
                   <button
                     onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: true }))}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-all cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-2.5 px-5 py-4 bg-white text-gray-800 rounded-2xl font-bold text-sm border-2 border-gray-200 shadow-md hover:border-primary hover:shadow-lg hover:shadow-primary/10 active:scale-[0.98] transition-all duration-200 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-lg">visibility</span>
-                    Xem dữ liệu
+                    <span className="material-symbols-outlined text-xl text-primary">visibility</span>
+                    Xem chi tiết
                   </button>
                   <button
                     onClick={() => navigate('/')}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-secondary text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-all cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-2.5 px-5 py-4 bg-secondary text-white rounded-2xl font-bold text-sm border-2 border-secondary shadow-md shadow-secondary/30 hover:bg-gray-800 hover:shadow-lg active:scale-[0.98] transition-all duration-200 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-lg">home</span>
+                    <span className="material-symbols-outlined text-xl">home</span>
                     Về trang chủ
                   </button>
                 </div>
               </div>
             </div>
-          ) : (
+          ) : shiftSubmitted.submitted && shiftSubmitted.viewingData ? (
+            /* ── READ-ONLY Report Detail ── */
+            <div className="space-y-5">
+              {/* Back + Header */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: false }))}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl text-sm font-bold text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-lg">arrow_back</span>
+                  Quay lại
+                </button>
+                <div className="text-right">
+                  <h3 className="text-sm font-black text-gray-800">Báo cáo kiểm kê</h3>
+                  <p className="text-xs text-gray-400">{currentShift.name} • {shiftSubmitted.submittedBy}</p>
+                </div>
+              </div>
+
+              {/* Summary strip */}
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Tổng SP', value: stats.total, icon: 'inventory_2', bg: 'bg-gray-50', text: 'text-gray-700', ring: 'ring-gray-100' },
+                  { label: 'Khớp', value: stats.matched, icon: 'check_circle', bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-100' },
+                  { label: 'Thiếu', value: stats.missing, icon: 'error', bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-100' },
+                  { label: 'Thừa', value: stats.over, icon: 'add_circle', bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-100' },
+                ].map(s => (
+                  <div key={s.label} className={`${s.bg} rounded-2xl p-3 text-center ring-1 ${s.ring}`}>
+                    <span className={`material-symbols-outlined text-lg ${s.text}`} style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
+                    <p className={`text-2xl font-black ${s.text} tabular-nums`}>{s.value}</p>
+                    <p className={`text-[10px] font-bold ${s.text} uppercase tracking-wider opacity-60`}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Search filter for report */}
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                <div className="relative flex-1 max-w-md">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    placeholder="Tìm sản phẩm..."
+                  />
+                </div>
+                <div className="inline-flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+                  {[
+                    { key: 'ALL', label: 'Tất cả', count: stats.total },
+                    { key: 'MISSING', label: 'Thiếu', count: stats.missing, color: 'red' },
+                    { key: 'OVER', label: 'Thừa', count: stats.over, color: 'amber' },
+                  ].map(tab => {
+                    const isActive = filterStatus === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setFilterStatus(tab.key)}
+                        className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${isActive
+                          ? 'bg-secondary text-white shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/60'
+                          }`}
+                      >
+                        {tab.label}
+                        <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* READ-ONLY Report Table */}
+              <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col style={{ width: '5%' }} />
+                      <col style={{ width: '28%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '20%' }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="bg-secondary text-white">
+                        <th className="px-3 py-3.5 text-center text-[11px] font-bold uppercase tracking-wider">STT</th>
+                        <th className="px-3 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider">Tên Sản Phẩm</th>
+                        <th className="px-3 py-3.5 text-center text-[11px] font-bold uppercase tracking-wider">Barcode</th>
+                        <th className="px-3 py-3.5 text-center text-[11px] font-bold uppercase tracking-wider">Kiot</th>
+                        <th className="px-3 py-3.5 text-center text-[11px] font-bold uppercase tracking-wider">Thực tế</th>
+                        <th className="px-3 py-3.5 text-center text-[11px] font-bold uppercase tracking-wider">Chênh lệch</th>
+                        <th className="px-3 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider">Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredProducts.map((p, index) => {
+                        const diff = p.diff;
+                        const diffBg = diff === null || diff === undefined
+                          ? ''
+                          : diff === 0
+                            ? 'bg-emerald-50'
+                            : diff < 0
+                              ? 'bg-red-50'
+                              : 'bg-amber-50';
+                        const diffText = diff === null || diff === undefined
+                          ? 'text-gray-400'
+                          : diff === 0
+                            ? 'text-emerald-600'
+                            : diff < 0
+                              ? 'text-red-600'
+                              : 'text-amber-600';
+
+                        return (
+                          <tr
+                            key={p.id}
+                            className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                          >
+                            <td className="px-3 py-3 text-center text-xs font-semibold text-gray-400">{index + 1}</td>
+                            <td className="px-3 py-3 truncate">
+                              <span className="font-semibold text-gray-800 text-sm">{p.productName}</span>
+                            </td>
+                            <td className="px-3 py-3 text-center text-xs text-gray-500 font-mono truncate">{p.barcode || ''}</td>
+                            <td className="px-3 py-3 text-center font-bold text-gray-700">{p.systemStock ?? '-'}</td>
+                            <td className="px-3 py-3 text-center font-bold text-gray-900">{p.actualStock ?? '-'}</td>
+                            <td className={`px-3 py-3 text-center font-black text-sm ${diffBg} ${diffText}`}>
+                              {diff === null || diff === undefined ? '-' : diff > 0 ? `+${diff}` : diff}
+                            </td>
+                            <td className="px-3 py-3 text-xs text-gray-500 truncate">{p.note || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : !shiftSubmitted.submitted ? (
             <>
 
               {/* Search & Filters */}
@@ -611,7 +753,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                 </div>
               )}
             </>
-          )}
+          ) : null}
         </div>
       </main>
 
