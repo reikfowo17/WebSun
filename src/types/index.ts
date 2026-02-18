@@ -6,7 +6,7 @@ export interface User {
     store: string;
     xp: number;
     level: number;
-    avatar: string; 
+    avatar: string;
     avatarUrl?: string;
 }
 
@@ -58,31 +58,9 @@ export interface InventoryProduct {
     note?: string;
 }
 
-export interface InventoryItem {
-    id: string;
-    _row?: number;
-    productName: string;
-    pvn: string;
-    barcode: string;
-    systemStock: string | number;
-    actualStock: string | number;
-    diff: number;
-    status: string;
-    note: string;
-}
 
-export interface ExpiryItem {
-    id: string;
-    _row?: number;
-    productName: string;
-    barcode: string;
-    quantity: string | number;
-    mfgDate: string;
-    expiryDate: string;
-    status: string;
-    note: string;
-    daysLeft?: number;
-}
+
+
 
 export interface ExpiryProduct {
     id: string;
@@ -96,12 +74,7 @@ export interface ExpiryProduct {
     daysLeft?: number;
 }
 
-export interface ApiResponse<T = any> {
-    success: boolean;
-    data?: T;
-    error?: string;
-    message?: string;
-}
+
 
 export type ViewName =
     | 'LOGIN'

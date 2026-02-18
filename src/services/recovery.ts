@@ -94,8 +94,6 @@ class RecoveryServiceClass {
         }
 
         try {
-            console.log('[Recovery] Creating item:', input);
-
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 return { success: false, error: 'Chưa đăng nhập' };
@@ -115,8 +113,6 @@ class RecoveryServiceClass {
                 console.error('[Recovery] Create error:', error);
                 throw error;
             }
-
-            console.log('[Recovery] Item created successfully:', data);
             return { success: true, data };
         } catch (e: any) {
             console.error('[Recovery] Create item error:', e);
@@ -133,8 +129,6 @@ class RecoveryServiceClass {
         }
 
         try {
-            console.log('[Recovery] Updating item:', id, input);
-
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update(input)
@@ -146,8 +140,6 @@ class RecoveryServiceClass {
                 console.error('[Recovery] Update error:', error);
                 throw error;
             }
-
-            console.log('[Recovery] Item updated successfully');
             return { success: true, data };
         } catch (e: any) {
             console.error('[Recovery] Update item error:', e);
@@ -161,8 +153,6 @@ class RecoveryServiceClass {
         }
 
         try {
-            console.log('[Recovery] Deleting item:', id);
-
             const { error } = await supabase
                 .from('recovery_items')
                 .delete()
@@ -172,8 +162,6 @@ class RecoveryServiceClass {
                 console.error('[Recovery] Delete error:', error);
                 throw error;
             }
-
-            console.log('[Recovery] Item deleted successfully');
             return { success: true };
         } catch (e: any) {
             console.error('[Recovery] Delete item error:', e);
@@ -215,9 +203,6 @@ class RecoveryServiceClass {
             if (!session) {
                 return { success: false, error: 'Chưa đăng nhập' };
             }
-
-            console.log('[Recovery] Approving item:', id);
-
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
@@ -234,8 +219,6 @@ class RecoveryServiceClass {
                 console.error('[Recovery] Approve error:', error);
                 throw error;
             }
-
-            console.log('[Recovery] Item approved successfully');
             return { success: true };
         } catch (e: any) {
             console.error('[Recovery] Approve error:', e);
@@ -257,9 +240,6 @@ class RecoveryServiceClass {
             if (!session) {
                 return { success: false, error: 'Chưa đăng nhập' };
             }
-
-            console.log('[Recovery] Rejecting item:', id);
-
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
@@ -276,8 +256,6 @@ class RecoveryServiceClass {
                 console.error('[Recovery] Reject error:', error);
                 throw error;
             }
-
-            console.log('[Recovery] Item rejected successfully');
             return { success: true };
         } catch (e: any) {
             console.error('[Recovery] Reject error:', e);
@@ -295,8 +273,6 @@ class RecoveryServiceClass {
         }
 
         try {
-            console.log('[Recovery] Marking as recovered:', id, recoveredAmount);
-
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({

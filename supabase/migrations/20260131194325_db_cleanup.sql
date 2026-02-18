@@ -1,0 +1,2 @@
+-- Remote migration that was already applied (DB cleanup and optimization)
+-- Placeholder to sync local migration history with remote

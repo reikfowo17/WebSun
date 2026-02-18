@@ -278,7 +278,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                             return (
                                 <div
                                     key={store.id}
-                                    className={`ov-store-card ${store.reportStatus === 'PENDING' ? 'clickable' : ''}`}
+                                    className={`ov-store-card ${store.reportStatus === 'PENDING' ? 'clickable ov-card--pending' : ''}`}
                                     onClick={() => { if (store.reportStatus === 'PENDING') onNavigateToReviews(store.code); }}
                                     role={store.reportStatus === 'PENDING' ? 'button' : undefined}
                                     tabIndex={store.reportStatus === 'PENDING' ? 0 : undefined}
@@ -304,44 +304,55 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                                         </span>
                                     </div>
 
-                                    {/* Progress */}
+                                    {/* Body */}
                                     <div className="ov-store-body">
-                                        <div className="ov-progress-hdr">
-                                            <span className="ov-progress-label">Tiến độ</span>
-                                            <span className="ov-progress-pct">{store.progress.percentage}%</span>
-                                        </div>
-                                        <div className="ov-progress-track">
-                                            <div
-                                                className="ov-progress-fill"
-                                                style={{
-                                                    width: `${store.progress.percentage}%`,
-                                                    background: hasIssues
-                                                        ? 'linear-gradient(90deg,#ef4444,#f97316)'
-                                                        : `linear-gradient(90deg,${sc.bg},${sc.bg}cc)`,
-                                                    boxShadow: `0 0 10px ${sc.glow}`
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="ov-progress-sub">
-                                            <span>{store.progress.checked} / {store.progress.total} SP</span>
-                                            {hasIssues && <span className="ov-progress-issue">Lệch: {store.progress.missing + store.progress.over}</span>}
-                                        </div>
+                                        {store.progress.percentage === 0 && !store.reportStatus ? (
+                                            /* Compact "not started" state */
+                                            <div className="ov-not-started">
+                                                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94a3b8' }}>hourglass_empty</span>
+                                                <span>Chưa bắt đầu kiểm kê</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {/* Progress */}
+                                                <div className="ov-progress-hdr">
+                                                    <span className="ov-progress-label">Tiến độ</span>
+                                                    <span className="ov-progress-pct">{store.progress.percentage}%</span>
+                                                </div>
+                                                <div className="ov-progress-track">
+                                                    <div
+                                                        className="ov-progress-fill"
+                                                        style={{
+                                                            width: `${store.progress.percentage}%`,
+                                                            background: hasIssues
+                                                                ? 'linear-gradient(90deg,#ef4444,#f97316)'
+                                                                : `linear-gradient(90deg,${sc.bg},${sc.bg}cc)`,
+                                                            boxShadow: `0 0 10px ${sc.glow}`
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="ov-progress-sub">
+                                                    <span>{store.progress.checked} / {store.progress.total} SP</span>
+                                                    {hasIssues && <span className="ov-progress-issue">Lệch: {store.progress.missing + store.progress.over}</span>}
+                                                </div>
 
-                                        {/* Stats Row */}
-                                        <div className="ov-mini-stats">
-                                            <div className="ov-mini-stat" style={{ background: '#f0fdf4' }}>
-                                                <span className="ov-mini-label">Khớp</span>
-                                                <span className="ov-mini-val" style={{ color: '#16a34a' }}>{store.progress.matched}</span>
-                                            </div>
-                                            <div className="ov-mini-stat" style={{ background: '#fef2f2' }}>
-                                                <span className="ov-mini-label">Thiếu</span>
-                                                <span className="ov-mini-val" style={{ color: '#dc2626' }}>{store.progress.missing}</span>
-                                            </div>
-                                            <div className="ov-mini-stat" style={{ background: '#eef2ff' }}>
-                                                <span className="ov-mini-label">Thừa</span>
-                                                <span className="ov-mini-val" style={{ color: '#4f46e5' }}>{store.progress.over}</span>
-                                            </div>
-                                        </div>
+                                                {/* Stats Row */}
+                                                <div className="ov-mini-stats">
+                                                    <div className="ov-mini-stat" style={{ background: '#f0fdf4' }}>
+                                                        <span className="ov-mini-label">Khớp</span>
+                                                        <span className="ov-mini-val" style={{ color: '#16a34a' }}>{store.progress.matched}</span>
+                                                    </div>
+                                                    <div className="ov-mini-stat" style={{ background: store.progress.missing > 0 ? '#fef2f2' : '#f8fafc' }}>
+                                                        <span className="ov-mini-label">Thiếu</span>
+                                                        <span className="ov-mini-val" style={{ color: store.progress.missing > 0 ? '#dc2626' : '#94a3b8' }}>{store.progress.missing}</span>
+                                                    </div>
+                                                    <div className="ov-mini-stat" style={{ background: store.progress.over > 0 ? '#eef2ff' : '#f8fafc' }}>
+                                                        <span className="ov-mini-label">Thừa</span>
+                                                        <span className="ov-mini-val" style={{ color: store.progress.over > 0 ? '#4f46e5' : '#94a3b8' }}>{store.progress.over}</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
 
                                         {/* Footer */}
                                         <div className="ov-store-footer">
@@ -417,6 +428,7 @@ const CSS_TEXT = `
 .ov-store-card.clickable { cursor:pointer; }
 .ov-store-card.clickable:hover { transform:translateY(-2px); }
 .ov-store-card.clickable:focus-visible { outline:2px solid #6366f1; outline-offset:2px; }
+.ov-card--pending { border-left:3px solid #f59e0b; }
 .ov-status-bar { height:4px; width:100%; }
 .ov-store-hdr { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 12px; }
 .ov-store-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -439,6 +451,9 @@ const CSS_TEXT = `
 .ov-mini-stat { border-radius:10px; padding:10px 8px; text-align:center; }
 .ov-mini-label { display:block; font-size:12px; color:#64748b; font-weight:600; margin-bottom:2px; }
 .ov-mini-val { font-size:18px; font-weight:800; line-height:1.2; }
+
+/* Not Started compact state */
+.ov-not-started { display:flex; align-items:center; gap:8px; padding:16px; background:#f8fafc; border-radius:10px; font-size:13px; color:#94a3b8; font-weight:600; }
 
 /* Store Footer */
 .ov-store-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; }

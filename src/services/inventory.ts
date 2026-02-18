@@ -369,8 +369,6 @@ export const InventoryService = {
                 if (!result?.success) {
                     return { success: false, error: result?.error || 'Lỗi không xác định' };
                 }
-
-                console.log('[Inventory] Product added via RPC:', result);
                 return { success: true };
             } catch (e: any) {
                 console.error('[Inventory] Add master item error:', e);
@@ -583,8 +581,6 @@ export const InventoryService = {
 
         if (isSupabaseConfigured()) {
             try {
-                console.log('[Inventory] Updating product:', id, data);
-
                 const { error } = await supabase
                     .from('products')
                     .update(data)
@@ -594,8 +590,6 @@ export const InventoryService = {
                     console.error('[Inventory] Update error:', error);
                     throw error;
                 }
-
-                console.log('[Inventory] Product updated successfully');
                 return { success: true };
             } catch (e: any) {
                 console.error('[Inventory] Update master item error:', e);
@@ -759,12 +753,17 @@ export const InventoryService = {
                         shift,
                         status,
                         created_at,
+                        reviewed_at,
+                        rejection_reason,
                         stores!inner (
                             id,
                             code,
                             name
                         ),
                         users!inventory_reports_submitted_by_fkey (
+                            name
+                        ),
+                        reviewer:users!inventory_reports_reviewed_by_fkey (
                             name
                         )
                     `)
@@ -812,7 +811,10 @@ export const InventoryService = {
                         total: stats?.total_items || 0,
                         matched: stats?.matched_items || 0,
                         missing: stats?.missing_items || 0,
-                        over: stats?.over_items || 0
+                        over: stats?.over_items || 0,
+                        reviewedBy: report.reviewer?.name || null,
+                        reviewedAt: report.reviewed_at || null,
+                        rejectionReason: report.rejection_reason || null
                     };
                 });
 
@@ -1138,9 +1140,6 @@ export const InventoryService = {
             if (!resolvedUserId) {
                 return { success: false, error: 'Not logged in' };
             }
-
-            console.log('[Inventory] Adding comment to report:', reportId);
-
             const { error } = await supabase
                 .from('inventory_report_comments')
                 .insert([{
@@ -1153,8 +1152,6 @@ export const InventoryService = {
                 console.error('[Inventory] Add comment error:', error);
                 throw error;
             }
-
-            console.log('[Inventory] Comment added successfully');
             return { success: true };
         } catch (e: any) {
             console.error('[Inventory] Add comment error:', e);
@@ -1204,6 +1201,59 @@ export const InventoryService = {
         } catch (e: any) {
             console.error('[Inventory] Delete comment error:', e);
             return { success: false, error: 'Cannot delete comment: ' + e.message };
+        }
+    },
+
+    async deleteReport(reportId: string): Promise<{ success: boolean; message?: string }> {
+        if (!reportId) return { success: false, message: 'Missing report ID' };
+        if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+
+        try {
+            // Fetch report to get store_id, check_date, shift
+            const { data: report, error: fetchErr } = await supabase
+                .from('inventory_reports')
+                .select('id, store_id, check_date, shift, status')
+                .eq('id', reportId)
+                .single();
+
+            if (fetchErr) throw fetchErr;
+
+            // Delete related records first (cascading manually)
+            // 1. Delete comments
+            await supabase
+                .from('inventory_report_comments')
+                .delete()
+                .eq('report_id', reportId);
+
+            // 2. Delete history items for this report
+            if (report.store_id && report.check_date && report.shift) {
+                await supabase
+                    .from('inventory_history')
+                    .delete()
+                    .eq('store_id', report.store_id)
+                    .eq('check_date', report.check_date)
+                    .eq('shift', report.shift);
+            }
+
+            // 3. Delete report stats
+            await supabase
+                .from('inventory_report_stats')
+                .delete()
+                .eq('store_id', report.store_id)
+                .eq('check_date', report.check_date)
+                .eq('shift', report.shift);
+
+            // 4. Delete the report itself
+            const { error } = await supabase
+                .from('inventory_reports')
+                .delete()
+                .eq('id', reportId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (e: any) {
+            console.error('[Inventory] Delete report error:', e);
+            return { success: false, message: e.message };
         }
     }
 };

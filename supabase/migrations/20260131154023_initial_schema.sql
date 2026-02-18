@@ -1,0 +1,2 @@
+-- Remote migration that was already applied (initial schema)
+-- This is a placeholder to sync local migration history with remote

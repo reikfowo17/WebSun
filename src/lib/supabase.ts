@@ -11,10 +11,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('[Supabase] Missing environment variables. Using mock mode.');
 }
 
-/**
- * Supabase client instance
- * Note: For full type safety, regenerate types with: npx supabase gen types typescript
- */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         autoRefreshToken: true,
@@ -23,10 +19,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
 });
 
-/**
- * Check if Supabase is properly configured
- * When false, services will use mock data
- */
 export const isSupabaseConfigured = (): boolean => {
     return Boolean(supabaseUrl && supabaseAnonKey);
 };

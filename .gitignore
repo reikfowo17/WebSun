@@ -23,3 +23,7 @@ build
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase
+supabase/.temp/
+supabase/migrations/20260219000000_pg_cron_schedule.sql

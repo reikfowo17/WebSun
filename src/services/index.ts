@@ -21,3 +21,14 @@ export type { RecoveryItem } from '../types/recovery';
 // Tasks
 export { TasksService } from './tasks';
 export type { Task } from './tasks';
+
+// Archive
+export { InventoryArchiveService } from './archive';
+export type {
+    ArchivedDayData,
+    ArchivedInventoryItem,
+    ArchiveLogEntry,
+    DailySummary,
+    MissingProduct,
+    RecoveryScanResult
+} from './archive';

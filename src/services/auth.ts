@@ -141,8 +141,6 @@ export const AuthService = {
                     avatar: userProfile.avatar_url || '',
                     avatarUrl: userProfile.avatar_url || '',
                 };
-
-                console.log('[Auth] Login successful:', username, '| Role:', mappedUser.role);
                 return {
                     success: true,
                     user: mappedUser,
@@ -270,7 +268,6 @@ export const AuthService = {
                 console.error('[Auth] Logout error:', error.message);
             }
         }
-        console.log('[Auth] Logout — session cleared');
         return { success: true };
     },
 

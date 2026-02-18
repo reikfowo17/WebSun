@@ -60,11 +60,10 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
                             aria-selected={activeTab === tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`h-full relative px-4 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 ${activeTab === tab.id
-                                    ? 'text-indigo-600'
-                                    : 'text-gray-400 hover:text-slate-600'
+                                ? 'text-indigo-600'
+                                : 'text-gray-400 hover:text-slate-600'
                                 }`}
                         >
-                            <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
                             {tab.label}
                             {/* Pending badge on DUYỆT tab */}
                             {tab.id === 'REVIEWS' && pendingCount > 0 && (

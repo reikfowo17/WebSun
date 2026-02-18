@@ -3,6 +3,8 @@ import { RecoveryService } from '../../services/recovery';
 import type { RecoveryItem, RecoveryStatus, RecoveryStats } from '../../types/recovery';
 import AddRecoveryModal from './components/AddRecoveryModal';
 import RecoveryDetailModal from './components/RecoveryDetailModal';
+import RecoveryScanModal from './components/RecoveryScanModal';
+import ArchiveStatusPanel from './components/ArchiveStatusPanel';
 
 interface RecoveryViewProps {
     toast: any;
@@ -33,6 +35,8 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState<RecoveryItem | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showScanModal, setShowScanModal] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'archive'>('list');
 
     useEffect(() => { loadRecoveryItems(); loadStats(); }, []);
 
@@ -115,6 +119,14 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
 
                         {/* Actions */}
                         <div className="rv-toolbar-actions">
+                            <button className="rv-btn-scan" onClick={() => setShowScanModal(true)}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>history</span>
+                                Quét lịch sử
+                            </button>
+                            <button className="rv-btn-archive" onClick={() => setViewMode(viewMode === 'list' ? 'archive' : 'list')}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{viewMode === 'list' ? 'cloud' : 'list'}</span>
+                                {viewMode === 'list' ? 'Lưu trữ' : 'Danh sách'}
+                            </button>
                             <button className="rv-btn-refresh" onClick={() => { loadRecoveryItems(); loadStats(); }} disabled={loading}>
                                 <span className={`material-symbols-outlined ${loading ? 'rv-spin' : ''}`} style={{ fontSize: 18 }}>refresh</span>
                                 Làm mới
@@ -127,83 +139,93 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
                     </div>
                 </div>
 
-                {/* ───── Data Table ───── */}
-                <div className="rv-table-card">
-                    <div className="rv-table-scroll">
-                        {loading && items.length === 0 ? (
-                            <div className="rv-loading">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} style={{ height: 48, background: '#f8fafc', borderRadius: 8, animation: 'shimmer 1.5s infinite', animationDelay: `${i * 0.1}s` }} />
-                                ))}
-                            </div>
-                        ) : (
-                            <table className="rv-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: 50 }}>STT</th>
-                                        <th>Sản phẩm</th>
-                                        <th style={{ width: 90 }}>Số lượng</th>
-                                        <th style={{ width: 120 }}>Đơn giá</th>
-                                        <th style={{ width: 130 }}>Tổng tiền</th>
-                                        <th>Lý do</th>
-                                        <th style={{ width: 110 }}>Trạng thái</th>
-                                        <th style={{ width: 150 }}>Ngày tạo</th>
-                                        <th style={{ width: 70, textAlign: 'center' }}>Chi tiết</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredItems.length === 0 ? (
-                                        <tr><td colSpan={9} className="rv-empty-td">
-                                            <div className="rv-empty">
-                                                <div className="rv-empty-icon">
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#cbd5e1' }}>inbox</span>
+                {/* ───── Content Area ───── */}
+                {viewMode === 'archive' ? (
+                    <ArchiveStatusPanel toast={toast} />
+                ) : (
+                    <div className="rv-table-card">
+                        <div className="rv-table-scroll">
+                            {loading && items.length === 0 ? (
+                                <div className="rv-loading">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} style={{ height: 48, background: '#f8fafc', borderRadius: 8, animation: 'shimmer 1.5s infinite', animationDelay: `${i * 0.1}s` }} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <table className="rv-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: 50 }}>STT</th>
+                                            <th>Sản phẩm</th>
+                                            <th style={{ width: 90 }}>Số lượng</th>
+                                            <th style={{ width: 120 }}>Đơn giá</th>
+                                            <th style={{ width: 130 }}>Tổng tiền</th>
+                                            <th>Lý do</th>
+                                            <th style={{ width: 110 }}>Trạng thái</th>
+                                            <th style={{ width: 150 }}>Ngày tạo</th>
+                                            <th style={{ width: 70, textAlign: 'center' }}>Chi tiết</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredItems.length === 0 ? (
+                                            <tr><td colSpan={9} className="rv-empty-td">
+                                                <div className="rv-empty">
+                                                    <div className="rv-empty-icon">
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#cbd5e1' }}>inbox</span>
+                                                    </div>
+                                                    <p className="rv-empty-title">Không có dữ liệu</p>
+                                                    <p className="rv-empty-sub">Chưa có phiếu truy thu nào{selectedStatus !== 'ALL' ? ' với trạng thái đã chọn' : ''}</p>
+                                                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                                        <button className="rv-empty-btn" onClick={() => setShowAddModal(true)}>
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
+                                                            Tạo phiếu mới
+                                                        </button>
+                                                        <button className="rv-empty-btn rv-empty-btn-scan" onClick={() => setShowScanModal(true)}>
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>history</span>
+                                                            Quét lịch sử
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <p className="rv-empty-title">Không có dữ liệu</p>
-                                                <p className="rv-empty-sub">Chưa có phiếu truy thu nào{selectedStatus !== 'ALL' ? ' với trạng thái đã chọn' : ''}</p>
-                                                <button className="rv-empty-btn" onClick={() => setShowAddModal(true)}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
-                                                    Tạo phiếu mới
-                                                </button>
-                                            </div>
-                                        </td></tr>
-                                    ) : filteredItems.map((item, idx) => {
-                                        const st = getStatus(item.status_enum);
-                                        return (
-                                            <tr key={item.id} className="rv-row" onClick={() => handleViewDetail(item)}>
-                                                <td><span className="rv-rownum">{idx + 1}</span></td>
-                                                <td>
-                                                    <div className="rv-product-name">{item.product_name}</div>
-                                                    {item.barcode && <div className="rv-barcode">{item.barcode}</div>}
-                                                </td>
-                                                <td><span className="rv-qty">{item.quantity}</span></td>
-                                                <td className="rv-money">{formatCurrency(item.unit_price)}</td>
-                                                <td className="rv-money rv-money-bold">{formatCurrency(item.total_amount)}</td>
-                                                <td><div className="rv-reason">{item.reason}</div></td>
-                                                <td>
-                                                    <span className="rv-status" style={{ background: st.bg, color: st.text }}>
-                                                        <span className="rv-status-dot" style={{ background: st.dot }} />
-                                                        {st.label}
-                                                    </span>
-                                                </td>
-                                                <td className="rv-date">{formatDate(item.created_at)}</td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <button className="rv-detail-btn" onClick={e => { e.stopPropagation(); handleViewDetail(item); }}>
-                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        )}
+                                            </td></tr>
+                                        ) : filteredItems.map((item, idx) => {
+                                            const st = getStatus(item.status_enum);
+                                            return (
+                                                <tr key={item.id} className="rv-row" onClick={() => handleViewDetail(item)}>
+                                                    <td><span className="rv-rownum">{idx + 1}</span></td>
+                                                    <td>
+                                                        <div className="rv-product-name">{item.product_name}</div>
+                                                        {item.barcode && <div className="rv-barcode">{item.barcode}</div>}
+                                                    </td>
+                                                    <td><span className="rv-qty">{item.quantity}</span></td>
+                                                    <td className="rv-money">{formatCurrency(item.unit_price)}</td>
+                                                    <td className="rv-money rv-money-bold">{formatCurrency(item.total_amount)}</td>
+                                                    <td><div className="rv-reason">{item.reason}</div></td>
+                                                    <td>
+                                                        <span className="rv-status" style={{ background: st.bg, color: st.text }}>
+                                                            <span className="rv-status-dot" style={{ background: st.dot }} />
+                                                            {st.label}
+                                                        </span>
+                                                    </td>
+                                                    <td className="rv-date">{formatDate(item.created_at)}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button className="rv-detail-btn" onClick={e => { e.stopPropagation(); handleViewDetail(item); }}>
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        {/* Footer */}
+                        <div className="rv-footer">
+                            <span>Tổng: <strong>{items.length}</strong> phiếu</span>
+                            <span>Hiển thị: <strong>{filteredItems.length}</strong></span>
+                        </div>
                     </div>
-                    {/* Footer */}
-                    <div className="rv-footer">
-                        <span>Tổng: <strong>{items.length}</strong> phiếu</span>
-                        <span>Hiển thị: <strong>{filteredItems.length}</strong></span>
-                    </div>
-                </div>
+                )}
             </div>
 
             {/* ───── Modals ───── */}
@@ -212,6 +234,13 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
             )}
             {showDetailModal && selectedItem && (
                 <RecoveryDetailModal item={selectedItem} toast={toast} onClose={handleDetailClose} />
+            )}
+            {showScanModal && (
+                <RecoveryScanModal
+                    toast={toast}
+                    onClose={() => setShowScanModal(false)}
+                    onRecoveryCreated={() => { setShowScanModal(false); loadRecoveryItems(); loadStats(); }}
+                />
             )}
         </>
     );
@@ -269,6 +298,12 @@ const CSS_TEXT = `
 .rv-btn-create { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; border:none; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px -3px rgba(99,102,241,.4); transition:transform .15s,box-shadow .2s; }
 .rv-btn-create:hover { transform:translateY(-1px); box-shadow:0 6px 20px -4px rgba(99,102,241,.5); }
 .rv-btn-create:active { transform:scale(.97); }
+.rv-btn-scan { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px -3px rgba(245,158,11,.35); transition:transform .15s,box-shadow .2s; }
+.rv-btn-scan:hover { transform:translateY(-1px); box-shadow:0 6px 18px -4px rgba(245,158,11,.5); }
+.rv-btn-scan:active { transform:scale(.97); }
+.rv-btn-archive { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; font-size:12px; font-weight:700; color:#64748b; cursor:pointer; transition:all .15s; }
+.rv-btn-archive:hover { border-color:#a5b4fc; color:#4f46e5; background:#eef2ff; }
+.rv-empty-btn-scan { background:#fef3c7; color:#92400e; }
 
 /* Table */
 .rv-table-card { flex:1; display:flex; flex-direction:column; min-height:0; background:#fff; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; transition:box-shadow .25s; }

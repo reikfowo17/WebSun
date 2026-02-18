@@ -45,11 +45,6 @@ export interface RecoveryItem {
     notes?: string;
     updated_at: string;
 
-    // Legacy fields (may exist)
-    check_date?: string;
-    missing_qty?: number;
-    status?: string;
-    note?: string;
 }
 
 export interface RecoveryDocument {
@@ -73,14 +68,7 @@ export interface RecoveryHistoryEntry {
     changed_at: string;
 }
 
-export interface InventoryReportComment {
-    id: string;
-    report_id: string;
-    user_id: string;
-    comment: string;
-    created_at: string;
-    updated_at: string;
-}
+
 
 // Input types for creating/updating
 export interface CreateRecoveryItemInput {
@@ -128,7 +116,3 @@ export interface RecoveryStats {
     }[];
 }
 
-export interface CreateCommentInput {
-    report_id: string;
-    comment: string;
-}
