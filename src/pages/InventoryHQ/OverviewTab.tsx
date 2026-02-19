@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { InventoryService } from '../../services';
 import { STORES } from '../../constants';
+import ItemsDetailPanel from './components/ItemsDetailPanel';
 
 interface ToastFn {
     success: (msg: string) => void;
@@ -52,6 +53,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
     // useRef to avoid full re-render just for time text
     const [lastUpdateText, setLastUpdateText] = useState(() => new Date().toLocaleTimeString('vi-VN'));
     const isMountedRef = useRef(true);
+    const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
 
     const loadOverview = useCallback(async (isRetry = false) => {
         if (!isRetry) { setLoading(true); setError(null); }
@@ -278,12 +280,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                             return (
                                 <div
                                     key={store.id}
-                                    className={`ov-store-card ${store.reportStatus === 'PENDING' ? 'clickable ov-card--pending' : ''}`}
-                                    onClick={() => { if (store.reportStatus === 'PENDING') onNavigateToReviews(store.code); }}
-                                    role={store.reportStatus === 'PENDING' ? 'button' : undefined}
-                                    tabIndex={store.reportStatus === 'PENDING' ? 0 : undefined}
-                                    onKeyDown={store.reportStatus === 'PENDING' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigateToReviews(store.code); } } : undefined}
-                                    aria-label={store.reportStatus === 'PENDING' ? `Xem báo cáo ${info?.name || store.name}` : undefined}
+                                    className={`ov-store-card ${store.progress.percentage > 0 ? 'clickable' : ''} ${store.reportStatus === 'PENDING' ? 'ov-card--pending' : ''} ${expandedStoreId === store.id ? 'ov-card--expanded' : ''}`}
+                                    onClick={() => {
+                                        if (store.progress.percentage > 0 || store.reportStatus) {
+                                            setExpandedStoreId(prev => prev === store.id ? null : store.id);
+                                        }
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={`Xem chi tiết ${info?.name || store.name}`}
                                 >
                                     {/* Status Bar */}
                                     <div className="ov-status-bar" style={{ background: sc.bg }} />
@@ -360,13 +365,33 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                                                 <span className="material-symbols-outlined" style={{ fontSize: 14 }}>update</span>
                                                 {getRelativeTime(store.lastUpdate)}
                                             </div>
-                                            {store.reportStatus === 'PENDING' && (
-                                                <button className="ov-view-report" onClick={() => onNavigateToReviews(store.code)}>
-                                                    Xem báo cáo
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>arrow_forward</span>
-                                                </button>
-                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {store.reportStatus === 'PENDING' && (
+                                                    <button className="ov-view-report" onClick={(e) => { e.stopPropagation(); onNavigateToReviews(store.code); }}>
+                                                        Xem báo cáo
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>arrow_forward</span>
+                                                    </button>
+                                                )}
+                                                {(store.progress.percentage > 0 || store.reportStatus) && (
+                                                    <span className="material-symbols-outlined ov-expand-icon" style={{ fontSize: 18, color: '#94a3b8', transition: 'transform .2s', transform: expandedStoreId === store.id ? 'rotate(180deg)' : 'rotate(0)' }}>
+                                                        expand_more
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
+
+                                        {/* ── Expanded Items Detail ── */}
+                                        {expandedStoreId === store.id && (
+                                            <div className="ov-items-detail" onClick={e => e.stopPropagation()}>
+                                                <ItemsDetailPanel
+                                                    storeId={store.id}
+                                                    checkDate={date}
+                                                    shift={store.shift}
+                                                    isOpen={true}
+                                                    mode="inline"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -461,6 +486,11 @@ const CSS_TEXT = `
 .ov-view-report { display:inline-flex; align-items:center; gap:6px; padding:10px 18px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; transition:transform .15s,box-shadow .2s; }
 .ov-view-report:hover { transform:translateY(-1px); box-shadow:0 4px 12px -2px rgba(245,158,11,.35); }
 .ov-view-report:focus-visible { outline:2px solid #d97706; outline-offset:2px; }
+
+/* Expanded card */
+.ov-card--expanded { grid-column: 1 / -1 !important; }
+.ov-items-detail { padding:0 20px 16px; border-top:1px solid #e2e8f0; margin-top:8px; }
+.ov-expand-icon { cursor:pointer; }
 
 /* Empty */
 .ov-empty { display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; }

@@ -802,6 +802,7 @@ export const InventoryService = {
 
                     return {
                         id: report.id,
+                        storeId: report.stores?.id,
                         store: report.stores?.code,
                         shift: report.shift,
                         date: report.check_date,
@@ -1204,52 +1205,118 @@ export const InventoryService = {
         }
     },
 
+    async getReportItems(storeId: string, checkDate: string, shift: number): Promise<{
+        success: boolean;
+        items?: Array<{
+            id: string;
+            product_name: string;
+            barcode: string;
+            category: string;
+            system_stock: number;
+            actual_stock: number | null;
+            diff: number | null;
+            status: string;
+            note: string | null;
+            diff_reason: string | null;
+        }>;
+    }> {
+        if (!isSupabaseConfigured()) return { success: false };
+
+        try {
+            const { data, error } = await supabase
+                .from('inventory_items')
+                .select(`
+                    id,
+                    system_stock,
+                    actual_stock,
+                    diff,
+                    status,
+                    note,
+                    diff_reason,
+                    products (
+                        name,
+                        barcode,
+                        category
+                    )
+                `)
+                .eq('store_id', storeId)
+                .eq('check_date', checkDate)
+                .eq('shift', shift)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            const items = (data || []).map((item: any) => ({
+                id: item.id,
+                product_name: item.products?.name || 'N/A',
+                barcode: item.products?.barcode || '',
+                category: item.products?.category || '',
+                system_stock: item.system_stock ?? 0,
+                actual_stock: item.actual_stock,
+                diff: item.diff,
+                status: item.status || 'UNCHECKED',
+                note: item.note,
+                diff_reason: item.diff_reason,
+            }));
+
+            return { success: true, items };
+        } catch (e: any) {
+            console.error('[Inventory] Get report items error:', e);
+            return { success: false };
+        }
+    },
+
     async deleteReport(reportId: string): Promise<{ success: boolean; message?: string }> {
         if (!reportId) return { success: false, message: 'Missing report ID' };
         if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
 
         try {
-            // Fetch report to get store_id, check_date, shift
             const { data: report, error: fetchErr } = await supabase
                 .from('inventory_reports')
                 .select('id, store_id, check_date, shift, status')
                 .eq('id', reportId)
                 .single();
 
-            if (fetchErr) throw fetchErr;
+            if (fetchErr || !report) return { success: false, message: 'Báo cáo không tồn tại' };
 
-            // Delete related records first (cascading manually)
-            // 1. Delete comments
-            await supabase
-                .from('inventory_report_comments')
-                .delete()
-                .eq('report_id', reportId);
+            // Cascading deletes — each wrapped so missing tables don't block
+            const safeDel = async (table: string, filters: Record<string, any>) => {
+                try {
+                    let q = supabase.from(table).delete();
+                    for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+                    await q;
+                } catch { /* skip */ }
+            };
 
-            // 2. Delete history items for this report
+            await safeDel('inventory_report_comments', { report_id: reportId });
+
             if (report.store_id && report.check_date && report.shift) {
-                await supabase
-                    .from('inventory_history')
-                    .delete()
-                    .eq('store_id', report.store_id)
-                    .eq('check_date', report.check_date)
-                    .eq('shift', report.shift);
+                await safeDel('inventory_history', {
+                    store_id: report.store_id,
+                    check_date: report.check_date,
+                    shift: report.shift
+                });
             }
 
-            // 3. Delete report stats
-            await supabase
-                .from('inventory_report_stats')
-                .delete()
-                .eq('store_id', report.store_id)
-                .eq('check_date', report.check_date)
-                .eq('shift', report.shift);
-
-            // 4. Delete the report itself
-            const { error } = await supabase
+            // Delete the report
+            const { error: delErr } = await supabase
                 .from('inventory_reports')
                 .delete()
                 .eq('id', reportId);
 
-            if (error) throw error;
+            if (delErr) throw delErr;
+
+            // Verify deletion
+            const { data: check } = await supabase
+                .from('inventory_reports')
+                .select('id')
+                .eq('id', reportId)
+                .maybeSingle();
+
+            if (check) {
+                return { success: false, message: 'Không thể xóa báo cáo. Kiểm tra quyền hoặc ràng buộc dữ liệu.' };
+            }
+
             return { success: true };
         } catch (e: any) {
             console.error('[Inventory] Delete report error:', e);

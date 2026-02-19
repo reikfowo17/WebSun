@@ -5,6 +5,7 @@ import { STORES } from '../../constants';
 import ConfirmModal from '../../components/ConfirmModal';
 import PromptModal from '../../components/PromptModal';
 import ReportDetailModal from './components/ReportDetailModal';
+import ItemsDetailPanel from './components/ItemsDetailPanel';
 
 interface ToastFn {
     success: (msg: string) => void;
@@ -21,6 +22,7 @@ interface ReviewsViewProps {
 
 interface ReportSummary {
     id: string;
+    storeId: string;
     store: string;
     shift: number;
     date: string;
@@ -61,6 +63,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const [rejectReportId, setRejectReportId] = useState<string | null>(null);
     const [deleteReportId, setDeleteReportId] = useState<string | null>(null);
     const [detailReportId, setDetailReportId] = useState<string | null>(null);
+    const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -168,27 +171,38 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         setProcessing(true);
         try {
             const res = await InventoryService.deleteReport(id);
-            if (res.success) { toast.success('Đã xóa báo cáo'); loadReports(); onReviewDone?.(); }
-            else toast.error(res.message || 'Lỗi xóa');
-        } catch { toast.error('Lỗi hệ thống'); }
-        finally { setProcessing(false); }
+            if (res.success) {
+                toast.success('Đã xóa báo cáo');
+                setReports(prev => prev.filter(r => r.id !== id));
+                setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+                onReviewDone?.();
+            } else {
+                toast.error(res.message || 'Lỗi xóa báo cáo');
+            }
+        } catch {
+            toast.error('Lỗi hệ thống khi xóa');
+        } finally { setProcessing(false); }
     };
 
     const doBulkDelete = async () => {
         if (selectedIds.size === 0) return;
+        setDeleteReportId(null);
         setProcessing(true);
-        let ok = 0, fail = 0;
+        const deletedIds: string[] = [];
+        let fail = 0;
         for (const id of selectedIds) {
             try {
                 const res = await InventoryService.deleteReport(id);
-                if (res.success) ok++; else fail++;
+                if (res.success) deletedIds.push(id); else fail++;
             } catch { fail++; }
         }
         setProcessing(false);
-        if (ok > 0) toast.success(`Đã xóa ${ok} báo cáo`);
+        if (deletedIds.length > 0) {
+            toast.success(`Đã xóa ${deletedIds.length} báo cáo`);
+            setReports(prev => prev.filter(r => !deletedIds.includes(r.id)));
+        }
         if (fail > 0) toast.error(`${fail} báo cáo xóa thất bại`);
         setSelectedIds(new Set());
-        loadReports();
         onReviewDone?.();
     };
 
@@ -361,7 +375,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                 <thead>
                                     <tr>
                                         {viewMode === 'HISTORY' && (
-                                            <th className="rv2-th rv2-th-check" style={{ width: 40 }}>
+                                            <th className="rv2-th rv2-th-check" style={{ width: '4%' }}>
                                                 <input
                                                     type="checkbox"
                                                     className="rv2-checkbox"
@@ -371,21 +385,20 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                                 />
                                             </th>
                                         )}
-                                        <th className="rv2-th rv2-th-sort" onClick={() => handleSort('store')}>
+                                        <th className="rv2-th rv2-th-sort" style={{ width: '17%' }} onClick={() => handleSort('store')}>
                                             Cửa hàng <SortIcon field="store" />
                                         </th>
-                                        <th className="rv2-th rv2-th-sort" onClick={() => handleSort('shift')}>
+                                        <th className="rv2-th rv2-th-sort" style={{ width: '8%' }} onClick={() => handleSort('shift')}>
                                             Ca <SortIcon field="shift" />
                                         </th>
-                                        <th className="rv2-th rv2-th-sort" onClick={() => handleSort('date')}>
+                                        <th className="rv2-th rv2-th-sort" style={{ width: '12%' }} onClick={() => handleSort('date')}>
                                             Ngày <SortIcon field="date" />
                                         </th>
-                                        <th className="rv2-th">Người nộp</th>
-                                        <th className="rv2-th rv2-th-num">Khớp</th>
-                                        <th className="rv2-th rv2-th-num">Thiếu</th>
-                                        <th className="rv2-th rv2-th-num">Thừa</th>
-                                        <th className="rv2-th">Trạng thái</th>
-                                        <th className="rv2-th rv2-th-actions">Thao tác</th>
+                                        <th className="rv2-th" style={{ width: '18%' }}>Người nộp</th>
+                                        <th className="rv2-th rv2-th-num" style={{ width: '8%' }}>Khớp</th>
+                                        <th className="rv2-th rv2-th-num" style={{ width: '8%' }}>Thiếu</th>
+                                        <th className="rv2-th rv2-th-num" style={{ width: '8%' }}>Thừa</th>
+                                        <th className="rv2-th" style={{ width: '17%' }}>Trạng thái</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -394,106 +407,112 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                         const hasIssue = report.missing > 0 || report.over > 0;
 
                                         return (
-                                            <tr
-                                                key={report.id}
-                                                className={`rv2-row ${report.status === 'PENDING' ? 'rv2-row--pending' : ''} ${selectedIds.has(report.id) ? 'rv2-row--selected' : ''}`}
-                                            >
-                                                {viewMode === 'HISTORY' && (
-                                                    <td className="rv2-td rv2-td-check">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="rv2-checkbox"
-                                                            checked={selectedIds.has(report.id)}
-                                                            onChange={() => toggleSelect(report.id)}
-                                                            aria-label={`Chọn báo cáo ${storeName(report.store)}`}
-                                                        />
+                                            <React.Fragment key={report.id}>
+                                                <tr
+                                                    className={`rv2-row rv2-row--clickable ${report.status === 'PENDING' ? 'rv2-row--pending' : ''} ${selectedIds.has(report.id) ? 'rv2-row--selected' : ''} ${expandedReportId === report.id ? 'rv2-row--expanded' : ''}`}
+                                                    onClick={() => setExpandedReportId(prev => prev === report.id ? null : report.id)}
+                                                >
+                                                    {viewMode === 'HISTORY' && (
+                                                        <td className="rv2-td rv2-td-check" onClick={e => e.stopPropagation()}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="rv2-checkbox"
+                                                                checked={selectedIds.has(report.id)}
+                                                                onChange={() => toggleSelect(report.id)}
+                                                                aria-label={`Chọn báo cáo ${storeName(report.store)}`}
+                                                            />
+                                                        </td>
+                                                    )}
+
+                                                    {/* Store */}
+                                                    <td className="rv2-td">
+                                                        <div className="rv2-store-cell">
+                                                            <span className="rv2-store-dot" style={{ background: cfg.dot }} />
+                                                            <span className="rv2-store-name">{storeName(report.store)}</span>
+                                                        </div>
                                                     </td>
+
+                                                    {/* Shift */}
+                                                    <td className="rv2-td">
+                                                        <span className="rv2-shift-pill">{SHIFT_LABELS[report.shift] || `Ca ${report.shift}`}</span>
+                                                    </td>
+
+                                                    {/* Date */}
+                                                    <td className="rv2-td rv2-td-date">{formatDate(report.date)}</td>
+
+                                                    {/* Submitter */}
+                                                    <td className="rv2-td">
+                                                        <div className="rv2-submitter-cell">
+                                                            <span className="rv2-submitter-name">{report.submittedBy}</span>
+                                                            <span className="rv2-submitter-time">{formatDateTime(report.submittedAt)}</span>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Stats */}
+                                                    <td className="rv2-td rv2-td-num rv2-num-match">{report.matched}<span className="rv2-num-total">/{report.total}</span></td>
+                                                    <td className={`rv2-td rv2-td-num ${report.missing > 0 ? 'rv2-num-danger' : 'rv2-num-muted'}`}>{report.missing}</td>
+                                                    <td className={`rv2-td rv2-td-num ${report.over > 0 ? 'rv2-num-info' : 'rv2-num-muted'}`}>{report.over}</td>
+
+                                                    {/* Status + Inline Actions */}
+                                                    <td className="rv2-td" onClick={e => e.stopPropagation()}>
+                                                        <div className="rv2-status-cell">
+                                                            <span className="rv2-status-badge" style={{ background: cfg.bg, color: cfg.text }}>
+                                                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{cfg.icon}</span>
+                                                                {cfg.label}
+                                                            </span>
+
+                                                            {report.status === 'PENDING' && (
+                                                                <div className="rv2-inline-actions">
+                                                                    <button
+                                                                        className="rv2-inline-btn rv2-inline-approve"
+                                                                        onClick={() => setApproveReportId(report.id)}
+                                                                        disabled={processing}
+                                                                        title="Phê duyệt"
+                                                                    >
+                                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
+                                                                        Duyệt
+                                                                    </button>
+                                                                    <button
+                                                                        className="rv2-inline-btn rv2-inline-reject"
+                                                                        onClick={() => setRejectReportId(report.id)}
+                                                                        disabled={processing}
+                                                                        title="Từ chối"
+                                                                    >
+                                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                                                                        Từ chối
+                                                                    </button>
+                                                                </div>
+                                                            )}
+
+                                                            {viewMode === 'HISTORY' && (
+                                                                <button
+                                                                    className="rv2-hover-delete"
+                                                                    onClick={() => setDeleteReportId(report.id)}
+                                                                    disabled={processing}
+                                                                    title="Xóa báo cáo"
+                                                                >
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {expandedReportId === report.id && (
+                                                    <tr className="rv2-row--detail">
+                                                        <td colSpan={viewMode === 'HISTORY' ? 9 : 8} style={{ padding: 0 }}>
+                                                            <div className="rv2-items-detail" onClick={e => e.stopPropagation()}>
+                                                                <ItemsDetailPanel
+                                                                    storeId={report.storeId}
+                                                                    checkDate={report.date}
+                                                                    shift={report.shift}
+                                                                    isOpen={true}
+                                                                    mode="inline"
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                    </tr>
                                                 )}
-
-                                                {/* Store */}
-                                                <td className="rv2-td">
-                                                    <div className="rv2-store-cell">
-                                                        <span className="rv2-store-dot" style={{ background: cfg.dot }} />
-                                                        <span className="rv2-store-name">{storeName(report.store)}</span>
-                                                    </div>
-                                                </td>
-
-                                                {/* Shift */}
-                                                <td className="rv2-td">
-                                                    <span className="rv2-shift-pill">{SHIFT_LABELS[report.shift] || `Ca ${report.shift}`}</span>
-                                                </td>
-
-                                                {/* Date */}
-                                                <td className="rv2-td rv2-td-date">{formatDate(report.date)}</td>
-
-                                                {/* Submitter */}
-                                                <td className="rv2-td">
-                                                    <div className="rv2-submitter-cell">
-                                                        <span className="rv2-submitter-name">{report.submittedBy}</span>
-                                                        <span className="rv2-submitter-time">{formatDateTime(report.submittedAt)}</span>
-                                                    </div>
-                                                </td>
-
-                                                {/* Stats */}
-                                                <td className="rv2-td rv2-td-num rv2-num-match">{report.matched}<span className="rv2-num-total">/{report.total}</span></td>
-                                                <td className={`rv2-td rv2-td-num ${report.missing > 0 ? 'rv2-num-danger' : 'rv2-num-muted'}`}>{report.missing}</td>
-                                                <td className={`rv2-td rv2-td-num ${report.over > 0 ? 'rv2-num-info' : 'rv2-num-muted'}`}>{report.over}</td>
-
-                                                {/* Status Badge */}
-                                                <td className="rv2-td">
-                                                    <span className="rv2-status-badge" style={{ background: cfg.bg, color: cfg.text }}>
-                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{cfg.icon}</span>
-                                                        {cfg.label}
-                                                    </span>
-                                                </td>
-
-                                                {/* Actions */}
-                                                <td className="rv2-td rv2-td-actions">
-                                                    <div className="rv2-action-group">
-                                                        <button
-                                                            className="rv2-act-btn rv2-act-view"
-                                                            onClick={() => setDetailReportId(report.id)}
-                                                            title="Xem chi tiết"
-                                                            aria-label="Xem chi tiết"
-                                                        >
-                                                            <span className="material-symbols-outlined">visibility</span>
-                                                        </button>
-                                                        {report.status === 'PENDING' && (
-                                                            <>
-                                                                <button
-                                                                    className="rv2-act-btn rv2-act-approve"
-                                                                    onClick={() => setApproveReportId(report.id)}
-                                                                    disabled={processing}
-                                                                    title="Phê duyệt"
-                                                                    aria-label="Phê duyệt"
-                                                                >
-                                                                    <span className="material-symbols-outlined">check_circle</span>
-                                                                </button>
-                                                                <button
-                                                                    className="rv2-act-btn rv2-act-reject"
-                                                                    onClick={() => setRejectReportId(report.id)}
-                                                                    disabled={processing}
-                                                                    title="Từ chối"
-                                                                    aria-label="Từ chối"
-                                                                >
-                                                                    <span className="material-symbols-outlined">cancel</span>
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        {viewMode === 'HISTORY' && (
-                                                            <button
-                                                                className="rv2-act-btn rv2-act-delete"
-                                                                onClick={() => setDeleteReportId(report.id)}
-                                                                disabled={processing}
-                                                                title="Xóa"
-                                                                aria-label="Xóa báo cáo"
-                                                            >
-                                                                <span className="material-symbols-outlined">delete</span>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                            </React.Fragment>
                                         );
                                     })}
                                 </tbody>
@@ -569,7 +588,7 @@ export default ReviewsView;
 
 /* ══════ CSS ══════ */
 const CSS_TEXT = `
-.rv2-root { display:flex; flex-direction:column; gap:12px; padding-top:16px; height:calc(100vh - 140px); min-height:0; }
+.rv2-root { display:flex; flex-direction:column; gap:10px; height:100%; min-height:0; }
 
 /* ── Toolbar ── */
 .rv2-toolbar-wrap { position:relative; background:#fff; border-radius:14px; border:1px solid #e5e7eb; padding:12px 16px; }
@@ -610,41 +629,45 @@ const CSS_TEXT = `
 .rv2-table-scroll { flex:1; overflow:auto; }
 
 .rv2-table { width:100%; border-collapse:collapse; font-size:13px; }
-.rv2-th { padding:10px 14px; text-align:left; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; background:#f8fafc; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:2; white-space:nowrap; user-select:none; }
+.rv2-th { padding:8px 10px; text-align:left; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; background:#f8fafc; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:2; white-space:nowrap; user-select:none; }
 .rv2-th-sort { cursor:pointer; transition:color .15s; }
 .rv2-th-sort:hover { color:#4f46e5; }
 .rv2-th-num { text-align:center; }
-.rv2-th-check { text-align:center; }
-.rv2-th-actions { text-align:center; width:120px; }
+.rv2-th-check { text-align:center; width:36px; }
 
 .rv2-sort-icon { font-size:14px !important; vertical-align:middle; margin-left:2px; transition:all .2s; }
 
-.rv2-td { padding:10px 14px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
-.rv2-td-check { text-align:center; width:40px; }
+.rv2-td { padding:8px 10px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+.rv2-td-check { text-align:center; width:36px; }
 .rv2-td-num { text-align:center; font-family:'Inter',monospace; font-weight:700; font-size:13px; }
 .rv2-td-date { font-family:'Inter',monospace; font-size:12px; color:#475569; white-space:nowrap; }
-.rv2-td-actions { text-align:center; }
 
 .rv2-row { transition:background .12s; }
+.rv2-row--clickable { cursor:pointer; }
 .rv2-row:hover { background:#f8fafc; }
 .rv2-row--pending { background:#fffbeb; }
 .rv2-row--pending:hover { background:#fef3c7; }
 .rv2-row--selected { background:#eef2ff !important; }
+.rv2-row--expanded { background:#f8fafc; }
+.rv2-row--expanded td { border-bottom:none; }
+.rv2-row--detail { background:#f8fafc; }
+.rv2-row--detail:hover { background:#f8fafc; }
+.rv2-items-detail { padding:0 20px 16px; border-bottom:2px solid #e2e8f0; }
 
-.rv2-checkbox { width:16px; height:16px; accent-color:#6366f1; cursor:pointer; }
+.rv2-checkbox { width:15px; height:15px; accent-color:#6366f1; cursor:pointer; }
 
 /* Store cell */
-.rv2-store-cell { display:flex; align-items:center; gap:8px; }
-.rv2-store-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.rv2-store-name { font-weight:700; color:#1e293b; white-space:nowrap; }
+.rv2-store-cell { display:flex; align-items:center; gap:6px; }
+.rv2-store-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.rv2-store-name { font-weight:700; color:#1e293b; white-space:nowrap; font-size:13px; }
 
 /* Shift */
-.rv2-shift-pill { display:inline-block; padding:2px 10px; border-radius:6px; background:#f1f5f9; font-size:11px; font-weight:700; color:#475569; }
+.rv2-shift-pill { display:inline-block; padding:2px 8px; border-radius:6px; background:#f1f5f9; font-size:11px; font-weight:700; color:#475569; }
 
 /* Submitter */
 .rv2-submitter-cell { display:flex; flex-direction:column; gap:1px; }
 .rv2-submitter-name { font-weight:600; color:#334155; font-size:12px; }
-.rv2-submitter-time { font-size:11px; color:#94a3b8; }
+.rv2-submitter-time { font-size:10px; color:#94a3b8; }
 
 /* Numbers */
 .rv2-num-match { color:#16a34a; }
@@ -653,20 +676,24 @@ const CSS_TEXT = `
 .rv2-num-info { color:#4f46e5; }
 .rv2-num-muted { color:#cbd5e1; }
 
-/* Status Badge */
-.rv2-status-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:8px; font-size:11px; font-weight:700; white-space:nowrap; }
+/* Status cell — badge + inline actions */
+.rv2-status-cell { display:flex; align-items:center; gap:6px; flex-wrap:nowrap; }
+.rv2-status-badge { display:inline-flex; align-items:center; gap:3px; padding:3px 8px; border-radius:7px; font-size:11px; font-weight:700; white-space:nowrap; flex-shrink:0; }
 
-/* Action Buttons */
-.rv2-action-group { display:flex; align-items:center; justify-content:center; gap:4px; }
-.rv2-act-btn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:none; border-radius:8px; background:transparent; cursor:pointer; transition:all .15s; color:#94a3b8; }
-.rv2-act-btn .material-symbols-outlined { font-size:18px; }
-.rv2-act-btn:hover { transform:translateY(-1px); }
-.rv2-act-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+/* Inline approve/reject buttons next to status */
+.rv2-inline-actions { display:flex; gap:3px; }
+.rv2-inline-btn { display:inline-flex; align-items:center; gap:2px; padding:3px 8px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.rv2-inline-btn:disabled { opacity:.4; cursor:not-allowed; }
+.rv2-inline-approve { background:#d1fae5; color:#059669; }
+.rv2-inline-approve:hover:not(:disabled) { background:#a7f3d0; transform:translateY(-1px); }
+.rv2-inline-reject { background:#fef2f2; color:#dc2626; }
+.rv2-inline-reject:hover:not(:disabled) { background:#fecaca; transform:translateY(-1px); }
 
-.rv2-act-view:hover { background:#eef2ff; color:#4f46e5; }
-.rv2-act-approve:hover { background:#d1fae5; color:#059669; }
-.rv2-act-reject:hover { background:#fef2f2; color:#dc2626; }
-.rv2-act-delete:hover { background:#fef2f2; color:#dc2626; }
+/* Hover-visible delete button */
+.rv2-hover-delete { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border:none; border-radius:5px; background:transparent; color:#cbd5e1; cursor:pointer; transition:all .15s; opacity:0; }
+.rv2-row:hover .rv2-hover-delete { opacity:1; }
+.rv2-hover-delete:hover { background:#fef2f2; color:#dc2626; transform:translateY(-1px); }
+.rv2-hover-delete:disabled { opacity:0; cursor:not-allowed; }
 
 /* Footer */
 .rv2-footer { padding:10px 16px; background:#f8fafc; border-top:1px solid #f1f5f9; font-size:12px; font-weight:500; color:#64748b; display:flex; justify-content:space-between; flex-shrink:0; }
