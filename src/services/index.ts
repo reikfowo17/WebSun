@@ -3,8 +3,8 @@ export { AuthService } from './auth';
 export type { LoginResult, RegisterResult } from './auth';
 
 // Inventory
-export { InventoryService, DIFF_REASON_OPTIONS } from './inventory';
-export type { InventoryProduct, MasterItem, DiffReason } from './inventory';
+export { InventoryService, DIFF_REASON_OPTIONS, REPORT_STATUS } from './inventory';
+export type { InventoryProduct, MasterItem, DiffReason, ReportStatus, ReportSummary, ReviewResult, BulkReviewResult } from './inventory';
 
 // Expiry
 export { ExpiryService } from './expiry';
@@ -27,6 +27,7 @@ export { InventoryArchiveService } from './archive';
 export type {
     ArchivedDayData,
     ArchivedInventoryItem,
+    ArchivedReportMetadata,
     ArchiveLogEntry,
     DailySummary,
     MissingProduct,

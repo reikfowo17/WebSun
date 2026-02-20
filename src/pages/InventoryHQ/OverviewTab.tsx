@@ -53,7 +53,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
     // useRef to avoid full re-render just for time text
     const [lastUpdateText, setLastUpdateText] = useState(() => new Date().toLocaleTimeString('vi-VN'));
     const isMountedRef = useRef(true);
-    const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
+    const [selectedStore, setSelectedStore] = useState<StoreOverview | null>(null);
 
     const loadOverview = useCallback(async (isRetry = false) => {
         if (!isRetry) { setLoading(true); setError(null); }
@@ -280,10 +280,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                             return (
                                 <div
                                     key={store.id}
-                                    className={`ov-store-card ${store.progress.percentage > 0 ? 'clickable' : ''} ${store.reportStatus === 'PENDING' ? 'ov-card--pending' : ''} ${expandedStoreId === store.id ? 'ov-card--expanded' : ''}`}
+                                    className={`ov-store-card ${store.progress.percentage > 0 ? 'clickable' : ''} ${store.reportStatus === 'PENDING' ? 'ov-card--pending' : ''} ${selectedStore?.id === store.id ? 'ov-card--active' : ''}`}
                                     onClick={() => {
                                         if (store.progress.percentage > 0 || store.reportStatus) {
-                                            setExpandedStoreId(prev => prev === store.id ? null : store.id);
+                                            setSelectedStore(prev => prev?.id === store.id ? null : store);
                                         }
                                     }}
                                     role="button"
@@ -373,25 +373,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                                                     </button>
                                                 )}
                                                 {(store.progress.percentage > 0 || store.reportStatus) && (
-                                                    <span className="material-symbols-outlined ov-expand-icon" style={{ fontSize: 18, color: '#94a3b8', transition: 'transform .2s', transform: expandedStoreId === store.id ? 'rotate(180deg)' : 'rotate(0)' }}>
-                                                        expand_more
+                                                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: selectedStore?.id === store.id ? '#6366f1' : '#94a3b8', transition: 'color .2s' }}>
+                                                        open_in_new
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
-
-                                        {/* ── Expanded Items Detail ── */}
-                                        {expandedStoreId === store.id && (
-                                            <div className="ov-items-detail" onClick={e => e.stopPropagation()}>
-                                                <ItemsDetailPanel
-                                                    storeId={store.id}
-                                                    checkDate={date}
-                                                    shift={store.shift}
-                                                    isOpen={true}
-                                                    mode="inline"
-                                                />
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             );
@@ -399,6 +386,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                     </div>
                 )}
             </div>
+
+            {/* ── Side Panel ── */}
+            <ItemsDetailPanel
+                storeId={selectedStore?.id || ''}
+                storeName={STORES.find(s => s.code === selectedStore?.code)?.name || selectedStore?.name || ''}
+                checkDate={date}
+                shift={selectedStore?.shift || 1}
+                isOpen={!!selectedStore}
+                onClose={() => setSelectedStore(null)}
+                submittedBy={selectedStore?.employee?.name || undefined}
+                reportStatus={selectedStore?.reportStatus || undefined}
+            />
         </>
     );
 };
@@ -420,90 +419,88 @@ export default OverviewTab;
 
 /* ══════ CSS ══════ */
 const CSS_TEXT = `
-.ov-root { display:flex; flex-direction:column; gap:16px; padding-top:16px; }
+            .ov-root {display:flex; flex-direction:column; gap:16px; padding-top:16px; }
 
-/* ── Summary Strip ── */
-.ov-summary-strip { display:flex; align-items:center; gap:4px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 16px; flex-wrap:wrap; }
-.ov-summary-item { display:flex; align-items:center; gap:6px; padding:0 8px; }
-.ov-summary-label { font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; }
-.ov-summary-value { font-size:18px; font-weight:800; color:#1e293b; line-height:1; }
-.ov-summary-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.ov-summary-divider { width:1px; height:24px; background:#e5e7eb; margin:0 4px; flex-shrink:0; }
-.ov-summary-spacer { flex:1; min-width:16px; }
+            /* ── Summary Strip ── */
+            .ov-summary-strip {display:flex; align-items:center; gap:4px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 16px; flex-wrap:wrap; }
+            .ov-summary-item {display:flex; align-items:center; gap:6px; padding:0 8px; }
+            .ov-summary-label {font - size:12px; font-weight:600; color:#64748b; white-space:nowrap; }
+            .ov-summary-value {font - size:18px; font-weight:800; color:#1e293b; line-height:1; }
+            .ov-summary-dot {width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+            .ov-summary-divider {width:1px; height:24px; background:#e5e7eb; margin:0 4px; flex-shrink:0; }
+            .ov-summary-spacer {flex:1; min-width:16px; }
 
-/* Live indicator */
-.ov-live-indicator { display:flex; align-items:center; gap:6px; }
-.ov-live-dot { width:8px; height:8px; border-radius:50%; background:#10b981; animation:ov-pulse-live 2s ease-in-out infinite; flex-shrink:0; }
-@keyframes ov-pulse-live { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.4)} 50%{opacity:.7;box-shadow:0 0 0 4px rgba(16,185,129,0)} }
-.ov-live-text { font-size:12px; color:#64748b; font-weight:500; white-space:nowrap; }
-.ov-refresh-btn { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; color:#64748b; transition:all .2s; flex-shrink:0; }
-.ov-refresh-btn:hover { background:#eef2ff; color:#6366f1; }
-.ov-refresh-btn:focus-visible { outline:2px solid #6366f1; outline-offset:2px; }
+            /* Live indicator */
+            .ov-live-indicator {display:flex; align-items:center; gap:6px; }
+            .ov-live-dot {width:8px; height:8px; border-radius:50%; background:#10b981; animation:ov-pulse-live 2s ease-in-out infinite; flex-shrink:0; }
+            @keyframes ov-pulse-live {0 %, 100 % { opacity: 1; box- shadow:0 0 0 0 rgba(16,185,129,.4)} 50%{opacity:.7;box-shadow:0 0 0 4px rgba(16,185,129,0)} }
+            .ov-live-text {font - size:12px; color:#64748b; font-weight:500; white-space:nowrap; }
+            .ov-refresh-btn {width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; color:#64748b; transition:all .2s; flex-shrink:0; }
+            .ov-refresh-btn:hover {background:#eef2ff; color:#6366f1; }
+            .ov-refresh-btn:focus-visible {outline:2px solid #6366f1; outline-offset:2px; }
 
-/* Pulse for issues dot */
-.ov-pulse { animation:ov-pulse-alert 1.5s ease-in-out infinite; }
-@keyframes ov-pulse-alert { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
+            /* Pulse for issues dot */
+            .ov-pulse {animation:ov-pulse-alert 1.5s ease-in-out infinite; }
+            @keyframes ov-pulse-alert {0 %, 100 % { opacity: 1; transform: scale(1) } 50%{opacity:.6;transform:scale(1.3)} }
 
-/* Grid */
-.ov-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+            /* Grid */
+            .ov-grid {display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
 
-/* Store Card */
-.ov-store-card { background:#fff; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; transition:box-shadow .3s,transform .2s; }
-.ov-store-card:hover { box-shadow:0 8px 30px -8px rgba(0,0,0,.1); }
-.ov-store-card.clickable { cursor:pointer; }
-.ov-store-card.clickable:hover { transform:translateY(-2px); }
-.ov-store-card.clickable:focus-visible { outline:2px solid #6366f1; outline-offset:2px; }
-.ov-card--pending { border-left:3px solid #f59e0b; }
-.ov-status-bar { height:4px; width:100%; }
-.ov-store-hdr { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 12px; }
-.ov-store-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.ov-store-name { font-size:16px; font-weight:800; color:#1e293b; margin:0; }
-.ov-store-meta { font-size:13px; color:#64748b; font-weight:500; margin-top:2px; }
-.ov-badge { display:inline-flex; padding:4px 12px; border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; border:1px solid; white-space:nowrap; height:fit-content; }
+            /* Store Card */
+            .ov-store-card {background:#fff; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; transition:box-shadow .3s,transform .2s; }
+            .ov-store-card:hover {box - shadow:0 8px 30px -8px rgba(0,0,0,.1); }
+            .ov-store-card.clickable {cursor:pointer; }
+            .ov-store-card.clickable:hover {transform:translateY(-2px); }
+            .ov-store-card.clickable:focus-visible {outline:2px solid #6366f1; outline-offset:2px; }
+            .ov-card--pending {border - left:3px solid #f59e0b; }
+            .ov-status-bar {height:4px; width:100%; }
+            .ov-store-hdr {display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 12px; }
+            .ov-store-icon {width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+            .ov-store-name {font - size:16px; font-weight:800; color:#1e293b; margin:0; }
+            .ov-store-meta {font - size:13px; color:#64748b; font-weight:500; margin-top:2px; }
+            .ov-badge {display:inline-flex; padding:4px 12px; border-radius:8px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; border:1px solid; white-space:nowrap; height:fit-content; }
 
-/* Body */
-.ov-store-body { padding:0 20px 16px; }
-.ov-progress-hdr { display:flex; justify-content:space-between; margin-bottom:6px; }
-.ov-progress-label { font-size:13px; color:#64748b; font-weight:600; }
-.ov-progress-pct { font-size:13px; font-weight:800; color:#1e293b; }
-.ov-progress-track { height:6px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
-.ov-progress-fill { height:100%; border-radius:99px; transition:width 1s ease-out; }
-.ov-progress-sub { display:flex; justify-content:space-between; margin-top:4px; font-size:12px; color:#64748b; }
-.ov-progress-issue { color:#ef4444; font-weight:700; }
+            /* Body */
+            .ov-store-body {padding:0 20px 16px; }
+            .ov-progress-hdr {display:flex; justify-content:space-between; margin-bottom:6px; }
+            .ov-progress-label {font - size:13px; color:#64748b; font-weight:600; }
+            .ov-progress-pct {font - size:13px; font-weight:800; color:#1e293b; }
+            .ov-progress-track {height:6px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+            .ov-progress-fill {height:100%; border-radius:99px; transition:width 1s ease-out; }
+            .ov-progress-sub {display:flex; justify-content:space-between; margin-top:4px; font-size:12px; color:#64748b; }
+            .ov-progress-issue {color:#ef4444; font-weight:700; }
 
-/* Mini Stats */
-.ov-mini-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:14px; }
-.ov-mini-stat { border-radius:10px; padding:10px 8px; text-align:center; }
-.ov-mini-label { display:block; font-size:12px; color:#64748b; font-weight:600; margin-bottom:2px; }
-.ov-mini-val { font-size:18px; font-weight:800; line-height:1.2; }
+            /* Mini Stats */
+            .ov-mini-stats {display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:14px; }
+            .ov-mini-stat {border - radius:10px; padding:10px 8px; text-align:center; }
+            .ov-mini-label {display:block; font-size:12px; color:#64748b; font-weight:600; margin-bottom:2px; }
+            .ov-mini-val {font - size:18px; font-weight:800; line-height:1.2; }
 
-/* Not Started compact state */
-.ov-not-started { display:flex; align-items:center; gap:8px; padding:16px; background:#f8fafc; border-radius:10px; font-size:13px; color:#94a3b8; font-weight:600; }
+            /* Not Started compact state */
+            .ov-not-started {display:flex; align-items:center; gap:8px; padding:16px; background:#f8fafc; border-radius:10px; font-size:13px; color:#94a3b8; font-weight:600; }
 
-/* Store Footer */
-.ov-store-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; }
-.ov-store-time { display:flex; align-items:center; gap:4px; font-size:13px; color:#64748b; }
-.ov-view-report { display:inline-flex; align-items:center; gap:6px; padding:10px 18px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; transition:transform .15s,box-shadow .2s; }
-.ov-view-report:hover { transform:translateY(-1px); box-shadow:0 4px 12px -2px rgba(245,158,11,.35); }
-.ov-view-report:focus-visible { outline:2px solid #d97706; outline-offset:2px; }
+            /* Store Footer */
+            .ov-store-footer {display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; }
+            .ov-store-time {display:flex; align-items:center; gap:4px; font-size:13px; color:#64748b; }
+            .ov-view-report {display:inline-flex; align-items:center; gap:6px; padding:10px 18px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; transition:transform .15s,box-shadow .2s; }
+            .ov-view-report:hover {transform:translateY(-1px); box-shadow:0 4px 12px -2px rgba(245,158,11,.35); }
+            .ov-view-report:focus-visible {outline:2px solid #d97706; outline-offset:2px; }
 
-/* Expanded card */
-.ov-card--expanded { grid-column: 1 / -1 !important; }
-.ov-items-detail { padding:0 20px 16px; border-top:1px solid #e2e8f0; margin-top:8px; }
-.ov-expand-icon { cursor:pointer; }
+            /* Active card (selected for panel) */
+            .ov-card--active {border - color:#6366f1 !important; box-shadow:0 0 0 3px rgba(99,102,241,.12), 0 8px 30px -8px rgba(0,0,0,.1) !important; }
 
-/* Empty */
-.ov-empty { display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; }
-.ov-empty-icon { width:80px; height:80px; border-radius:50%; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
-.ov-empty-title { font-size:16px; font-weight:700; color:#475569; margin:0; }
-.ov-empty-sub { font-size:13px; color:#64748b; margin:0; }
+            /* Empty */
+            .ov-empty {display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; }
+            .ov-empty-icon {width:80px; height:80px; border-radius:50%; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
+            .ov-empty-title {font - size:16px; font-weight:700; color:#475569; margin:0; }
+            .ov-empty-sub {font - size:13px; color:#64748b; margin:0; }
 
-/* Error */
-.ov-error { display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; }
-.ov-error-icon { width:72px; height:72px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; }
-.ov-error-title { font-size:16px; font-weight:800; color:#1e293b; margin:0; }
-.ov-error-sub { font-size:13px; color:#64748b; margin:0; }
-.ov-error-btn { display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; border:none; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 4px 14px -3px rgba(99,102,241,.4); transition:transform .15s; margin-top:4px; }
-.ov-error-btn:hover { transform:translateY(-1px); }
-.ov-error-btn:focus-visible { outline:2px solid #4338ca; outline-offset:2px; }
-`;
+            /* Error */
+            .ov-error {display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; }
+            .ov-error-icon {width:72px; height:72px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; }
+            .ov-error-title {font - size:16px; font-weight:800; color:#1e293b; margin:0; }
+            .ov-error-sub {font - size:13px; color:#64748b; margin:0; }
+            .ov-error-btn {display:inline-flex; align-items:center; gap:6px; padding:12px 24px; background:linear-gradient(135deg,#6366f1,#4338ca); color:#fff; border:none; border-radius:12px; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 4px 14px -3px rgba(99,102,241,.4); transition:transform .15s; margin-top:4px; }
+            .ov-error-btn:hover {transform:translateY(-1px); }
+            .ov-error-btn:focus-visible {outline:2px solid #4338ca; outline-offset:2px; }
+            `;

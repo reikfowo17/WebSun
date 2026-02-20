@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { InventoryService } from '../../services';
+import { REPORT_STATUS, type ReportSummary } from '../../services/inventory';
 import { User } from '../../types';
 import { STORES } from '../../constants';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -18,24 +19,6 @@ interface ReviewsViewProps {
     toast: ToastFn;
     user: User;
     onReviewDone?: () => void;
-}
-
-interface ReportSummary {
-    id: string;
-    storeId: string;
-    store: string;
-    shift: number;
-    date: string;
-    submittedBy: string;
-    submittedAt: string;
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    total: number;
-    matched: number;
-    missing: number;
-    over: number;
-    reviewedBy?: string;
-    reviewedAt?: string;
-    rejectionReason?: string;
 }
 
 type ViewMode = 'PENDING' | 'HISTORY';
@@ -58,6 +41,9 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const [sortField, setSortField] = useState<'date' | 'store' | 'shift'>('date');
     const [sortAsc, setSortAsc] = useState(false);
 
+    const [dateFrom, setDateFrom] = useState<string>('');
+    const [dateTo, setDateTo] = useState<string>('');
+
     // Modal states
     const [approveReportId, setApproveReportId] = useState<string | null>(null);
     const [rejectReportId, setRejectReportId] = useState<string | null>(null);
@@ -66,6 +52,8 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
+    const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
 
     const abortRef = useRef<AbortController | null>(null);
 
@@ -90,7 +78,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                 let items = res.reports || [];
                 // For history mode, show only non-pending
                 if (viewMode === 'HISTORY') {
-                    items = items.filter((r: any) => r.status !== 'PENDING');
+                    items = items.filter((r) => r.status !== REPORT_STATUS.PENDING);
                 }
                 setReports(items);
             }
@@ -119,6 +107,12 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     /* ── Filtered & Sorted ── */
     const displayed = useMemo(() => {
         let list = [...reports];
+
+        if (viewMode === 'HISTORY') {
+            if (dateFrom) list = list.filter(r => r.date >= dateFrom);
+            if (dateTo) list = list.filter(r => r.date <= dateTo);
+        }
+
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(r =>
@@ -135,18 +129,47 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             return sortAsc ? cmp : -cmp;
         });
         return list;
-    }, [reports, search, sortField, sortAsc]);
+    }, [reports, search, sortField, sortAsc, viewMode, dateFrom, dateTo]);
 
-    /* ── Actions ── */
+    const getApprovalSummary = useCallback((reportId: string) => {
+        const report = reports.find(r => r.id === reportId);
+        if (!report) return '';
+        const issues = report.missing + report.over;
+        if (issues === 0) {
+            return `Báo cáo ${storeName(report.store)} - Ca ${report.shift}: Tất cả ${report.total} SP đều khớp. Xác nhận duyệt?`;
+        }
+        return `Báo cáo ${storeName(report.store)} - Ca ${report.shift}:\n• Tổng: ${report.total} SP\n• Khớp: ${report.matched}\n• Thiếu: ${report.missing} SP\n• Thừa: ${report.over} SP\n\n⚠️ Có ${issues} SP lệch. Xác nhận phê duyệt?`;
+    }, [reports]);
+
+    const getBulkApprovalSummary = useCallback(() => {
+        const selected = reports.filter(r => selectedIds.has(r.id));
+        const totalIssues = selected.reduce((sum, r) => sum + r.missing + r.over, 0);
+        const storesSet = new Set(selected.map(r => storeName(r.store)));
+        let msg = `Duyệt ${selected.length} báo cáo từ ${storesSet.size} cửa hàng?`;
+        if (totalIssues > 0) {
+            msg += `\n\n⚠️ Tổng cộng có ${totalIssues} SP lệch trong các báo cáo đã chọn.`;
+        }
+        return msg;
+    }, [reports, selectedIds]);
+
     const doApprove = async () => {
         if (!approveReportId) return;
         const id = approveReportId;
         setApproveReportId(null);
         setProcessing(true);
         try {
-            const res = await InventoryService.reviewReport(id, 'APPROVED', user.id);
-            if (res.success) { toast.success('Đã phê duyệt báo cáo'); loadReports(); onReviewDone?.(); }
-            else toast.error(res.message || 'Lỗi phê duyệt');
+            const res = await InventoryService.reviewReport(id, REPORT_STATUS.APPROVED, user.id, undefined, user.role);
+            if (res.success) {
+                if (res.stockUpdateFailed) {
+                    toast.warning(res.message || 'Đã duyệt nhưng cập nhật tồn kho thất bại');
+                } else {
+                    toast.success('Đã phê duyệt báo cáo');
+                }
+                loadReports();
+                onReviewDone?.();
+            } else {
+                toast.error(res.message || 'Lỗi phê duyệt');
+            }
         } catch { toast.error('Lỗi hệ thống'); }
         finally { setProcessing(false); }
     };
@@ -157,9 +180,59 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         setRejectReportId(null);
         setProcessing(true);
         try {
-            const res = await InventoryService.reviewReport(id, 'REJECTED', user.id, reason);
+            const res = await InventoryService.reviewReport(id, REPORT_STATUS.REJECTED, user.id, reason, user.role);
             if (res.success) { toast.warning('Đã từ chối báo cáo'); loadReports(); onReviewDone?.(); }
             else toast.error(res.message || 'Lỗi từ chối');
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(false); }
+    };
+
+    const doBulkApprove = async () => {
+        if (selectedIds.size === 0) return;
+        setBulkApproveOpen(false);
+        setProcessing(true);
+        try {
+            const res = await InventoryService.bulkReviewReports(
+                [...selectedIds],
+                REPORT_STATUS.APPROVED,
+                user.id,
+                undefined,
+                user.role
+            );
+            if (res.processed > 0) {
+                toast.success(`Đã duyệt ${res.processed} báo cáo`);
+                if (res.stockWarnings.length > 0) {
+                    toast.warning(`${res.stockWarnings.length} báo cáo cập nhật tồn kho thất bại`);
+                }
+            }
+            if (res.failed > 0) {
+                toast.error(`${res.failed} báo cáo duyệt thất bại${res.errors.length > 0 ? ': ' + res.errors[0] : ''}`);
+            }
+            setSelectedIds(new Set());
+            loadReports();
+            onReviewDone?.();
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(false); }
+    };
+
+    // U1-FIX: Bulk reject
+    const doBulkReject = async (reason: string) => {
+        if (selectedIds.size === 0) return;
+        setBulkRejectOpen(false);
+        setProcessing(true);
+        try {
+            const res = await InventoryService.bulkReviewReports(
+                [...selectedIds],
+                REPORT_STATUS.REJECTED,
+                user.id,
+                reason,
+                user.role
+            );
+            if (res.processed > 0) toast.warning(`Đã từ chối ${res.processed} báo cáo`);
+            if (res.failed > 0) toast.error(`${res.failed} báo cáo từ chối thất bại`);
+            setSelectedIds(new Set());
+            loadReports();
+            onReviewDone?.();
         } catch { toast.error('Lỗi hệ thống'); }
         finally { setProcessing(false); }
     };
@@ -188,14 +261,21 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         if (selectedIds.size === 0) return;
         setDeleteReportId(null);
         setProcessing(true);
+
+        const results = await Promise.allSettled(
+            [...selectedIds].map(id => InventoryService.deleteReport(id))
+        );
+
         const deletedIds: string[] = [];
         let fail = 0;
-        for (const id of selectedIds) {
-            try {
-                const res = await InventoryService.deleteReport(id);
-                if (res.success) deletedIds.push(id); else fail++;
-            } catch { fail++; }
-        }
+        results.forEach((result, idx) => {
+            if (result.status === 'fulfilled' && result.value.success) {
+                deletedIds.push([...selectedIds][idx]);
+            } else {
+                fail++;
+            }
+        });
+
         setProcessing(false);
         if (deletedIds.length > 0) {
             toast.success(`Đã xóa ${deletedIds.length} báo cáo`);
@@ -243,6 +323,13 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     };
     const pendingCount = useMemo(() => reports.length, [reports]);
 
+    const handleRowKeyDown = (e: React.KeyboardEvent, reportId: string) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpandedReportId(prev => prev === reportId ? null : reportId);
+        }
+    };
+
     /* ── Skeleton Loading ── */
     if (loading && reports.length === 0) {
         return (
@@ -272,6 +359,8 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             </>
         );
     }
+
+    const showCheckbox = viewMode === 'HISTORY' || (viewMode === 'PENDING' && displayed.length > 1);
 
     return (
         <>
@@ -337,7 +426,60 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                             <span className="material-symbols-outlined rv2-select-chevron">expand_more</span>
                         </div>
 
-                        {/* History actions */}
+                        {viewMode === 'HISTORY' && (
+                            <div className="rv2-date-filter">
+                                <input
+                                    type="date"
+                                    className="rv2-date-input"
+                                    value={dateFrom}
+                                    onChange={e => setDateFrom(e.target.value)}
+                                    aria-label="Từ ngày"
+                                    title="Từ ngày"
+                                />
+                                <span className="rv2-date-sep">→</span>
+                                <input
+                                    type="date"
+                                    className="rv2-date-input"
+                                    value={dateTo}
+                                    onChange={e => setDateTo(e.target.value)}
+                                    aria-label="Đến ngày"
+                                    title="Đến ngày"
+                                />
+                                {(dateFrom || dateTo) && (
+                                    <button
+                                        className="rv2-date-clear"
+                                        onClick={() => { setDateFrom(''); setDateTo(''); }}
+                                        title="Xóa bộ lọc ngày"
+                                    >
+                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* U1-FIX: Bulk actions cho PENDING mode */}
+                        {viewMode === 'PENDING' && selectedIds.size > 0 && (
+                            <div className="rv2-bulk-actions">
+                                <button
+                                    className="rv2-btn-bulk-approve"
+                                    onClick={() => setBulkApproveOpen(true)}
+                                    disabled={processing}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>done_all</span>
+                                    Duyệt {selectedIds.size}
+                                </button>
+                                <button
+                                    className="rv2-btn-bulk-reject"
+                                    onClick={() => setBulkRejectOpen(true)}
+                                    disabled={processing}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                                    Từ chối {selectedIds.size}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* History bulk delete */}
                         {viewMode === 'HISTORY' && selectedIds.size > 0 && (
                             <button
                                 className="rv2-btn-bulk-delete"
@@ -374,7 +516,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                             <table className="rv2-table">
                                 <thead>
                                     <tr>
-                                        {viewMode === 'HISTORY' && (
+                                        {showCheckbox && (
                                             <th className="rv2-th rv2-th-check" style={{ width: '4%' }}>
                                                 <input
                                                     type="checkbox"
@@ -404,15 +546,19 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                 <tbody>
                                     {displayed.map(report => {
                                         const cfg = STATUS_CFG[report.status] || STATUS_CFG.PENDING;
-                                        const hasIssue = report.missing > 0 || report.over > 0;
 
                                         return (
                                             <React.Fragment key={report.id}>
                                                 <tr
                                                     className={`rv2-row rv2-row--clickable ${report.status === 'PENDING' ? 'rv2-row--pending' : ''} ${selectedIds.has(report.id) ? 'rv2-row--selected' : ''} ${expandedReportId === report.id ? 'rv2-row--expanded' : ''}`}
                                                     onClick={() => setExpandedReportId(prev => prev === report.id ? null : report.id)}
+                                                    onKeyDown={(e) => handleRowKeyDown(e, report.id)}
+                                                    tabIndex={0}
+                                                    role="button"
+                                                    aria-expanded={expandedReportId === report.id}
+                                                    aria-label={`Báo cáo ${storeName(report.store)} - Ca ${report.shift} - ${formatDate(report.date)}`}
                                                 >
-                                                    {viewMode === 'HISTORY' && (
+                                                    {showCheckbox && (
                                                         <td className="rv2-td rv2-td-check" onClick={e => e.stopPropagation()}>
                                                             <input
                                                                 type="checkbox"
@@ -499,7 +645,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                                 </tr>
                                                 {expandedReportId === report.id && (
                                                     <tr className="rv2-row--detail">
-                                                        <td colSpan={viewMode === 'HISTORY' ? 9 : 8} style={{ padding: 0 }}>
+                                                        <td colSpan={showCheckbox ? 9 : 8} style={{ padding: 0 }}>
                                                             <div className="rv2-items-detail" onClick={e => e.stopPropagation()}>
                                                                 <ItemsDetailPanel
                                                                     storeId={report.storeId}
@@ -524,13 +670,13 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                     {displayed.length > 0 && (
                         <div className="rv2-footer">
                             <span>
-                                {viewMode === 'HISTORY' && selectedIds.size > 0
+                                {selectedIds.size > 0
                                     ? <><strong>{selectedIds.size}</strong> đã chọn</>
                                     : <><strong>{displayed.length}</strong> báo cáo</>
                                 }
                             </span>
                             <span style={{ color: '#94a3b8' }}>
-                                {viewMode === 'PENDING' ? 'Auto-refresh 30s' : 'Lịch sử duyệt'}
+                                {viewMode === 'HISTORY' && 'Lịch sử duyệt'}
                             </span>
                         </div>
                     )}
@@ -541,7 +687,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             <ConfirmModal
                 isOpen={!!approveReportId}
                 title="Phê duyệt báo cáo"
-                message="Xác nhận phê duyệt báo cáo kiểm kho này? Tồn kho hệ thống sẽ được cập nhật."
+                message={approveReportId ? getApprovalSummary(approveReportId) : ''}
                 variant="info"
                 confirmText="Phê duyệt"
                 cancelText="Hủy"
@@ -573,6 +719,31 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                 onCancel={() => setDeleteReportId(null)}
                 loading={processing}
             />
+
+            <ConfirmModal
+                isOpen={bulkApproveOpen}
+                title={`Duyệt ${selectedIds.size} báo cáo`}
+                message={getBulkApprovalSummary()}
+                variant="info"
+                confirmText={`Duyệt tất cả (${selectedIds.size})`}
+                cancelText="Hủy"
+                onConfirm={doBulkApprove}
+                onCancel={() => setBulkApproveOpen(false)}
+                loading={processing}
+            />
+
+            {/* U1-FIX: Bulk reject modal */}
+            <PromptModal
+                isOpen={bulkRejectOpen}
+                title={`Từ chối ${selectedIds.size} báo cáo`}
+                message={`Vui lòng nhập lý do từ chối ${selectedIds.size} báo cáo đã chọn`}
+                placeholder="Lý do từ chối chung..."
+                confirmText={`Từ chối tất cả (${selectedIds.size})`}
+                cancelText="Hủy"
+                onConfirm={doBulkReject}
+                onCancel={() => setBulkRejectOpen(false)}
+            />
+
             {detailReportId && (
                 <ReportDetailModal
                     reportId={detailReportId}
@@ -619,6 +790,23 @@ const CSS_TEXT = `
 .rv2-select:focus { border-color:#818cf8; box-shadow:0 0 0 3px rgba(129,140,248,.15); }
 .rv2-select-chevron { position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:18px; color:#94a3b8; pointer-events:none; }
 
+/* U4-FIX: Date filter */
+.rv2-date-filter { display:flex; align-items:center; gap:6px; }
+.rv2-date-input { height:38px; padding:0 10px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:12px; font-weight:500; color:#475569; background:#f8fafc; outline:none; transition:all .2s; min-width:130px; }
+.rv2-date-input:focus { border-color:#818cf8; box-shadow:0 0 0 3px rgba(129,140,248,.15); }
+.rv2-date-sep { color:#94a3b8; font-size:14px; font-weight:500; flex-shrink:0; }
+.rv2-date-clear { display:flex; align-items:center; justify-content:center; width:28px; height:28px; border:none; border-radius:7px; background:#f1f5f9; color:#94a3b8; cursor:pointer; transition:all .15s; flex-shrink:0; }
+.rv2-date-clear:hover { background:#e2e8f0; color:#64748b; }
+
+/* U1-FIX: Bulk actions */
+.rv2-bulk-actions { display:flex; gap:6px; }
+.rv2-btn-bulk-approve { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #86efac; border-radius:10px; background:#f0fdf4; color:#16a34a; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.rv2-btn-bulk-approve:hover { background:#dcfce7; border-color:#4ade80; transform:translateY(-1px); box-shadow:0 2px 8px rgba(22,163,74,.15); }
+.rv2-btn-bulk-approve:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.rv2-btn-bulk-reject { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #fca5a5; border-radius:10px; background:#fef2f2; color:#dc2626; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.rv2-btn-bulk-reject:hover { background:#fee2e2; border-color:#f87171; transform:translateY(-1px); box-shadow:0 2px 8px rgba(220,38,38,.15); }
+.rv2-btn-bulk-reject:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+
 /* Bulk delete */
 .rv2-btn-bulk-delete { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #fca5a5; border-radius:10px; background:#fef2f2; color:#dc2626; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
 .rv2-btn-bulk-delete:hover { background:#fee2e2; border-color:#f87171; transform:translateY(-1px); }
@@ -644,6 +832,7 @@ const CSS_TEXT = `
 
 .rv2-row { transition:background .12s; }
 .rv2-row--clickable { cursor:pointer; }
+.rv2-row--clickable:focus-visible { outline:2px solid #6366f1; outline-offset:-2px; border-radius:2px; }
 .rv2-row:hover { background:#f8fafc; }
 .rv2-row--pending { background:#fffbeb; }
 .rv2-row--pending:hover { background:#fef3c7; }

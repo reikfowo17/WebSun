@@ -1,14 +1,7 @@
-// ============================================================================
-// INVENTORY ARCHIVE SERVICE
-// Handles reading from Storage archive + archive management
-// Pattern: data-engineering-data-pipeline (lifecycle: hot → cold)
-// ============================================================================
-
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // ── Types ──
 
-/** Shape of a single archived inventory item within JSON files */
 export interface ArchivedInventoryItem {
     product_name: string;
     barcode: string;
@@ -19,6 +12,22 @@ export interface ArchivedInventoryItem {
     status: 'PENDING' | 'MATCHED' | 'MISSING' | 'OVER';
     note: string;
     diff_reason?: string | null;
+    checked_by?: string | null;
+}
+
+export interface ArchivedReportMetadata {
+    id: string;
+    store_code: string;
+    store_name: string;
+    shift: number;
+    check_date: string;
+    status: string;
+    submitted_by: string | null;
+    submitted_at: string | null;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    rejection_reason: string | null;
+    created_at: string;
 }
 
 /** Shape of one archived day's full JSON file */
@@ -28,6 +37,9 @@ export interface ArchivedDayData {
     total_items: number;
     total_stores: number;
     stores: Record<string, Record<string, ArchivedInventoryItem[]>>;
+    /** Report metadata — included since archive pipeline v2 */
+    reports?: ArchivedReportMetadata[];
+    total_reports?: number;
 }
 
 /** Archive log entry from DB */
@@ -417,14 +429,28 @@ class InventoryArchiveServiceClass {
     // ── Manual Archive Trigger ──
 
     /** Trigger archive for a specific date (calls Edge Function) */
-    async triggerArchive(date: string, skipPurge: boolean = true): Promise<{ success: boolean; error?: string; data?: any }> {
+    async triggerArchive(
+        date: string,
+        skipPurge: boolean = true,
+        options?: {
+            reportDaysToKeep?: number;
+            historyDaysToKeep?: number;
+            daysToKeep?: number;
+        }
+    ): Promise<{ success: boolean; error?: string; data?: any }> {
         if (!isSupabaseConfigured()) {
             return { success: false, error: 'Database not configured' };
         }
 
         try {
             const { data, error } = await supabase.functions.invoke('archive-inventory', {
-                body: { date, skipPurge }
+                body: {
+                    date,
+                    skipPurge,
+                    daysToKeep: options?.daysToKeep || 7,
+                    reportDaysToKeep: options?.reportDaysToKeep || 30,
+                    historyDaysToKeep: options?.historyDaysToKeep || 30,
+                }
             });
 
             if (error) throw error;

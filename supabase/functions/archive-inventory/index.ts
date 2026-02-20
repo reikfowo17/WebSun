@@ -1,12 +1,3 @@
-// ============================================================================
-// ARCHIVE INVENTORY — Supabase Edge Function
-// Runs nightly via pg_cron to:
-//   1. Build JSON snapshot of today's inventory data
-//   2. Upload to Supabase Storage
-//   3. Generate daily summary
-//   4. Purge old data from DB (after 7 days)
-// ============================================================================
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -20,42 +11,43 @@ interface ArchiveResult {
     filePath?: string
     totalItems?: number
     totalStores?: number
+    totalReports?: number
     fileSizeBytes?: number
     summaryResult?: any
     purgeResult?: any
+    reportPurgeResult?: any
+    historyPurgeResult?: any
     error?: string
 }
 
 Deno.serve(async (req: Request) => {
-    // Handle CORS
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
-        // Create Supabase client with service_role for full access
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         const supabase = createClient(supabaseUrl, supabaseKey)
-
-        // Parse request body for optional params
         let targetDate: string | null = null
         let skipPurge = false
         let daysToKeep = 7
+        let reportDaysToKeep = 30
+        let historyDaysToKeep = 30
 
         try {
             const body = await req.json()
             targetDate = body.date || null
             skipPurge = body.skipPurge || false
             daysToKeep = body.daysToKeep || 7
+            reportDaysToKeep = body.reportDaysToKeep || 30
+            historyDaysToKeep = body.historyDaysToKeep || 30
         } catch {
-            // No body — use defaults (today)
         }
 
         const archiveDate = targetDate || new Date().toISOString().split('T')[0]
         console.log(`📦 Starting archive for date: ${archiveDate}`)
 
-        // Step 1: Check if already archived
         const { data: existingLog } = await supabase
             .from('inventory_archive_log')
             .select('id, status')
@@ -63,14 +55,40 @@ Deno.serve(async (req: Request) => {
             .single()
 
         if (existingLog?.status === 'ARCHIVED' || existingLog?.status === 'PURGED') {
-            console.log(`⚠️ Date ${archiveDate} already archived, skipping`)
+            console.log(`⚠️ Date ${archiveDate} already archived, skipping archive step`)
+
+            let reportPurgeResult = null
+            let historyPurgeResult = null
+
+            if (!skipPurge) {
+                try {
+                    const { data } = await supabase
+                        .rpc('purge_old_reports', { days_to_keep: reportDaysToKeep })
+                    reportPurgeResult = data
+                    console.log(`📋 Report purge result:`, data)
+                } catch (e: any) {
+                    console.error('⚠️ Report purge failed:', e.message)
+                }
+
+                try {
+                    const { data } = await supabase
+                        .rpc('purge_old_history', { days_to_keep: historyDaysToKeep })
+                    historyPurgeResult = data
+                    console.log(`📜 History purge result:`, data)
+                } catch (e: any) {
+                    console.error('⚠️ History purge failed:', e.message)
+                }
+            }
+
             return new Response(
                 JSON.stringify({
                     success: true,
                     date: archiveDate,
-                    message: 'Already archived',
-                    status: existingLog.status
-                } satisfies ArchiveResult & { message: string; status: string }),
+                    message: 'Already archived, purge completed',
+                    status: existingLog.status,
+                    reportPurgeResult,
+                    historyPurgeResult,
+                }),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
@@ -96,7 +114,22 @@ Deno.serve(async (req: Request) => {
             )
         }
 
-        // Step 3: Upload JSON to Storage
+        let reportMetadata = null
+        try {
+            const { data, error } = await supabase
+                .rpc('build_report_metadata_json', { target_date: archiveDate })
+            if (!error && data) {
+                reportMetadata = data
+                console.log(`📋 Report metadata: ${data.total_reports} reports for ${archiveDate}`)
+            }
+        } catch (e: any) {
+            console.error('⚠️ Report metadata build failed:', e.message)
+        }
+
+        if (reportMetadata && reportMetadata.total_reports > 0) {
+            archiveJson.reports = reportMetadata.reports
+            archiveJson.total_reports = reportMetadata.total_reports
+        }
         const dateObj = new Date(archiveDate)
         const year = dateObj.getFullYear()
         const month = String(dateObj.getMonth() + 1).padStart(2, '0')
@@ -106,7 +139,7 @@ Deno.serve(async (req: Request) => {
         const jsonString = JSON.stringify(archiveJson, null, 2)
         const jsonBytes = new TextEncoder().encode(jsonString)
 
-        console.log(`📤 Uploading ${filePath} (${jsonBytes.length} bytes, ${archiveJson.total_items} items)`)
+        console.log(`📤 Uploading ${filePath} (${jsonBytes.length} bytes, ${archiveJson.total_items} items, ${reportMetadata?.total_reports || 0} reports)`)
 
         const { error: uploadError } = await supabase.storage
             .from('inventory-archive')
@@ -119,7 +152,6 @@ Deno.serve(async (req: Request) => {
             throw new Error(`Storage upload failed: ${uploadError.message}`)
         }
 
-        // Step 4: Log the archive
         const { error: logError } = await supabase
             .from('inventory_archive_log')
             .upsert({
@@ -131,7 +163,8 @@ Deno.serve(async (req: Request) => {
                 status: 'ARCHIVED',
                 metadata: {
                     stores: Object.keys(archiveJson.stores || {}),
-                    exported_at: archiveJson.exported_at
+                    exported_at: archiveJson.exported_at,
+                    total_reports: reportMetadata?.total_reports || 0
                 }
             }, { onConflict: 'archive_date' })
 
@@ -139,7 +172,6 @@ Deno.serve(async (req: Request) => {
             console.error('⚠️ Failed to log archive:', logError.message)
         }
 
-        // Step 5: Generate daily summary
         let summaryResult = null
         try {
             const { data } = await supabase
@@ -150,16 +182,36 @@ Deno.serve(async (req: Request) => {
             console.error('⚠️ Summary generation failed:', e.message)
         }
 
-        // Step 6: Purge old data (only if not skipped and data is old enough)
         let purgeResult = null
+        let reportPurgeResult = null
+        let historyPurgeResult = null
+
         if (!skipPurge) {
             try {
                 const { data } = await supabase
                     .rpc('purge_old_inventory_items', { days_to_keep: daysToKeep })
                 purgeResult = data
-                console.log(`🗑️ Purge result:`, data)
+                console.log(`🗑️ Items purge result:`, data)
             } catch (e: any) {
-                console.error('⚠️ Purge failed:', e.message)
+                console.error('⚠️ Items purge failed:', e.message)
+            }
+
+            try {
+                const { data } = await supabase
+                    .rpc('purge_old_reports', { days_to_keep: reportDaysToKeep })
+                reportPurgeResult = data
+                console.log(`📋 Report purge result:`, data)
+            } catch (e: any) {
+                console.error('⚠️ Report purge failed:', e.message)
+            }
+
+            try {
+                const { data } = await supabase
+                    .rpc('purge_old_history', { days_to_keep: historyDaysToKeep })
+                historyPurgeResult = data
+                console.log(`📜 History purge result:`, data)
+            } catch (e: any) {
+                console.error('⚠️ History purge failed:', e.message)
             }
         }
 
@@ -169,9 +221,12 @@ Deno.serve(async (req: Request) => {
             filePath,
             totalItems: archiveJson.total_items,
             totalStores: archiveJson.total_stores,
+            totalReports: reportMetadata?.total_reports || 0,
             fileSizeBytes: jsonBytes.length,
             summaryResult,
-            purgeResult
+            purgeResult,
+            reportPurgeResult,
+            historyPurgeResult,
         }
 
         console.log(`✅ Archive complete for ${archiveDate}`)

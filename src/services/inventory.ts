@@ -3,6 +3,15 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 const NV_ALLOWED_FIELDS = ['actual_stock', 'note', 'diff_reason'] as const;
 const ADMIN_ALLOWED_FIELDS = [...NV_ALLOWED_FIELDS, 'system_stock', 'status'] as const;
 
+export const REPORT_STATUS = {
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+} as const;
+export type ReportStatus = typeof REPORT_STATUS[keyof typeof REPORT_STATUS];
+
+const REVIEW_ALLOWED_ROLES = ['ADMIN', 'MANAGER'] as const;
+
 export const DIFF_REASON_OPTIONS = [
     { value: 'DAMAGED', label: 'Hàng hỏng', icon: 'broken_image' },
     { value: 'EXPIRED', label: 'Hết hạn', icon: 'event_busy' },
@@ -13,6 +22,56 @@ export const DIFF_REASON_OPTIONS = [
 ] as const;
 
 export type DiffReason = typeof DIFF_REASON_OPTIONS[number]['value'];
+
+export interface ReportSummary {
+    id: string;
+    storeId: string;
+    store: string;
+    shift: number;
+    date: string;
+    submittedBy: string;
+    submittedAt: string;
+    status: ReportStatus;
+    total: number;
+    matched: number;
+    missing: number;
+    over: number;
+    reviewedBy: string | null;
+    reviewedAt: string | null;
+    rejectionReason: string | null;
+}
+
+export interface ReportDetail {
+    id: string;
+    store_code: string;
+    store_name: string;
+    shift: number;
+    check_date: string;
+    status: ReportStatus;
+    submitted_by: string;
+    submitted_at: string;
+    reviewed_by?: string;
+    reviewed_at?: string;
+    rejection_reason?: string;
+    total_items: number;
+    matched_items: number;
+    missing_items: number;
+    over_items: number;
+}
+
+export interface ReviewResult {
+    success: boolean;
+    message?: string;
+    stockUpdateFailed?: boolean;
+}
+
+export interface BulkReviewResult {
+    success: boolean;
+    processed: number;
+    failed: number;
+    stockWarnings: string[];
+    errors: string[];
+}
 
 export interface InventoryProduct {
     id: string;
@@ -742,90 +801,93 @@ export const InventoryService = {
         return { success: false, error: 'Database disconnected' };
     },
 
-    async getReports(status?: string, storeCode?: string): Promise<{ success: boolean; reports?: any[] }> {
-        if (isSupabaseConfigured()) {
-            try {
-                let query = supabase
-                    .from('inventory_reports')
-                    .select(`
-                        id,
-                        check_date,
-                        shift,
-                        status,
-                        created_at,
-                        reviewed_at,
-                        rejection_reason,
-                        stores!inner (
-                            id,
-                            code,
-                            name
-                        ),
-                        users!inventory_reports_submitted_by_fkey (
-                            name
-                        ),
-                        reviewer:users!inventory_reports_reviewed_by_fkey (
-                            name
-                        )
-                    `)
-                    .order('created_at', { ascending: false });
-
-                if (status && status !== 'ALL') {
-                    query = query.eq('status', status);
-                }
-
-                if (storeCode && storeCode !== 'ALL') {
-                    query = query.eq('stores.code', storeCode);
-                }
-
-                const { data, error } = await query;
-                if (error) throw error;
-
-                const reportsList = data || [];
-                const storeIds = [...new Set(reportsList.map((r: any) => r.stores?.id).filter(Boolean))];
-                const { data: allStats } = storeIds.length > 0
-                    ? await supabase
-                        .from('inventory_report_stats')
-                        .select('store_id, check_date, shift, total_items, matched_items, missing_items, over_items')
-                        .in('store_id', storeIds)
-                    : { data: [] };
-
-                // Create a lookup map for stats
-                const statsMap = new Map<string, any>();
-                (allStats || []).forEach((s: any) => {
-                    const key = `${s.store_id}_${s.check_date}_${s.shift}`;
-                    statsMap.set(key, s);
-                });
-
-                const reportsWithStats = reportsList.map((report: any) => {
-                    const key = `${report.stores?.id}_${report.check_date}_${report.shift}`;
-                    const stats = statsMap.get(key);
-
-                    return {
-                        id: report.id,
-                        storeId: report.stores?.id,
-                        store: report.stores?.code,
-                        shift: report.shift,
-                        date: report.check_date,
-                        submittedBy: report.users?.name || 'Unknown',
-                        submittedAt: report.created_at,
-                        status: report.status,
-                        total: stats?.total_items || 0,
-                        matched: stats?.matched_items || 0,
-                        missing: stats?.missing_items || 0,
-                        over: stats?.over_items || 0,
-                        reviewedBy: report.reviewer?.name || null,
-                        reviewedAt: report.reviewed_at || null,
-                        rejectionReason: report.rejection_reason || null
-                    };
-                });
-
-                return { success: true, reports: reportsWithStats };
-            } catch (e) {
-                console.error('[Inventory] Get reports error:', e);
-                return { success: false, reports: [] };
-            }
+    /** C1-FIX: Trả về ReportSummary[] thay vì any[] */
+    async getReports(status?: string, storeCode?: string): Promise<{ success: boolean; reports: ReportSummary[] }> {
+        if (!isSupabaseConfigured()) {
+            return { success: false, reports: [] };
         }
-        return { success: false, reports: [] };
+
+        try {
+            let query = supabase
+                .from('inventory_reports')
+                .select(`
+                    id,
+                    check_date,
+                    shift,
+                    status,
+                    created_at,
+                    reviewed_at,
+                    rejection_reason,
+                    stores!inner (
+                        id,
+                        code,
+                        name
+                    ),
+                    users!inventory_reports_submitted_by_fkey (
+                        name
+                    ),
+                    reviewer:users!inventory_reports_reviewed_by_fkey (
+                        name
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (status && status !== 'ALL') {
+                query = query.eq('status', status);
+            }
+
+            if (storeCode && storeCode !== 'ALL') {
+                query = query.eq('stores.code', storeCode);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            const reportsList = data || [];
+            const storeIds = [...new Set(reportsList.map((r: any) => r.stores?.id).filter(Boolean))];
+            const { data: allStats } = storeIds.length > 0
+                ? await supabase
+                    .from('inventory_report_stats')
+                    .select('store_id, check_date, shift, total_items, matched_items, missing_items, over_items')
+                    .in('store_id', storeIds)
+                : { data: [] };
+
+            // Create a lookup map for stats
+            interface StatRow { store_id: string; check_date: string; shift: number; total_items: number; matched_items: number; missing_items: number; over_items: number; }
+            const statsMap = new Map<string, StatRow>();
+            (allStats || []).forEach((s: any) => {
+                const key = `${s.store_id}_${s.check_date}_${s.shift}`;
+                statsMap.set(key, s as StatRow);
+            });
+
+            const reportsWithStats: ReportSummary[] = reportsList.map((report: any) => {
+                const key = `${report.stores?.id}_${report.check_date}_${report.shift}`;
+                const stats = statsMap.get(key);
+
+                return {
+                    id: report.id,
+                    storeId: report.stores?.id || '',
+                    store: report.stores?.code || '',
+                    shift: report.shift,
+                    date: report.check_date,
+                    submittedBy: report.users?.name || 'Unknown',
+                    submittedAt: report.created_at,
+                    status: report.status as ReportStatus,
+                    total: stats?.total_items || 0,
+                    matched: stats?.matched_items || 0,
+                    missing: stats?.missing_items || 0,
+                    over: stats?.over_items || 0,
+                    reviewedBy: report.reviewer?.name || null,
+                    reviewedAt: report.reviewed_at || null,
+                    rejectionReason: report.rejection_reason || null
+                };
+            });
+
+            return { success: true, reports: reportsWithStats };
+        } catch (e) {
+            console.error('[Inventory] Get reports error:', e);
+            return { success: false, reports: [] };
+        }
     },
 
     async getReportDetail(reportId: string): Promise<{ success: boolean; report?: any }> {
@@ -899,56 +961,128 @@ export const InventoryService = {
 
     async reviewReport(
         reportId: string,
-        status: 'APPROVED' | 'REJECTED',
+        status: ReportStatus,
         reviewerId: string,
-        reason?: string
-    ): Promise<{ success: boolean; message?: string }> {
+        reason?: string,
+        userRole?: string
+    ): Promise<ReviewResult> {
         if (!reportId || !status || !reviewerId) {
             return { success: false, message: 'Thiếu thông tin bắt buộc' };
         }
 
-        if (isSupabaseConfigured()) {
-            try {
-                const { data: report, error: fetchErr } = await supabase
-                    .from('inventory_reports')
-                    .select('store_id, check_date, shift')
-                    .eq('id', reportId)
-                    .single();
-                if (fetchErr) throw fetchErr;
-
-                const { error } = await supabase
-                    .from('inventory_reports')
-                    .update({
-                        status,
-                        reviewed_by: reviewerId,
-                        reviewed_at: new Date().toISOString(),
-                        rejection_reason: reason || null
-                    })
-                    .eq('id', reportId);
-
-                if (error) throw error;
-
-                if (status === 'APPROVED' && report) {
-                    const { error: stockErr } = await supabase.rpc(
-                        'apply_approved_stock_update',
-                        {
-                            p_store_id: report.store_id,
-                            p_check_date: report.check_date,
-                            p_shift: report.shift
-                        }
-                    );
-                    if (stockErr) {
-                        console.warn('[Inventory] Stock update RPC failed (non-blocking):', stockErr);
-                    }
-                }
-
-                return { success: true };
-            } catch (e: any) {
-                console.error('[Inventory] Review report error:', e);
-                return { success: false, message: e.message };
-            }
+        if (userRole && !REVIEW_ALLOWED_ROLES.includes(userRole as any)) {
+            console.error(`[Inventory] SEC: Unauthorized review attempt by role '${userRole}'`);
+            return { success: false, message: 'Chỉ Admin/Manager mới có quyền duyệt báo cáo' };
         }
-        return { success: false, message: 'Database disconnected' };
+
+        if (!isSupabaseConfigured()) {
+            return { success: false, message: 'Database disconnected' };
+        }
+
+        try {
+            const { data: report, error: fetchErr } = await supabase
+                .from('inventory_reports')
+                .select('store_id, check_date, shift, status')
+                .eq('id', reportId)
+                .single();
+            if (fetchErr) throw fetchErr;
+
+            if (report.status !== REPORT_STATUS.PENDING) {
+                return {
+                    success: false,
+                    message: `Báo cáo đã được xử lý (${report.status === REPORT_STATUS.APPROVED ? 'đã duyệt' : 'đã từ chối'}). Vui lòng refresh.`
+                };
+            }
+
+            const { data: updated, error } = await supabase
+                .from('inventory_reports')
+                .update({
+                    status,
+                    reviewed_by: reviewerId,
+                    reviewed_at: new Date().toISOString(),
+                    rejection_reason: reason || null
+                })
+                .eq('id', reportId)
+                .eq('status', REPORT_STATUS.PENDING)
+                .select('id');
+
+            if (error) throw error;
+            if (!updated || updated.length === 0) {
+                return { success: false, message: 'Báo cáo đã được xử lý bởi người khác. Vui lòng refresh.' };
+            }
+            let stockUpdateFailed = false;
+            if (status === REPORT_STATUS.APPROVED && report) {
+                const { error: stockErr } = await supabase.rpc(
+                    'apply_approved_stock_update',
+                    {
+                        p_store_id: report.store_id,
+                        p_check_date: report.check_date,
+                        p_shift: report.shift
+                    }
+                );
+                if (stockErr) {
+                    console.error('[Inventory] CRITICAL: Stock update RPC failed:', stockErr);
+                    stockUpdateFailed = true;
+                }
+            }
+
+            return {
+                success: true,
+                stockUpdateFailed,
+                message: stockUpdateFailed
+                    ? 'Đã duyệt báo cáo nhưng cập nhật tồn kho thất bại. Vui lòng liên hệ admin.'
+                    : undefined
+            };
+        } catch (e: any) {
+            console.error('[Inventory] Review report error:', e);
+            return { success: false, message: e.message };
+        }
+    },
+
+    async bulkReviewReports(
+        reportIds: string[],
+        status: ReportStatus,
+        reviewerId: string,
+        reason?: string,
+        userRole?: string
+    ): Promise<BulkReviewResult> {
+        if (!reportIds.length) {
+            return { success: false, processed: 0, failed: 0, stockWarnings: [], errors: ['Không có báo cáo để xử lý'] };
+        }
+
+        if (userRole && !REVIEW_ALLOWED_ROLES.includes(userRole as any)) {
+            return { success: false, processed: 0, failed: 0, stockWarnings: [], errors: ['Không có quyền duyệt báo cáo'] };
+        }
+
+        const results = await Promise.allSettled(
+            reportIds.map(id => this.reviewReport(id, status, reviewerId, reason, userRole))
+        );
+
+        let processed = 0;
+        let failed = 0;
+        const stockWarnings: string[] = [];
+        const errors: string[] = [];
+
+        results.forEach((result, idx) => {
+            if (result.status === 'fulfilled' && result.value.success) {
+                processed++;
+                if (result.value.stockUpdateFailed) {
+                    stockWarnings.push(reportIds[idx]);
+                }
+            } else {
+                failed++;
+                const msg = result.status === 'fulfilled' ? result.value.message : 'Lỗi hệ thống';
+                if (msg) errors.push(msg);
+            }
+        });
+
+        return {
+            success: processed > 0,
+            processed,
+            failed,
+            stockWarnings,
+            errors: [...new Set(errors)] // Deduplicate
+        };
     },
 
     async getOverview(date: string): Promise<{
@@ -1279,13 +1413,17 @@ export const InventoryService = {
 
             if (fetchErr || !report) return { success: false, message: 'Báo cáo không tồn tại' };
 
-            // Cascading deletes — each wrapped so missing tables don't block
             const safeDel = async (table: string, filters: Record<string, any>) => {
                 try {
                     let q = supabase.from(table).delete();
                     for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
-                    await q;
-                } catch { /* skip */ }
+                    const { error } = await q;
+                    if (error) {
+                        console.warn(`[Inventory] Cascade delete from '${table}' warning:`, error.message);
+                    }
+                } catch (e: any) {
+                    console.warn(`[Inventory] Cascade delete from '${table}' failed:`, e.message);
+                }
             };
 
             await safeDel('inventory_report_comments', { report_id: reportId });
@@ -1298,24 +1436,12 @@ export const InventoryService = {
                 });
             }
 
-            // Delete the report
             const { error: delErr } = await supabase
                 .from('inventory_reports')
                 .delete()
                 .eq('id', reportId);
 
             if (delErr) throw delErr;
-
-            // Verify deletion
-            const { data: check } = await supabase
-                .from('inventory_reports')
-                .select('id')
-                .eq('id', reportId)
-                .maybeSingle();
-
-            if (check) {
-                return { success: false, message: 'Không thể xóa báo cáo. Kiểm tra quyền hoặc ràng buộc dữ liệu.' };
-            }
 
             return { success: true };
         } catch (e: any) {
