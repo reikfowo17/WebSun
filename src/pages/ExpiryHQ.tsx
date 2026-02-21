@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User } from '../types';
 import { useToast } from '../contexts';
 import { ExpiryService, ExpiryConfig, ExpiryReport } from '../services';
@@ -9,55 +10,64 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     const [subTab, setSubTab] = useState<'CONFIG' | 'SCHEDULE' | 'REPORTS'>('CONFIG');
     const [currentDate, setCurrentDate] = useState(new Date().toISOString().slice(0, 10));
 
-    return (
-        <div className="h-full flex flex-col bg-slate-50/50 font-sans text-slate-900">
-            {/* Header - Clean & Compact like InventoryHQ */}
-            {/* Header - Professional & Minimal */}
-            <header className="px-8 flex items-center justify-between shrink-0 bg-white border-b border-gray-100 sticky top-0 z-50 h-16">
-                {/* Left: Navigation Tabs */}
-                <nav className="flex items-center gap-8 h-full">
-                    {[
-                        { id: 'CONFIG', label: 'CẤU HÌNH NGƯỠNG' },
-                        { id: 'SCHEDULE', label: 'LỊCH QUÉT' },
-                        { id: 'REPORTS', label: 'BÁO CÁO DATE' }
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setSubTab(tab.id as any)}
-                            className={`h-full relative px-1 text-xs font-bold uppercase tracking-wider transition-colors flex items-center ${subTab === tab.id
-                                ? 'text-indigo-600'
-                                : 'text-gray-400 hover:text-slate-600'
-                                }`}
-                        >
-                            {tab.label}
-                            {subTab === tab.id && (
-                                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-indigo-600"></span>
-                            )}
-                        </button>
-                    ))}
-                </nav>
+    const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
 
-                {/* Right: Date Picker - Minimal */}
-                <div className="flex items-center gap-3">
-                    <div className="relative group">
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer">
-                            <span className="material-symbols-outlined text-gray-400 group-hover:text-indigo-500 text-lg transition-colors">calendar_month</span>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide leading-none group-hover:text-indigo-400">Ngày làm việc</span>
-                                <span className="text-sm font-bold text-slate-700 w-24 text-right group-hover:text-indigo-700">
-                                    {new Date(currentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                                </span>
+    useEffect(() => {
+        setTopbarNode(document.getElementById('topbar-left'));
+
+        return () => {
+        };
+    }, []);
+
+    return (
+        <div className="h-full flex flex-col bg-slate-50/50 font-sans text-slate-900 border-t border-gray-100 relative">
+
+            {topbarNode && createPortal(
+                <div className="flex items-center justify-between w-full h-full pl-2">
+                    <nav className="flex items-center gap-1 h-full" role="tablist">
+                        {[
+                            { id: 'CONFIG', label: 'CẤU HÌNH NGƯỠNG' },
+                            { id: 'SCHEDULE', label: 'LỊCH QUÉT' },
+                            { id: 'REPORTS', label: 'BÁO CÁO DATE' }
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setSubTab(tab.id as any)}
+                                className={`h-full relative px-4 text-[13px] font-bold uppercase tracking-wider transition-colors flex items-center ${subTab === tab.id
+                                    ? 'text-yellow-600 bg-yellow-50/30'
+                                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50/50'
+                                    }`}
+                            >
+                                {tab.label}
+                                {subTab === tab.id && (
+                                    <span className="absolute bottom-[-1px] left-0 w-full h-[3px] bg-yellow-500 rounded-t-sm"></span>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+
+                    <div className="flex items-center gap-3">
+                        <div className="relative group">
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-yellow-300 hover:bg-yellow-50/50 transition-all cursor-pointer">
+                                <span className="material-symbols-outlined text-gray-400 group-hover:text-yellow-500 text-[20px] transition-colors">calendar_month</span>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none group-hover:text-yellow-600">Ngày làm việc</span>
+                                    <span className="text-[13px] font-bold text-gray-700 w-24 text-right group-hover:text-yellow-700 mt-0.5">
+                                        {new Date(currentDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                    </span>
+                                </div>
                             </div>
+                            <input
+                                type="date"
+                                value={currentDate}
+                                onChange={(e) => setCurrentDate(e.target.value)}
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
                         </div>
-                        <input
-                            type="date"
-                            value={currentDate}
-                            onChange={(e) => setCurrentDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                        />
                     </div>
-                </div>
-            </header>
+                </div>,
+                topbarNode
+            )}
 
             {/* Content */}
             <main className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
