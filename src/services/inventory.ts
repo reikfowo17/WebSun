@@ -129,7 +129,8 @@ export const InventoryService = {
             )
           `)
                     .eq('stores.code', store)
-                    .eq('shift', shift);
+                    .eq('shift', shift)
+                    .eq('check_date', new Date().toISOString().split('T')[0]);
 
                 if (error) throw error;
 
@@ -202,6 +203,9 @@ export const InventoryService = {
                 };
 
                 if (field === 'actual_stock' && value !== null && value !== '') {
+                    // Convert to integer for DB (actual_stock is INT column)
+                    updateData[field] = Number(value);
+
                     const { data: itemData } = await supabase
                         .from('inventory_items')
                         .select('system_stock')
@@ -210,12 +214,17 @@ export const InventoryService = {
 
                     const item = itemData as any;
                     if (item) {
+                        // diff is a GENERATED column (COALESCE(actual_stock,0) - system_stock)
+                        // Do NOT include it in updateData — PostgreSQL computes it automatically
                         const diff = Number(value) - (item.system_stock || 0);
-                        updateData.diff = diff;
                         updateData.status = diff === 0 ? 'MATCHED' : (diff < 0 ? 'MISSING' : 'OVER');
                         updateData.checked_by = userId;
                         updateData.checked_at = new Date().toISOString();
                     }
+                } else if (field === 'actual_stock' && (value === null || value === '')) {
+                    // Clearing actual_stock — reset status
+                    updateData[field] = null;
+                    updateData.status = 'PENDING';
                 }
 
                 const { error } = await supabase
@@ -257,11 +266,13 @@ export const InventoryService = {
                     return { success: false, message: 'Cửa hàng không tồn tại' };
                 }
 
+                const today = new Date().toISOString().split('T')[0];
                 const { data: items, error: itemsError } = await supabase
                     .from('inventory_items')
                     .select('*')
                     .eq('store_id', store.id)
-                    .eq('shift', shift);
+                    .eq('shift', shift)
+                    .eq('check_date', today);
 
                 if (itemsError) throw itemsError;
                 if (!items || items.length === 0) {
@@ -271,12 +282,11 @@ export const InventoryService = {
                 const checkedItems = items.filter((i: any) => i.actual_stock !== null);
 
                 // Create history records
-                const checkDate = new Date().toISOString().split('T')[0];
                 const historyItems = items.map((item: any) => ({
                     store_id: store.id,
                     product_id: item.product_id,
                     shift: shift,
-                    check_date: checkDate,
+                    check_date: today,
                     system_stock: item.system_stock,
                     actual_stock: item.actual_stock,
                     diff: item.diff,
@@ -297,7 +307,7 @@ export const InventoryService = {
                     .from('inventory_reports')
                     .upsert({
                         store_id: store.id,
-                        check_date: checkDate,
+                        check_date: today,
                         shift: shift,
                         submitted_by: userId,
                         submitted_at: new Date().toISOString(),

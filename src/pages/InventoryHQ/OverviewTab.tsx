@@ -312,9 +312,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
                                     {/* Body */}
                                     <div className="ov-store-body">
                                         {store.progress.percentage === 0 && !store.reportStatus ? (
-                                            /* Compact "not started" state */
                                             <div className="ov-not-started">
-                                                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94a3b8' }}>hourglass_empty</span>
+                                                <div className="ov-not-started-icon-wrapper">
+                                                    <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#94a3b8' }}>hourglass_top</span>
+                                                </div>
                                                 <span>Chưa bắt đầu kiểm kê</span>
                                             </div>
                                         ) : (
@@ -438,6 +439,8 @@ const CSS_TEXT = `
             .ov-refresh-btn {width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; color:#64748b; transition:all .2s; flex-shrink:0; }
             .ov-refresh-btn:hover {background:#eef2ff; color:#6366f1; }
             .ov-refresh-btn:focus-visible {outline:2px solid #6366f1; outline-offset:2px; }
+            .ov-refresh-btn:active .material-symbols-outlined { animation: ov-spin 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+            @keyframes ov-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
             /* Pulse for issues dot */
             .ov-pulse {animation:ov-pulse-alert 1.5s ease-in-out infinite; }
@@ -447,12 +450,11 @@ const CSS_TEXT = `
             .ov-grid {display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
 
             /* Store Card */
-            .ov-store-card {background:#fff; border-radius:16px; border:1px solid #e5e7eb; overflow:hidden; transition:box-shadow .3s,transform .2s; }
-            .ov-store-card:hover {box - shadow:0 8px 30px -8px rgba(0,0,0,.1); }
+            .ov-store-card {background:#fff; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden; transition:all .3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 1px 3px 0 rgba(0,0,0,.05), 0 1px 2px -1px rgba(0,0,0,.05); }
+            .ov-store-card:hover {box-shadow:0 20px 25px -5px rgba(0,0,0,.05), 0 8px 10px -6px rgba(0,0,0,.05); border-color:#cbd5e1; transform:translateY(-2px); }
             .ov-store-card.clickable {cursor:pointer; }
-            .ov-store-card.clickable:hover {transform:translateY(-2px); }
             .ov-store-card.clickable:focus-visible {outline:2px solid #6366f1; outline-offset:2px; }
-            .ov-card--pending {border - left:3px solid #f59e0b; }
+            .ov-card--pending {border-left:4px solid #f59e0b; }
             .ov-status-bar {height:4px; width:100%; }
             .ov-store-hdr {display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 12px; }
             .ov-store-icon {width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -477,7 +479,8 @@ const CSS_TEXT = `
             .ov-mini-val {font - size:18px; font-weight:800; line-height:1.2; }
 
             /* Not Started compact state */
-            .ov-not-started {display:flex; align-items:center; gap:8px; padding:16px; background:#f8fafc; border-radius:10px; font-size:13px; color:#94a3b8; font-weight:600; }
+            .ov-not-started {display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:20px; background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius:12px; border:1px dashed #cbd5e1; font-size:13px; color:#64748b; font-weight:600; text-align:center; min-height:120px; }
+            .ov-not-started-icon-wrapper {width:44px; height:44px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.04); display:flex; align-items:center; justify-content:center; }
 
             /* Store Footer */
             .ov-store-footer {display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid #f1f5f9; }
@@ -487,11 +490,11 @@ const CSS_TEXT = `
             .ov-view-report:focus-visible {outline:2px solid #d97706; outline-offset:2px; }
 
             /* Active card (selected for panel) */
-            .ov-card--active {border - color:#6366f1 !important; box-shadow:0 0 0 3px rgba(99,102,241,.12), 0 8px 30px -8px rgba(0,0,0,.1) !important; }
+            .ov-card--active {border-color:#818cf8 !important; box-shadow:0 0 0 4px rgba(99,102,241,.1), 0 10px 15px -3px rgba(0,0,0,.05) !important; }
 
             /* Empty */
-            .ov-empty {display:flex; flex-direction:column; align-items:center; gap:12px; padding:80px 20px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; }
-            .ov-empty-icon {width:80px; height:80px; border-radius:50%; background:#f8fafc; display:flex; align-items:center; justify-content:center; }
+            .ov-empty {display:flex; flex-direction:column; align-items:center; gap:16px; padding:100px 20px; background:linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-radius:24px; border:2px dashed #e2e8f0; }
+            .ov-empty-icon {width:100px; height:100px; border-radius:50%; background:#f1f5f9; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 2px 4px rgba(0,0,0,.04); }
             .ov-empty-title {font - size:16px; font-weight:700; color:#475569; margin:0; }
             .ov-empty-sub {font - size:13px; color:#64748b; margin:0; }
 
