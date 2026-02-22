@@ -218,7 +218,25 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast }) => {
                                             </div>
                                             <div className="ov-store-hdr-title">
                                                 <h3 className="ov-store-name">{sysStore.name}</h3>
-                                                <span className="ov-store-code">{sysStore.code}</span>
+                                                <span style={{
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                    color: sysStore.is_active !== false ? '#10b981' : '#ef4444',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.5px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px'
+                                                }}>
+                                                    <span style={{
+                                                        width: '6px',
+                                                        height: '6px',
+                                                        borderRadius: '50%',
+                                                        background: 'currentColor',
+                                                        boxShadow: sysStore.is_active !== false ? '0 0 0 2px rgba(16, 185, 129, 0.2)' : '0 0 0 2px rgba(239, 68, 68, 0.2)'
+                                                    }} />
+                                                    {sysStore.is_active !== false ? 'HOẠT ĐỘNG' : 'NGỪNG HOẠT ĐỘNG'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -359,8 +377,6 @@ const CSS_TEXT = `
 .ov-store-hdr-icon { width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); }
 .ov-store-hdr-title { display: flex; flex-direction: column; gap: 3px; }
 .ov-store-name { font-size: 16px; font-weight: 700; color: var(--ov-text-main); margin: 0; letter-spacing: -0.2px; line-height: 1.2; }
-.ov-store-code { font-size: 11px; font-weight: 600; color: var(--ov-text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 4px; }
-.ov-store-code::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #cbd5e1; }
 
 /* Shifts List */
 .ov-shifts-list { display: flex; flex-direction: column; padding: 12px; gap: 8px; background: #f8fafc; }

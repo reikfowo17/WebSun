@@ -51,9 +51,10 @@ export const SystemService = {
                 }, { onConflict: 'key' });
             if (error) throw error;
             return { success: true };
-        } catch (error: any) {
-            console.error('[System] Error saving shifts:', error);
-            return { success: false, message: error.message };
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error('[System] Error saving shifts:', err);
+            return { success: false, message: errorMsg };
         }
     },
 
@@ -83,9 +84,10 @@ export const SystemService = {
             }
             if (res.error) throw res.error;
             return { success: true, data: res.data?.[0] };
-        } catch (error: any) {
-            console.error('[System] Error saving store:', error);
-            return { success: false, message: error.message };
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error('[System] Error saving store:', err);
+            return { success: false, message: errorMsg };
         }
     },
 
@@ -95,9 +97,10 @@ export const SystemService = {
             const { error } = await supabase.from('stores').delete().eq('id', id);
             if (error) throw error;
             return { success: true };
-        } catch (error: any) {
-            console.error('[System] Error deleting store:', error);
-            return { success: false, message: error.message };
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error('[System] Error deleting store:', err);
+            return { success: false, message: errorMsg };
         }
     }
 };
