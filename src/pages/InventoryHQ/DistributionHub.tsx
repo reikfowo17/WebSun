@@ -42,18 +42,16 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [processing, setProcessing] = useState<string | null>(null);
     const [showProductModal, setShowProductModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<MasterItem | null>(null);
-    const [productForm, setProductForm] = useState({ barcode: '', name: '', pvn: '', category: '' });
+    const [productForm, setProductForm] = useState({ barcode: '', name: '', sp: '', category: '' });
     const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
     const [stores, setStores] = useState<StoreConfig[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'newSession'; message: string } | null>(null);
-
-    // CRITICAL FIX #2: Derive filteredProducts from state via useMemo (no duplicate state)
     const filteredProducts = useMemo(() => {
         if (!searchQuery) return products;
         const q = searchQuery.toLowerCase();
         return products.filter(p =>
-            p.name?.toLowerCase().includes(q) || p.pvn?.toLowerCase().includes(q) || p.barcode?.includes(q)
+            p.name?.toLowerCase().includes(q) || p.sp?.toLowerCase().includes(q) || p.barcode?.includes(q)
         );
     }, [searchQuery, products]);
 
@@ -63,7 +61,6 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         return { total: products.length, categories: cats };
     }, [products]);
 
-    // FIX #4: Show error on load failure instead of swallowing
     const loadMasterProducts = useCallback(async () => {
         setLoading(true);
         try {
@@ -80,7 +77,6 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         }
     }, [toast]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         loadMasterProducts();
         SystemService.getStores().then(setStores);
@@ -94,7 +90,6 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         });
     };
 
-    // CRITICAL FIX #1: Parallel API calls with Promise.allSettled
     const executeDistribute = async () => {
         setConfirmAction(null);
         setProcessing(ProcessingState.DISTRIBUTE);
@@ -122,7 +117,6 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         }
     };
 
-    // Làm mới phiên = xóa danh sách hiện tại để nhập danh sách mới
     const handleNewSession = () => {
         setConfirmAction({ type: 'newSession', message: 'Xóa danh sách hiện tại để nhập danh sách mới?' });
     };
@@ -134,8 +128,8 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         toast.info('Đã xóa danh sách');
     };
 
-    const openAddProduct = () => { setEditingProduct(null); setProductForm({ barcode: '', name: '', pvn: '', category: '' }); setShowProductModal(true); };
-    const openEditProduct = (p: MasterItem) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', pvn: p.pvn || '', category: p.category || '' }); setShowProductModal(true); };
+    const openAddProduct = () => { setEditingProduct(null); setProductForm({ barcode: '', name: '', sp: '', category: '' }); setShowProductModal(true); };
+    const openEditProduct = (p: MasterItem) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', sp: p.sp || '', category: p.category || '' }); setShowProductModal(true); };
 
     // FIX #10: Add barcode format validation
     const saveProduct = async () => {
@@ -145,7 +139,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         if (!/^\d{4,13}$/.test(trimmedBarcode)) { toast.error('Barcode phải là số, từ 4-13 ký tự'); return; }
         setProcessing(ProcessingState.SAVE_PRODUCT);
         try {
-            const d = { barcode: trimmedBarcode, name: trimmedName, pvn: productForm.pvn.trim(), category: productForm.category };
+            const d = { barcode: trimmedBarcode, name: trimmedName, sp: productForm.sp.trim(), category: productForm.category };
             const r = editingProduct ? await InventoryService.updateMasterItem(editingProduct.id, d, 'ADMIN') : await InventoryService.addMasterItem(d);
             if (r.success) { toast.success(editingProduct ? 'Đã cập nhật' : 'Đã thêm mới'); setShowProductModal(false); loadMasterProducts(); }
             else toast.error(r.error || 'Có lỗi xảy ra');
@@ -170,9 +164,11 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
             const wb = XLSX.read(await file.arrayBuffer());
             const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]]);
             const items = rows.map((r) => ({
-                category: String(r['Mã hàng SP'] || r['Mã hàng'] || r['Product Code'] || r['ma_hang'] || ''),
+                sp: String(r['Mã hàng SP'] || r['Mã hàng'] || r['Product Code'] || r['ma_hang'] || ''),
                 barcode: String(r['Mã barcode'] || r['Barcode'] || r['Mã vạch'] || r['barcode'] || ''),
-                name: String(r['Tên sản phẩm'] || r['Tên SP'] || r['Name'] || r['name'] || ''), unit: '',
+                name: String(r['Tên sản phẩm'] || r['Tên SP'] || r['Name'] || r['name'] || ''),
+                category: String(r['Danh mục'] || r['Loại SP'] || r['Loại sản phẩm'] || r['Category'] || r['category'] || ''),
+                unit: String(r['Đơn vị'] || r['Unit'] || r['unit'] || ''),
             })).filter(p => p.barcode && p.name);
             if (!items.length) { toast.error('Không tìm thấy dữ liệu hợp lệ'); return; }
             const res = await InventoryService.importProducts(items);
@@ -211,44 +207,63 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
 
                     {/* Table */}
                     <div className="dh-table-scroll custom-scrollbar">
-                        {loading ? (
-                            <div className="dh-loading">{[...Array(8)].map((_, i) => <div key={i} className="shimmer" style={{ height: 42, borderRadius: 8, animationDelay: `${i * 80}ms` }} />)}</div>
-                        ) : (
-                            <table className="dh-table">
-                                <thead><tr>
-                                    <th style={{ width: 50, textAlign: 'center' }}>No.</th>
-                                    <th style={{ width: 110 }}>Mã hàng</th>
-                                    <th style={{ width: 130 }}>Barcode</th>
-                                    <th>Tên sản phẩm</th>
-                                    <th style={{ width: 110, textAlign: 'right' }}>Danh mục</th>
-                                    <th style={{ width: 44 }}></th>
-                                </tr></thead>
-                                <tbody>
-                                    {filteredProducts.length === 0 ? (
-                                        <tr><td colSpan={6} className="dh-empty-td">
-                                            <div className="dh-empty"><div className="dh-empty-icon"><span className="material-symbols-outlined" style={{ fontSize: 40, color: '#d1d5db' }}>playlist_add</span></div>
-                                                <p className="dh-empty-title">Chưa có dữ liệu</p><p className="dh-empty-sub">Thêm sản phẩm hoặc import từ Excel</p>
-                                                <button onClick={loadMasterProducts} className="dh-empty-btn"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span> Tải lại</button></div>
-                                        </td></tr>
-                                    ) : filteredProducts.map((p, i) => {
-                                        const cs = getCatStyle(p.category);
-                                        return (<tr key={p.id || i} className="dh-row">
-                                            <td style={{ textAlign: 'center' }}><span className="dh-rownum">{i + 1}</span></td>
-                                            <td><span className="dh-code">{p.pvn || '---'}</span></td>
-                                            <td><span className="dh-barcode">{p.barcode}</span></td>
-                                            <td><span className="dh-name">{p.name}</span></td>
-                                            <td style={{ textAlign: 'right' }}>{p.category && <span className="dh-cat" style={{ background: cs.bg, color: cs.text }}>{p.category}</span>}</td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <div className="dh-actions">
-                                                    <button onClick={() => openEditProduct(p)} className="dh-act-btn" title="Sửa"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span></button>
-                                                    <button onClick={() => setConfirmDelete(p)} className="dh-act-btn dh-act-del" title="Xóa"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span></button>
-                                                </div>
+                        <table className="dh-table">
+                            <thead><tr>
+                                <th style={{ width: 50, textAlign: 'center' }}>No.</th>
+                                <th style={{ width: 110 }}>Mã hàng</th>
+                                <th style={{ width: 130 }}>Barcode</th>
+                                <th>Tên sản phẩm</th>
+                                <th style={{ width: 110, textAlign: 'right' }}>Danh mục</th>
+                                <th style={{ width: 44 }}></th>
+                            </tr></thead>
+                            <tbody>
+                                {loading ? (
+                                    [...Array(8)].map((_, i) => (
+                                        <tr key={i} className="dh-row">
+                                            <td style={{ padding: '16px' }}>
+                                                <div className="dh-skel" style={{ height: '14px', width: '20px', borderRadius: '4px', margin: '0 auto' }} />
                                             </td>
-                                        </tr>);
-                                    })}
-                                </tbody>
-                            </table>
-                        )}
+                                            <td style={{ padding: '16px' }}>
+                                                <div className="dh-skel" style={{ height: '18px', width: '80%', borderRadius: '4px' }} />
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div className="dh-skel" style={{ height: '14px', width: '100px', borderRadius: '4px' }} />
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div className="dh-skel" style={{ height: '18px', width: '70%', borderRadius: '4px', marginBottom: '4px' }} />
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div className="dh-skel" style={{ height: '20px', width: '80px', borderRadius: '4px', marginLeft: 'auto' }} />
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <div className="dh-skel" style={{ height: '28px', width: '28px', borderRadius: '6px', marginLeft: 'auto' }} />
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : filteredProducts.length === 0 ? (
+                                    <tr><td colSpan={6} className="dh-empty-td">
+                                        <div className="dh-empty"><div className="dh-empty-icon"><span className="material-symbols-outlined" style={{ fontSize: 40, color: '#d1d5db' }}>playlist_add</span></div>
+                                            <p className="dh-empty-title">Chưa có dữ liệu</p><p className="dh-empty-sub">Thêm sản phẩm hoặc import từ Excel</p>
+                                            <button onClick={loadMasterProducts} className="dh-empty-btn"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span> Tải lại</button></div>
+                                    </td></tr>
+                                ) : filteredProducts.map((p, i) => {
+                                    const cs = getCatStyle(p.category);
+                                    return (<tr key={p.id || i} className="dh-row">
+                                        <td style={{ textAlign: 'center' }}><span className="dh-rownum">{i + 1}</span></td>
+                                        <td><span className="dh-code">{p.sp || '---'}</span></td>
+                                        <td><span className="dh-barcode">{p.barcode}</span></td>
+                                        <td><span className="dh-name">{p.name}</span></td>
+                                        <td style={{ textAlign: 'right' }}>{p.category && <span className="dh-cat" style={{ background: cs.bg, color: cs.text }}>{p.category}</span>}</td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            <div className="dh-actions">
+                                                <button onClick={() => openEditProduct(p)} className="dh-act-btn" title="Sửa"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span></button>
+                                                <button onClick={() => setConfirmDelete(p)} className="dh-act-btn dh-act-del" title="Xóa"><span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span></button>
+                                            </div>
+                                        </td>
+                                    </tr>);
+                                })}
+                            </tbody>
+                        </table>
                     </div>
 
                     {/* Footer */}
@@ -353,8 +368,8 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                 <div className="dh-modal-body">
                     <div className="dh-form-group"><label htmlFor="dh-barcode" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>barcode</span> Barcode <span style={{ color: '#ef4444' }}>*</span></label>
                         <input id="dh-barcode" value={productForm.barcode} onChange={e => setProductForm(p => ({ ...p, barcode: e.target.value }))} placeholder="8934567890123" className="dh-form-input" inputMode="numeric" /></div>
-                    <div className="dh-form-group"><label htmlFor="dh-pvn" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>tag</span> Mã SP</label>
-                        <input id="dh-pvn" value={productForm.pvn} onChange={e => setProductForm(p => ({ ...p, pvn: e.target.value }))} placeholder="SP001" className="dh-form-input" /></div>
+                    <div className="dh-form-group"><label htmlFor="dh-sp" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>tag</span> Mã SP</label>
+                        <input id="dh-sp" value={productForm.sp} onChange={e => setProductForm(p => ({ ...p, sp: e.target.value }))} placeholder="SP001" className="dh-form-input" /></div>
                     <div className="dh-form-group"><label htmlFor="dh-name" className="dh-form-label"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>label</span> Tên SP <span style={{ color: '#ef4444' }}>*</span></label>
                         <input id="dh-name" value={productForm.name} onChange={e => setProductForm(p => ({ ...p, name: e.target.value }))} placeholder="Bánh mì sữa tươi" className="dh-form-input" /></div>
                     <div className="dh-form-group"><label htmlFor="dh-category" className="dh-form-label">Danh mục</label><select id="dh-category" value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))} className="dh-form-select">
@@ -429,8 +444,9 @@ const CSS_TEXT = `
 
 /* Table */
 .dh-table-scroll { flex:1; overflow:auto; background:#f9fafb; }
-.dh-loading { padding:20px; display:flex; flex-direction:column; gap:8px; }
 .dh-table { width:100%; border-collapse:collapse; font-size:13px; }
+.dh-skel { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: dh-shimmer 1.5s ease-in-out infinite; }
+@keyframes dh-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .dh-table thead th { padding:10px 16px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; background:#f9fafb; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:5; white-space:nowrap; }
 .dh-table tbody td { padding:10px 16px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
 .dh-row { transition:background .1s; background:#fff; }

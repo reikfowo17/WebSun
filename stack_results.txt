@@ -1,0 +1,4 @@
+## UI Pro Max Stack Guidelines
+**Stack:** react | **Query:** admin settings dashboard
+**Source:** stacks/react.csv | **Found:** 0 results
+

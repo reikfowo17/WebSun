@@ -1,0 +1,37 @@
+## UI Pro Max Search Results
+**Domain:** ux | **Query:** animation hover
+**Source:** ux-guidelines.csv | **Found:** 3 results
+
+### Result 1
+- **Category:** Animation
+- **Issue:** Hover vs Tap
+- **Platform:** All
+- **Description:** Hover effects don't work on touch devices
+- **Do:** Use click/tap for primary interactions
+- **Don't:** Rely only on hover for important actions
+- **Code Example Good:** onClick handler
+- **Code Example Bad:** onMouseEnter only
+- **Severity:** High
+
+### Result 2
+- **Category:** Animation
+- **Issue:** Continuous Animation
+- **Platform:** All
+- **Description:** Infinite animations are distracting
+- **Do:** Use for loading indicators only
+- **Don't:** Use for decorative elements
+- **Code Example Good:** animate-spin on loader
+- **Code Example Bad:** animate-bounce on icons
+- **Severity:** Medium
+
+### Result 3
+- **Category:** Interaction
+- **Issue:** Hover States
+- **Platform:** Web
+- **Description:** Visual feedback on interactive elements
+- **Do:** Change cursor and add subtle visual change
+- **Don't:** No hover feedback on clickable elements
+- **Code Example Good:** hover:bg-gray-100 cursor-pointer
+- **Code Example Bad:** No hover style
+- **Severity:** Medium
+

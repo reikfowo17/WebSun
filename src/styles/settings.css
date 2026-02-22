@@ -1,0 +1,556 @@
+/* ─── Root Container ─── */
+.stg-root {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #f1f5f9;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1e293b;
+}
+
+/* ─── Portal Tabs (inside global topbar) ─── */
+.stg-portal-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 100%;
+}
+
+.stg-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    height: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 200ms;
+    white-space: nowrap;
+}
+
+.stg-tab:hover {
+    color: #334155;
+    background: #f8fafc;
+}
+
+.stg-tab.active {
+    color: #1e40af;
+    border-bottom-color: #3b82f6;
+}
+
+.stg-tab-icon {
+    font-size: 18px;
+}
+
+.stg-tab.active .stg-tab-icon {
+    color: #3b82f6;
+}
+
+.stg-tab-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 1px 7px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.stg-tab.active .stg-tab-badge {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+/* ─── Content Area ─── */
+.stg-content {
+    flex: 1;
+    padding: 24px 28px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ─── Section Animation ─── */
+.stg-section-animate {
+    animation: stg-fadeIn 250ms ease-out;
+}
+
+@keyframes stg-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ─── Section Headers ─── */
+.stg-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.stg-section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.stg-section-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stg-section-icon.stg-blue {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    color: #2563eb;
+    border: 1px solid #93c5fd;
+}
+
+.stg-section-icon.stg-emerald {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #059669;
+    border: 1px solid #6ee7b7;
+}
+
+.stg-section-icon .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.stg-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.stg-section-desc {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 2px;
+    max-width: 440px;
+}
+
+.stg-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ─── Buttons ─── */
+.stg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 200ms ease;
+    border: none;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.stg-btn:active {
+    transform: translateY(1px);
+}
+
+.stg-btn-outline {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.stg-btn-outline:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.stg-btn-outline.stg-emerald:hover {
+    border-color: #6ee7b7;
+    color: #059669;
+    background: #f0fdf4;
+}
+
+.stg-btn-primary {
+    background: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+}
+
+.stg-btn-primary:hover {
+    background: #2563eb;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+}
+
+.stg-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.stg-btn-primary.stg-emerald {
+    background: #059669;
+    box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
+}
+
+.stg-btn-primary.stg-emerald:hover {
+    background: #047857;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35);
+}
+
+.stg-btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 200ms;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #94a3b8;
+}
+
+.stg-btn-icon:hover {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.stg-btn-danger:hover {
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    border-color: #fecaca !important;
+}
+
+.stg-btn-save {
+    color: #059669;
+    border-color: #d1fae5;
+    background: #f0fdf4;
+}
+
+.stg-btn-save:hover {
+    background: #059669 !important;
+    color: #ffffff !important;
+    border-color: #059669 !important;
+}
+
+/* ─── Badge ─── */
+.stg-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+/* ─── Table ─── */
+.stg-table-wrap {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+}
+
+.stg-table {
+    width: 100%;
+    min-width: 500px;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.stg-table thead {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.stg-table th {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+}
+
+.stg-table td {
+    padding: 6px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.stg-table-row {
+    transition: background 150ms;
+}
+
+.stg-table-row:hover {
+    background: #f8fafc;
+}
+
+.stg-table-row:last-child td {
+    border-bottom: none;
+}
+
+/* ─── Inputs ─── */
+.stg-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    outline: none;
+    transition: all 200ms;
+}
+
+.stg-input:focus {
+    border-color: #93c5fd;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.stg-input::placeholder {
+    color: #cbd5e1;
+}
+
+.stg-input-mono {
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: -0.02em;
+}
+
+.stg-input-center {
+    text-align: center;
+}
+
+.stg-input-code {
+    text-transform: uppercase;
+    font-weight: 600;
+    width: 90px;
+}
+
+/* ─── Shift Inline Icon (merged into name column) ─── */
+.stg-shift-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stg-shift-inline-icon {
+    font-size: 18px;
+    color: #94a3b8;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+}
+
+/* ─── Table Utilities ─── */
+.stg-table-fixed {
+    table-layout: fixed;
+}
+
+.stg-row-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
+.stg-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    justify-content: flex-end;
+    opacity: 0.3;
+    transition: opacity 200ms;
+}
+
+.stg-table-row:hover .stg-row-actions {
+    opacity: 1;
+}
+
+.stg-row-new {
+    background: #f0fdf4;
+}
+
+.stg-row-new td {
+    border-bottom-color: #d1fae5;
+}
+
+/* ─── Spin utility ─── */
+.stg-spin {
+    animation: stg-spin-anim 1s linear infinite;
+}
+
+@keyframes stg-spin-anim {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ─── Labels ─── */
+.stg-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* ─── Empty State ─── */
+.stg-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.stg-empty .material-symbols-outlined {
+    font-size: 36px;
+    color: #cbd5e1;
+    margin-bottom: 10px;
+}
+
+.stg-empty p {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+/* ─── Info Banner ─── */
+.stg-info-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #1e40af;
+}
+
+.stg-info-banner .material-symbols-outlined {
+    font-size: 16px;
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+/* ─── Skeleton Loader ─── */
+.stg-skeleton {
+    animation: stg-fadeIn 300ms ease-out;
+}
+
+.stg-sk-header {
+    height: 44px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: stg-shimmer 1.5s ease-in-out infinite;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.stg-sk-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.stg-sk-line {
+    height: 14px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: stg-shimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+.stg-sk-card {
+    height: 64px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: stg-shimmer 1.5s ease-in-out infinite;
+    border-radius: 10px;
+}
+
+@keyframes stg-shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+    .stg-tabs {
+        padding: 0 12px;
+    }
+
+    .stg-tab {
+        padding: 12px 12px;
+        font-size: 12px;
+    }
+
+    .stg-content {
+        padding: 16px;
+    }
+
+    .stg-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .stg-section-actions {
+        width: 100%;
+    }
+
+    .stg-section-actions .stg-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}

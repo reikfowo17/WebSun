@@ -1,0 +1,40 @@
+## UI Pro Max Search Results
+**Domain:** style | **Query:** data dense form input field
+**Source:** styles.csv | **Found:** 3 results
+
+### Result 1
+- **Style Category:** Data-Dense Dashboard
+- **Type:** BI/Analytics
+- **Keywords:** Multiple charts/widgets, data tables, KPI cards, minimal padding, grid layout, space-efficient, maximum data visibility
+- **Primary Colors:** Neutral primary (light grey/white #F5F5F5), data colors (blue/green/red), dark text #333333
+- **Effects & Animation:** Hover tooltips, chart zoom on click, row highlighting on hover, smooth filter animations, data loading spinners
+- **Best For:** Business intelligence dashboards, financial analytics, enterprise reporting, operational dashboards, data warehousing
+- **Performance:** ΓÜí Excellent
+- **Accessibility:** Γ£ô WCAG AA
+- **Framework Compatibility:** None
+- **Complexity:** None
+
+### Result 2
+- **Style Category:** Drill-Down Analytics
+- **Type:** BI/Analytics
+- **Keywords:** Hierarchical data exploration, expandable sections, interactive drill-down paths, summary-to-detail flow, context preservation
+- **Primary Colors:** Primary brand, breadcrumb colors, drill-level indicator colors, hierarchy depth colors
+- **Effects & Animation:** Drill-down expand animations, breadcrumb click transitions, smooth detail reveal, level change smooth, data reload animation
+- **Best For:** Sales analytics, product analytics, funnel analysis, multi-dimensional data exploration, business intelligence
+- **Performance:** ΓÜí Good
+- **Accessibility:** Γ£ô WCAG AA
+- **Framework Compatibility:** None
+- **Complexity:** None
+
+### Result 3
+- **Style Category:** Conversion-Optimized
+- **Type:** Landing Page
+- **Keywords:** Form-focused, minimalist design, single CTA focus, high contrast, urgency elements, trust signals, social proof, clear value
+- **Primary Colors:** Primary brand color, high-contrast white/light backgrounds, warning/urgency colors for time-limited offers
+- **Effects & Animation:** Hover states on CTA (color shift, slight scale), form field focus animations, loading spinner, success feedback
+- **Best For:** E-commerce product pages, free trial signups, lead generation, SaaS pricing pages, limited-time offers
+- **Performance:** ΓÜí Excellent
+- **Accessibility:** Γ£ô WCAG AA
+- **Framework Compatibility:** None
+- **Complexity:** None
+

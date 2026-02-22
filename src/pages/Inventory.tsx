@@ -121,13 +121,13 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
       {/* Shift Selector */}
       <div className="bg-white/60 backdrop-blur-sm border-b border-gray-100 px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <span className="text-xs font-bold text-gray-400 uppercase">Ca làm việc:</span>
-          <div className="flex p-1 bg-gray-100 rounded-xl gap-1">
+          <span className="text-xs font-bold text-gray-400 uppercase flex-shrink-0">Ca làm việc:</span>
+          <div className="flex p-1 bg-gray-100 rounded-xl gap-1 overflow-x-auto hide-scrollbar">
             {shifts.map(s => (
               <button
                 key={s.id}
                 onClick={() => setShift(s.id)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${shift === s.id
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 flex-shrink-0 whitespace-nowrap ${shift === s.id
                   ? `bg-gradient-to-r ${s.color} text-white shadow-md`
                   : 'text-gray-500 hover:bg-gray-200'
                   }`}
@@ -138,7 +138,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
               </button>
             ))}
           </div>
-          <span className="text-xs text-gray-400 hidden sm:inline ml-2">
+          <span className="text-xs text-gray-400 hidden sm:inline ml-2 flex-shrink-0">
             {currentShift.time}
           </span>
         </div>
@@ -521,7 +521,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                               <td className="px-3 py-2.5 truncate">
                                 <span className="font-semibold text-gray-800 text-sm">{p.productName}</span>
                               </td>
-                              <td className="px-3 py-2.5 text-center text-xs text-gray-500 font-mono truncate">{p.pvn || ''}</td>
+                              <td className="px-3 py-2.5 text-center text-xs text-gray-500 font-mono truncate">{p.sp || ''}</td>
                               <td className="px-3 py-2.5 text-center text-xs text-gray-500 font-mono truncate">{p.barcode || ''}</td>
                               <td className="px-3 py-2.5 text-center font-bold text-gray-700">{p.systemStock ?? '-'}</td>
                               <td className="px-3 py-1.5">

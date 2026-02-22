@@ -39,7 +39,7 @@ export interface Product {
     id: string;
     name: string;
     barcode: string;
-    pvn?: string;
+    sp?: string;
     category?: string;
     unit?: string;
     unitPrice?: number;
@@ -50,7 +50,7 @@ export interface InventoryProduct {
     id: string;
     productName: string;
     barcode?: string;
-    pvn?: string;
+    sp?: string;
     systemStock?: number | null;
     actualStock?: number | null;
     diff?: number | null;

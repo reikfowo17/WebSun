@@ -62,14 +62,6 @@ export const EMPLOYEE_VIEWS = [
     'PROFILE',
 ] as const;
 
-export interface StoreConfig {
-    id: string;
-    code: string;
-    name: string;
-    color: string;
-    bgColor: string;
-}
-
 export const VALIDATION = {
     USERNAME_MIN_LENGTH: 3,
     USERNAME_MAX_LENGTH: 50,

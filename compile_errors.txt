@@ -1,4 +1,3 @@
-src/pages/InventoryHQ/components/RecoveryScanModal.tsx(5,10): error TS2305: Module '"../../../constants"' has no exported member 'STORES'.
 src/pages/InventoryHQ/OverviewTab.tsx(274,42): error TS2304: Cannot find name 'STORES'.
-src/pages/InventoryHQ/ReviewsView.tsx(5,10): error TS2305: Module '"../../constants"' has no exported member 'STORES'.
+src/pages/InventoryHQ/ReviewsView.tsx(429,34): error TS2304: Cannot find name 'STORES'.
 src/pages/Settings.tsx(2,57): error TS2307: Cannot find module '../../services/system' or its corresponding type declarations.

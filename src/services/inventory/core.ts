@@ -23,7 +23,7 @@ export async function getItems(store: string, shift: number): Promise<{ success:
             products (
               id,
               name,
-              pvn,
+              sp,
               barcode
             ),
             stores!inner (
@@ -39,7 +39,7 @@ export async function getItems(store: string, shift: number): Promise<{ success:
             const products: InventoryProduct[] = (data || []).map((item: any) => ({
                 id: item.id,
                 productName: item.products?.name || '',
-                pvn: item.products?.pvn || '',
+                sp: item.products?.sp || '',
                 barcode: item.products?.barcode || '',
                 systemStock: item.system_stock || 0,
                 actualStock: item.actual_stock,

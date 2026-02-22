@@ -12,6 +12,7 @@ export interface StoreConfig {
     id: string;
     code: string;
     name: string;
+    is_active?: boolean;
 }
 
 export const SystemService = {
@@ -61,7 +62,7 @@ export const SystemService = {
         try {
             const { data, error } = await supabase
                 .from('stores')
-                .select('id, code, name')
+                .select('id, code, name, is_active')
                 .order('code');
             if (error) throw error;
             return data || [];
@@ -76,9 +77,9 @@ export const SystemService = {
         try {
             let res;
             if (store.id) {
-                res = await supabase.from('stores').update({ code: store.code, name: store.name }).eq('id', store.id).select();
+                res = await supabase.from('stores').update({ code: store.code, name: store.name, is_active: store.is_active }).eq('id', store.id).select();
             } else {
-                res = await supabase.from('stores').insert({ code: store.code, name: store.name }).select();
+                res = await supabase.from('stores').insert({ code: store.code, name: store.name, is_active: store.is_active ?? true }).select();
             }
             if (res.error) throw res.error;
             return { success: true, data: res.data?.[0] };

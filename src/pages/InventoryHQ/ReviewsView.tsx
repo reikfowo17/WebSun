@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { InventoryService } from '../../services';
 import { REPORT_STATUS, type ReportSummary } from '../../services/inventory';
 import { User } from '../../types';
-import { STORES } from '../../constants';
+import { SystemService, StoreConfig } from '../../services/system';
 import ConfirmModal from '../../components/ConfirmModal';
 import PromptModal from '../../components/PromptModal';
 import ReportDetailModal from './components/ReportDetailModal';
@@ -40,6 +40,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const [search, setSearch] = useState('');
     const [sortField, setSortField] = useState<'date' | 'store' | 'shift'>('date');
     const [sortAsc, setSortAsc] = useState(false);
+    const [stores, setStores] = useState<StoreConfig[]>([]);
 
     const [dateFrom, setDateFrom] = useState<string>('');
     const [dateTo, setDateTo] = useState<string>('');
@@ -56,6 +57,10 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
 
     const abortRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        SystemService.getStores().then(setStores);
+    }, []);
 
     /* ── Data Loading ── */
     const loadReports = useCallback(async () => {
@@ -76,7 +81,6 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             if (controller.signal.aborted) return;
             if (res.success) {
                 let items = res.reports || [];
-                // For history mode, show only non-pending
                 if (viewMode === 'HISTORY') {
                     items = items.filter((r) => r.status !== REPORT_STATUS.PENDING);
                 }
@@ -116,7 +120,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(r =>
-                (STORES.find(s => s.code === r.store)?.name || r.store).toLowerCase().includes(q) ||
+                (stores.find(s => s.code === r.store)?.name || r.store).toLowerCase().includes(q) ||
                 r.submittedBy.toLowerCase().includes(q) ||
                 r.date.includes(q)
             );
@@ -312,7 +316,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     );
 
     /* ── Helpers ── */
-    const storeName = (code: string) => STORES.find(s => s.code === code)?.name || code;
+    const storeName = (code: string) => stores.find(s => s.code === code)?.name || code;
     const formatDate = (d: string) => {
         try { return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
         catch { return d; }
@@ -421,7 +425,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                 aria-label="Lọc cửa hàng"
                             >
                                 <option value="ALL">Tất cả cửa hàng</option>
-                                {STORES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
+                                {stores.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
                             </select>
                             <span className="material-symbols-outlined rv2-select-chevron">expand_more</span>
                         </div>

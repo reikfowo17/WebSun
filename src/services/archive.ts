@@ -5,7 +5,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 export interface ArchivedInventoryItem {
     product_name: string;
     barcode: string;
-    pvn: string;
+    sp: string;
     system_stock: number;
     actual_stock: number | null;
     diff: number;
@@ -77,7 +77,7 @@ export interface DailySummary {
 export interface MissingProduct {
     product_name: string;
     barcode: string;
-    pvn: string;
+    sp: string;
     store_code: string;
     shift: number;
     system_stock: number;
@@ -283,7 +283,7 @@ class InventoryArchiveServiceClass {
                                 const missingProduct: MissingProduct = {
                                     product_name: item.product_name,
                                     barcode: item.barcode,
-                                    pvn: item.pvn,
+                                    sp: item.sp,
                                     store_code: storeCode,
                                     shift: shiftNum,
                                     system_stock: item.system_stock,
@@ -344,7 +344,7 @@ class InventoryArchiveServiceClass {
                 .from('inventory_items')
                 .select(`
                     id, system_stock, actual_stock, diff, status, note, shift, diff_reason, created_at,
-                    products (name, barcode, pvn),
+                    products (name, barcode, sp),
                     stores!inner (code)
                 `)
                 .gte('created_at', cutoffStr);
@@ -372,7 +372,7 @@ class InventoryArchiveServiceClass {
                 byDate[dateStr][store][shiftKey].push({
                     product_name: (item as any).products?.name || '',
                     barcode: (item as any).products?.barcode || '',
-                    pvn: (item as any).products?.pvn || '',
+                    sp: (item as any).products?.sp || '',
                     system_stock: item.system_stock,
                     actual_stock: item.actual_stock,
                     diff: item.diff,

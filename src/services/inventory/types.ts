@@ -66,7 +66,7 @@ export interface BulkReviewResult {
 export interface InventoryProduct {
     id: string;
     productName: string;
-    pvn: string;
+    sp: string;
     barcode: string;
     systemStock: number;
     actualStock: number | null;
@@ -79,7 +79,7 @@ export interface InventoryProduct {
 export interface MasterItem {
     id: string;
     name: string;
-    pvn: string;
+    sp: string;
     barcode: string;
     category: string;
     unit: string;

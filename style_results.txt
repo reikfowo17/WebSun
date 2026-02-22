@@ -1,0 +1,64 @@
+## UI Pro Max Search Results
+**Domain:** style | **Query:** admin panel enterprise settings
+**Source:** styles.csv | **Found:** 5 results
+
+### Result 1
+- **Style Category:** Minimalism & Swiss Style
+- **Type:** General
+- **Keywords:** Clean, simple, spacious, functional, white space, high contrast, geometric, sans-serif, grid-based, essential
+- **Primary Colors:** Monochromatic, Black #000000, White #FFFFFF
+- **Effects & Animation:** Subtle hover (200-250ms), smooth transitions, sharp shadows if any, clear type hierarchy, fast loading
+- **Best For:** Enterprise apps, dashboards, documentation sites, SaaS platforms, professional tools
+- **Performance:** ⚡ Excellent
+- **Accessibility:** ✓ WCAG AAA
+- **Framework Compatibility:** Tailwind 10/10, Bootstrap 9/10, MUI 9/10
+- **Complexity:** Low
+
+### Result 2
+- **Style Category:** Soft UI Evolution
+- **Type:** General
+- **Keywords:** Evolved soft UI, better contrast, modern aesthetics, subtle depth, accessibility-focused, improved shadows, hybrid
+- **Primary Colors:** Improved contrast pastels: Soft Blue #87CEEB, Soft Pink #FFB6C1, Soft Green #90EE90, better hierarchy
+- **Effects & Animation:** Improved shadows (softer than flat, clearer than neumorphism), modern (200-300ms), focus visible, WCAG AA/AAA
+- **Best For:** Modern enterprise apps, SaaS platforms, health/wellness, modern business tools, professional, hybrid
+- **Performance:** ⚡ Excellent
+- **Accessibility:** ✓ WCAG AA+
+- **Framework Compatibility:** Tailwind 9/10, MUI 9/10, Chakra 9/10
+- **Complexity:** Medium
+
+### Result 3
+- **Style Category:** Data-Dense Dashboard
+- **Type:** BI/Analytics
+- **Keywords:** Multiple charts/widgets, data tables, KPI cards, minimal padding, grid layout, space-efficient, maximum data visibility
+- **Primary Colors:** Neutral primary (light grey/white #F5F5F5), data colors (blue/green/red), dark text #333333
+- **Effects & Animation:** Hover tooltips, chart zoom on click, row highlighting on hover, smooth filter animations, data loading spinners
+- **Best For:** Business intelligence dashboards, financial analytics, enterprise reporting, operational dashboards, data warehousing
+- **Performance:** ⚡ Excellent
+- **Accessibility:** ✓ WCAG AA
+- **Framework Compatibility:** None
+- **Complexity:** None
+
+### Result 4
+- **Style Category:** Feature-Rich Showcase
+- **Type:** Landing Page
+- **Keywords:** Multiple feature sections, grid layout, benefit cards, visual feature demonstrations, interactive elements, problem-solution pairs
+- **Primary Colors:** Primary brand, bright secondary colors for feature cards, contrasting accent for CTAs
+- **Effects & Animation:** Card hover effects (lift/scale), icon animations on scroll, feature toggle animations, smooth section transitions
+- **Best For:** Enterprise SaaS, software tools landing pages, platform services, complex product explanations, B2B products
+- **Performance:** ⚡ Good
+- **Accessibility:** ✓ WCAG AA
+- **Framework Compatibility:** None
+- **Complexity:** None
+
+### Result 5
+- **Style Category:** Trust & Authority
+- **Type:** Landing Page
+- **Keywords:** Certificates/badges displayed, expert credentials, case studies with metrics, before/after comparisons, industry recognition, security badges
+- **Primary Colors:** Professional colors (blue/grey), trust colors, certification badge colors (gold/silver accents)
+- **Effects & Animation:** Badge hover effects, metric pulse animations, certificate carousel, smooth stat reveal
+- **Best For:** Healthcare/medical landing pages, financial services, enterprise software, premium/luxury products, legal services
+- **Performance:** ⚡ Excellent
+- **Accessibility:** ✓ WCAG AAA
+- **Framework Compatibility:** None
+- **Complexity:** None
+
