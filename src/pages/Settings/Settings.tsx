@@ -1,19 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SystemService, ShiftConfig, StoreConfig } from '../services/system';
-import PortalHeader from '../components/PortalHeader';
+import { SystemService, ShiftConfig, StoreConfig, EmployeeConfig } from '../../services/system';
+import PortalHeader from '../../components/PortalHeader';
 import '../styles/settings.css';
-import { SettingsShifts } from './Settings/SettingsShifts';
-import { SettingsStores } from './Settings/SettingsStores';
+import { SettingsShifts } from './SettingsShifts';
+import { SettingsStores } from './SettingsStores';
+import { SettingsEmployees } from './SettingsEmployees';
 
 interface SettingsTabProps {
     toast: any;
 }
 
-type SettingsSection = 'shifts' | 'stores';
+type SettingsSection = 'shifts' | 'stores' | 'employees';
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const [shifts, setShifts] = useState<ShiftConfig[]>([]);
     const [stores, setStores] = useState<StoreConfig[]>([]);
+    const [employees, setEmployees] = useState<EmployeeConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeSection, setActiveSection] = useState<SettingsSection>('shifts');
 
@@ -24,14 +26,16 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [fetchedShifts, fetchedStores] = await Promise.all([
+            const [fetchedShifts, fetchedStores, fetchedEmployees] = await Promise.all([
                 SystemService.getShifts(),
-                SystemService.getStores()
+                SystemService.getStores(),
+                SystemService.getEmployees()
             ]);
             setShifts(fetchedShifts);
             setStores(fetchedStores);
-        } catch (e: any) {
-            toast.error('Lỗi khi tải cấu hình: ' + e.message);
+            setEmployees(fetchedEmployees);
+        } catch (e: unknown) {
+            toast.error('Lỗi khi tải cấu hình: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
             setLoading(false);
         }
@@ -40,6 +44,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const NAV_ITEMS: { id: SettingsSection; label: string; icon: string; desc: string; count?: number }[] = [
         { id: 'shifts', label: 'CA LÀM', icon: 'schedule', desc: 'Khung giờ & quy trình', count: shifts.length },
         { id: 'stores', label: 'CỬA HÀNG', icon: 'storefront', desc: 'Danh mục cơ sở', count: stores.length },
+        { id: 'employees', label: 'NHÂN VIÊN', icon: 'group', desc: 'Quản lý nhân sự', count: employees.length },
     ];
 
     const renderSkeletonLoader = useCallback(() => (
@@ -53,6 +58,20 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
             </div>
         </div>
     ), []);
+
+    const renderContent = () => {
+        if (loading) return renderSkeletonLoader();
+        switch (activeSection) {
+            case 'shifts':
+                return <SettingsShifts toast={toast} initialShifts={shifts} />;
+            case 'stores':
+                return <SettingsStores toast={toast} initialStores={stores} />;
+            case 'employees':
+                return <SettingsEmployees toast={toast} initialEmployees={employees} allStores={stores} />;
+            default:
+                return null;
+        }
+    };
 
     return (
         <div className="stg-root">
@@ -77,11 +96,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
 
             {/* ─── Content ─── */}
             <div className="stg-content">
-                {loading ? renderSkeletonLoader() : (
-                    activeSection === 'shifts'
-                        ? <SettingsShifts toast={toast} initialShifts={shifts} />
-                        : <SettingsStores toast={toast} initialStores={stores} />
-                )}
+                {renderContent()}
             </div>
         </div>
     );
