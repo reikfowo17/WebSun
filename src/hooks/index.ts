@@ -1,17 +1,5 @@
-/**
- * Custom Hooks
- * 
- * Reusable hooks for common patterns
- */
 import { useState, useCallback, useEffect, useRef } from 'react';
 
-// ===========================================================================
-// useDebounce
-// ===========================================================================
-
-/**
- * Debounce a value by a specified delay
- */
 export function useDebounce<T>(value: T, delay: number): T {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -28,13 +16,6 @@ export function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
-// ===========================================================================
-// useLocalStorage
-// ===========================================================================
-
-/**
- * Persist state to localStorage
- */
 export function useLocalStorage<T>(
     key: string,
     initialValue: T
@@ -62,13 +43,6 @@ export function useLocalStorage<T>(
     return [storedValue, setValue];
 }
 
-// ===========================================================================
-// usePrevious
-// ===========================================================================
-
-/**
- * Get the previous value of a variable
- */
 export function usePrevious<T>(value: T): T | undefined {
     const ref = useRef<T | undefined>(undefined);
 
@@ -79,19 +53,12 @@ export function usePrevious<T>(value: T): T | undefined {
     return ref.current;
 }
 
-// ===========================================================================
-// useAsync
-// ===========================================================================
-
 interface AsyncState<T> {
     data: T | null;
     loading: boolean;
     error: Error | null;
 }
 
-/**
- * Handle async operations with loading and error states
- */
 export function useAsync<T>(
     asyncFn: () => Promise<T>,
     immediate = true
@@ -121,13 +88,6 @@ export function useAsync<T>(
     return { ...state, execute };
 }
 
-// ===========================================================================
-// useOnClickOutside
-// ===========================================================================
-
-/**
- * Detect clicks outside of a ref
- */
 export function useOnClickOutside(
     ref: React.RefObject<HTMLElement>,
     handler: (event: MouseEvent | TouchEvent) => void
@@ -150,13 +110,6 @@ export function useOnClickOutside(
     }, [ref, handler]);
 }
 
-// ===========================================================================
-// useKeyPress
-// ===========================================================================
-
-/**
- * Detect when a key is pressed
- */
 export function useKeyPress(targetKey: string): boolean {
     const [keyPressed, setKeyPressed] = useState(false);
 
@@ -185,18 +138,11 @@ export function useKeyPress(targetKey: string): boolean {
     return keyPressed;
 }
 
-// ===========================================================================
-// useWindowSize
-// ===========================================================================
-
 interface WindowSize {
     width: number;
     height: number;
 }
 
-/**
- * Get current window dimensions
- */
 export function useWindowSize(): WindowSize {
     const [windowSize, setWindowSize] = useState<WindowSize>({
         width: window.innerWidth,
@@ -218,13 +164,6 @@ export function useWindowSize(): WindowSize {
     return windowSize;
 }
 
-// ===========================================================================
-// useMediaQuery
-// ===========================================================================
-
-/**
- * Check if a media query matches
- */
 export function useMediaQuery(query: string): boolean {
     const [matches, setMatches] = useState(
         () => window.matchMedia(query).matches
@@ -241,9 +180,6 @@ export function useMediaQuery(query: string): boolean {
     return matches;
 }
 
-/**
- * Common breakpoint hooks
- */
 export const useIsMobile = () => useMediaQuery('(max-width: 640px)');
 export const useIsTablet = () => useMediaQuery('(max-width: 1024px)');
 export const useIsDesktop = () => useMediaQuery('(min-width: 1025px)');

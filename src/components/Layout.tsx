@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Sidebar from './Sidebar';
 import { User } from '../types';
 import { useLocation } from 'react-router-dom';
+import { useOnClickOutside } from '../hooks';
 
 interface LayoutProps {
   user: User;
@@ -14,6 +15,11 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const location = useLocation();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useOnClickOutside(dropdownRef, () => {
+    if (isDropdownOpen) setIsDropdownOpen(false);
+  });
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -50,12 +56,10 @@ const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
             </button>
 
             {/* User Dropdown */}
-            <div className="relative group ml-1">
+            <div className="relative ml-1" ref={dropdownRef}>
               <div
-                className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 overflow-hidden cursor-pointer border border-gray-200 transform transition-transform group-hover:scale-105"
+                className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 overflow-hidden cursor-pointer border border-gray-200 transform transition-transform hover:scale-105"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                onMouseEnter={() => setIsDropdownOpen(true)}
-                onMouseLeave={() => setIsDropdownOpen(false)}
               >
                 {user.avatar ? (
                   <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
@@ -67,8 +71,6 @@ const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
               {/* Dropdown Menu */}
               <div
                 className={`absolute right-0 top-full mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-1 transition-all duration-200 z-[100] transform origin-top-right ${isDropdownOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
-                onMouseEnter={() => setIsDropdownOpen(true)}
-                onMouseLeave={() => setIsDropdownOpen(false)}
               >
                 <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-3 bg-gray-50/50">
                   <div className="w-10 h-10 rounded-full bg-yellow-100 flex flex-shrink-0 items-center justify-center text-yellow-600 font-bold overflow-hidden border border-yellow-200/50">

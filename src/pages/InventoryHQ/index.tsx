@@ -130,7 +130,6 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
                         <ReviewsView toast={toast} user={user} onReviewDone={handleReviewDone} />
                     )}
                     {activeTab === 'TASKS' && <DistributionHub toast={toast} date={currentDate} />}
-                    {activeTab === 'RECOVERY' && <RecoveryView toast={toast} date={currentDate} />}
                 </div>
             </main>
         </div>

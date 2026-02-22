@@ -1,341 +1,129 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, InventoryProduct } from '../types';
-import { InventoryService, DIFF_REASON_OPTIONS } from '../services';
-import type { DiffReason } from '../services/inventory';
-import { useToast } from '../contexts';
+import { User } from '../types';
+import { useInventory } from '../hooks/useInventory';
 import ConfirmModal from '../components/ConfirmModal';
+import PortalHeader from '../components/PortalHeader';
 
 interface InventoryProps {
   user: User;
   onBack?: () => void;
 }
 
-const INVENTORY_CONFIG = {
-  SHIFTS: [
-    { id: 1, name: 'Ca 1', time: '06:00 - 14:00', icon: 'wb_sunny', color: 'from-amber-400 to-orange-400' },
-    { id: 2, name: 'Ca 2', time: '14:00 - 22:00', icon: 'wb_twilight', color: 'from-blue-400 to-indigo-400' },
-    { id: 3, name: 'Ca 3', time: '22:00 - 02:00', icon: 'dark_mode', color: 'from-purple-400 to-violet-400' }
-  ],
-  STATUS_CONFIG: {
-    MATCHED: { label: 'Khớp', emoji: '✓', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', icon: 'check_circle' },
-    MISSING: { label: 'Thiếu', emoji: '↓', bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', icon: 'trending_down' },
-    OVER: { label: 'Thừa', emoji: '↑', bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', icon: 'trending_up' },
-    PENDING: { label: 'Chờ', emoji: '•', bg: 'bg-gray-50', text: 'text-gray-400', border: 'border-gray-200', icon: 'pending' }
-  }
-};
-
 const Inventory: React.FC<InventoryProps> = ({ user }) => {
   const navigate = useNavigate();
-  const toast = useToast();
-  const [shift, setShift] = useState(() => {
-    // Auto-detect current shift based on time
-    const hour = new Date().getHours();
-    if (hour >= 6 && hour < 14) return 1;
-    if (hour >= 14 && hour < 22) return 2;
-    return 3;
-  });
-  const [products, setProducts] = useState<InventoryProduct[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [showSyncModal, setShowSyncModal] = useState(false);
-  const [shiftSubmitted, setShiftSubmitted] = useState<{
-    submitted: boolean;
-    submittedBy?: string;
-    submittedAt?: string;
-    status?: string;
-    viewingData?: boolean;
-  }>({ submitted: false });
-  const [confirmSubmit, setConfirmSubmit] = useState<{
-    show: boolean;
-    message: string;
-    title: string;
-  }>({ show: false, message: '', title: '' });
 
-  useEffect(() => {
-    loadProducts();
-  }, [shift, user.store]);
+  const {
+    shifts,
+    shiftsLoading,
+    shift,
+    setShift,
+    products,
+    loading,
+    submitting,
+    syncing,
+    search,
+    setSearch,
+    filterStatus,
+    setFilterStatus,
+    showSyncModal,
+    setShowSyncModal,
+    shiftSubmitted,
+    setShiftSubmitted,
+    confirmSubmit,
+    setConfirmSubmit,
+    stats,
+    filteredProducts,
+    progressPercent,
+    currentShift,
+    updateField,
+    handleSubmit,
+    doSubmit,
+    handlePrint,
+    handleSync
+  } = useInventory(user);
 
-  const loadProducts = async () => {
-    setLoading(true);
-    setShiftSubmitted({ submitted: false });
-    try {
-      // Check if this shift was already submitted
-      const reportStatus = await InventoryService.getReportStatus(user.store || 'BEE', shift);
-      if (reportStatus.submitted && reportStatus.report) {
-        setShiftSubmitted({
-          submitted: true,
-          submittedBy: reportStatus.report.submittedBy,
-          submittedAt: reportStatus.report.submittedAt,
-          status: reportStatus.report.status,
-        });
-      }
-
-      const result = await InventoryService.getItems(user.store || 'BEE', shift);
-      if (result.success && result.products) {
-        setProducts(result.products);
-      }
-    } catch (error) {
-      toast.error('Không thể tải dữ liệu kho');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateField = useCallback((productId: string, field: string, value: string) => {
-    setProducts(prev => prev.map(p => {
-      if (String(p.id) !== productId) return p;
-
-      const updated = { ...p };
-
-      if (field === 'actualStock') {
-        const actual = value === '' ? null : parseInt(value);
-        updated.actualStock = actual;
-
-        if (actual !== null && updated.systemStock !== undefined && updated.systemStock !== null) {
-          const diff = actual - updated.systemStock;
-          updated.diff = diff;
-          updated.status = diff === 0 ? 'MATCHED' : diff < 0 ? 'MISSING' : 'OVER';
-        } else {
-          updated.diff = null;
-          updated.status = 'PENDING';
-        }
-      } else if (field === 'note') {
-        updated.note = value;
-      } else if (field === 'diffReason') {
-        (updated as any).diffReason = value || null;
-      }
-
-      const backendField = field === 'actualStock' ? 'actual_stock' : field === 'diffReason' ? 'diff_reason' : field;
-      InventoryService.updateItem(String(p.id), backendField, value, user.id, (user as any).role || 'EMPLOYEE');
-      return updated;
-    }));
-  }, [user.id, user]);
-
-  const handleSubmit = () => {
-    const pending = stats.pending;
-    const missing = stats.missing;
-
-    let message = '';
-    let title = '';
-
-    if (pending > 0) {
-      title = 'Còn sản phẩm chưa kiểm';
-      message = `Còn ${pending} sản phẩm chưa kiểm.\n\nVẫn nộp báo cáo?`;
-    } else if (missing > 0) {
-      title = 'Tổng kết kiểm kho';
-      message = `• Khớp: ${stats.matched}\n• Thiếu: ${stats.missing}\n• Thừa: ${stats.over}\n\nXác nhận nộp báo cáo?`;
-    } else {
-      title = 'Hoàn thành kiểm kho';
-      message = 'Xác nhận nộp báo cáo kiểm kho?';
-    }
-
-    setConfirmSubmit({ show: true, message, title });
-  };
-
-  const doSubmit = async () => {
-    setConfirmSubmit({ show: false, message: '', title: '' });
-    setSubmitting(true);
-    try {
-      const res = await InventoryService.submitReport(user.store || 'BEE', shift, user.id);
-      if (res.success) {
-        toast.success(res.message || 'Đã nộp báo cáo thành công!');
-        setShiftSubmitted({
-          submitted: true,
-          submittedBy: user.name || 'Bạn',
-          submittedAt: new Date().toISOString(),
-          status: 'PENDING',
-        });
-      } else {
-        toast.error(res.message || 'Lỗi khi nộp báo cáo');
-      }
-    } catch (e) {
-      toast.error('Lỗi kết nối');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  const stats = useMemo(() => ({
-    total: products.length,
-    checked: products.filter(p => p.status !== 'PENDING').length,
-    matched: products.filter(p => p.status === 'MATCHED').length,
-    missing: products.filter(p => p.status === 'MISSING').length,
-    over: products.filter(p => p.status === 'OVER').length,
-    pending: products.filter(p => p.status === 'PENDING').length,
-    missingValue: products.filter(p => p.status === 'MISSING').reduce((sum, p) => sum + Math.abs(p.diff || 0), 0)
-  }), [products]);
-
-  const handlePrint = useCallback(() => {
-    if (products.length === 0) {
-      toast.error('Không có sản phẩm nào để in');
-      return;
-    }
-
-    const currentShiftInfo = INVENTORY_CONFIG.SHIFTS.find(s => s.id === shift)!;
-    const now = new Date();
-
-    const tableRows = products.map((p, i) => {
-      const sapoStr = p.systemStock != null ? String(p.systemStock) : '';
-      const thucTeStr = p.actualStock != null ? String(p.actualStock) : '';
-      const isChecked = sapoStr.trim() !== '' && thucTeStr.trim() !== '';
-      const nameStr = p.productName?.trim() || '';
-      const barcodeStr = p.barcode ? String(p.barcode).trim() : '';
-      const barcodeLast6 = barcodeStr.length >= 6 ? '.....' + barcodeStr.slice(-6) : barcodeStr;
-
-      return `<tr class="${isChecked ? 'checked-row' : ''}">
-        <td class="stt-col">${i + 1}</td>
-        <td class="name-col">${nameStr}</td>
-        <td class="barcode-col">${barcodeLast6}</td>
-        <td class="sapo-col">${sapoStr}</td>
-        <td class="thucte-col">${thucTeStr}</td>
-      </tr>`;
-    }).join('');
-
-    const printCSS = `*{box-sizing:border-box}@media print{body{margin:0;padding:3mm;font-size:9px}.no-print{display:none}@page{size:80mm auto;margin:2mm}}body{font-family:"Segoe UI","Arial Unicode MS","Tahoma","Arial",sans-serif;margin:0;padding:3mm;font-size:9px;width:100%;max-width:80mm;line-height:1.2;color:#000}.header{text-align:center;margin-bottom:1mm;border-bottom:2px solid #000;padding-bottom:0.5mm}.header h2{margin:0;font-size:12px;font-weight:800;text-transform:uppercase;padding:0.5mm 1mm}.info{margin-bottom:2mm;font-size:8px;border-bottom:1px solid #ccc;padding:1mm 2mm}.info p{margin:1px 0;font-weight:500}.product-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:2mm}.product-table th{background:#fff;color:#000;font-weight:900;text-align:center;padding:1mm;border-bottom:1px solid #000;font-size:9px;text-transform:uppercase;white-space:nowrap}.product-table td{padding:1mm;border-bottom:1px solid #ccc;vertical-align:top;font-weight:600;color:#000}.product-table tr:nth-child(even){background:#f8f8f8}.stt-col{width:7%;text-align:center;font-weight:900;font-size:10px}.name-col{width:42%;text-align:left;padding-left:2mm;word-wrap:break-word;line-height:1.4;font-weight:700;font-size:9px}.barcode-col{width:15%;text-align:center;font-weight:800;font-size:10px;color:#333}.sapo-col,.thucte-col{width:18%;text-align:center;font-weight:800;font-size:10px}.checked-row{background:#e8f5e8!important}.checked-row .sapo-col,.checked-row .thucte-col{background:#d4edda;font-weight:bold;color:#155724}.footer{margin-top:2mm;text-align:center;font-size:7px;border-top:1px solid #ccc;padding:1mm}.footer p{margin:1px 0}`;
-
-    const html = `<!DOCTYPE html><html><head><title>Danh sách kiểm tra - ${user.store}</title><meta charset="UTF-8"><style>${printCSS}</style></head><body>
-      <div class="header"><h2>DANH SÁCH KIỂM TRA SẢN PHẨM</h2></div>
-      <div class="info"><p><strong>Ca:</strong> ${currentShiftInfo.name} (${currentShiftInfo.time}) | <strong>Cửa hàng:</strong> ${user.store} | <strong>Tổng SP:</strong> ${products.length}</p></div>
-      <table class="product-table">
-        <thead><tr><th class="stt-col">STT</th><th class="name-col">TÊN SẢN PHẨM</th><th class="barcode-col">BARCODE</th><th class="sapo-col">SAPO</th><th class="thucte-col">THỰC TẾ</th></tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-      <div class="footer"><p>In lúc: ${now.toLocaleString('vi-VN')}</p></div>
-    </body></html>`;
-
-    const existingFrame = document.getElementById('printFrame') as HTMLIFrameElement;
-    if (existingFrame) existingFrame.remove();
-
-    const iframe = document.createElement('iframe');
-    iframe.id = 'printFrame';
-    iframe.style.cssText = 'position:fixed;width:0;height:0;border:none;left:-9999px;top:-9999px;';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-      setTimeout(() => {
-        iframe.contentWindow?.print();
-      }, 300);
-    }
-  }, [products, shift, user.store, toast, stats]);
-
-  const handleSync = async () => {
-    setShowSyncModal(false);
-    setSyncing(true);
-    try {
-      const result = await InventoryService.syncKiotVietStock(user.store || 'BEE', shift);
-      if (result.success) {
-        toast.success(result.message || 'Đồng bộ thành công!');
-        await loadProducts(); // reload to show updated system_stock
-      } else {
-        toast.error(result.message || 'Đồng bộ thất bại');
-      }
-    } catch {
-      toast.error('Lỗi kết nối KiotViet');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  // Filtered products
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-      const matchSearch = p.productName.toLowerCase().includes(search.toLowerCase()) ||
-        (p.barcode || '').includes(search);
-      const matchStatus = filterStatus === 'ALL' || p.status === filterStatus;
-      return matchSearch && matchStatus;
-    });
-  }, [products, search, filterStatus]);
-
-  const progressPercent = shiftSubmitted.submitted ? 100 : stats.total > 0 ? Math.round((stats.checked / stats.total) * 100) : 0;
-  const currentShift = INVENTORY_CONFIG.SHIFTS.find(s => s.id === shift)!;
-
-  const getStatusConfig = (status: string) => {
-    return INVENTORY_CONFIG.STATUS_CONFIG[status as keyof typeof INVENTORY_CONFIG.STATUS_CONFIG]
-      || INVENTORY_CONFIG.STATUS_CONFIG.PENDING;
-  };
+  if (shiftsLoading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-50">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
-            >
-              <span className="material-symbols-outlined text-gray-600">arrow_back</span>
-            </button>
-            <div>
-              <h1 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">inventory_2</span>
-                Kiểm Kho
-              </h1>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {user.store} • {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Print Button */}
-            <button
-              onClick={handlePrint}
-              disabled={products.length === 0}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-lg">print</span>
-              <span className="hidden sm:inline">In</span>
-            </button>
-
-            {!shiftSubmitted.submitted && (<>
-              {/* Sync KiotViet Button */}
-              <button
-                onClick={() => setShowSyncModal(true)}
-                disabled={syncing || loading}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all shadow-sm ${syncing
-                  ? 'bg-blue-50 border border-blue-200 text-blue-500 cursor-wait'
-                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600'
-                  }`}
-              >
-                <span className={`material-symbols-outlined text-lg ${syncing ? 'animate-spin' : ''}`}>{syncing ? 'progress_activity' : 'sync'}</span>
-                <span className="hidden sm:inline">{syncing ? 'Đang đồng bộ...' : 'Đồng bộ KiotViet'}</span>
-              </button>
-
-              {/* Submit Button */}
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || loading}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] ${stats.checked > 0
-                  ? 'bg-gradient-to-r from-primary to-emerald-500 shadow-lg shadow-primary/20 hover:shadow-primary/30'
-                  : 'bg-gray-300 cursor-not-allowed shadow-none'
-                  }`}
-              >
-                {submitting ? (
-                  <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-                ) : (
-                  <span className="material-symbols-outlined text-lg">send</span>
-                )}
-                <span className="hidden sm:inline">Nộp Báo Cáo</span>
-              </button>
-            </>)}
+      {/* Header mapped to global topbar */}
+      <PortalHeader>
+        <div className="flex items-center gap-4 py-1">
+          <button
+            onClick={() => navigate('/')}
+            className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+          >
+            <span className="material-symbols-outlined text-gray-600">arrow_back</span>
+          </button>
+          <div>
+            <h1 className="text-xl font-black text-gray-900 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">inventory_2</span>
+              Kiểm Kho
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {user.store} • {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
           </div>
         </div>
-      </header>
+
+        <div className="flex items-center gap-3">
+          {/* Print Button */}
+          <button
+            onClick={handlePrint}
+            disabled={products.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-lg">print</span>
+            <span className="hidden sm:inline">In</span>
+          </button>
+
+          {!shiftSubmitted.submitted && (<>
+            {/* Sync KiotViet Button */}
+            <button
+              onClick={() => setShowSyncModal(true)}
+              disabled={syncing || loading}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all shadow-sm ${syncing
+                ? 'bg-blue-50 border border-blue-200 text-blue-500 cursor-wait'
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600'
+                }`}
+            >
+              <span className={`material-symbols-outlined text-lg ${syncing ? 'animate-spin' : ''}`}>{syncing ? 'progress_activity' : 'sync'}</span>
+              <span className="hidden sm:inline">{syncing ? 'Đang đồng bộ...' : 'Đồng bộ KiotViet'}</span>
+            </button>
+
+            {/* Submit Button */}
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || loading}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] ${stats.checked > 0
+                ? 'bg-gradient-to-r from-primary to-emerald-500 shadow-lg shadow-primary/20 hover:shadow-primary/30'
+                : 'bg-gray-300 cursor-not-allowed shadow-none'
+                }`}
+            >
+              {submitting ? (
+                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-lg">send</span>
+              )}
+              <span className="hidden sm:inline">Nộp Báo Cáo</span>
+            </button>
+          </>)}
+        </div>
+      </PortalHeader>
 
       {/* Shift Selector */}
       <div className="bg-white/60 backdrop-blur-sm border-b border-gray-100 px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <span className="text-xs font-bold text-gray-400 uppercase">Ca làm việc:</span>
           <div className="flex p-1 bg-gray-100 rounded-xl gap-1">
-            {INVENTORY_CONFIG.SHIFTS.map(s => (
+            {shifts.map(s => (
               <button
                 key={s.id}
                 onClick={() => setShift(s.id)}
@@ -354,7 +142,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
             {currentShift.time}
           </span>
         </div>
-      </div>
+      </div >
 
       <main className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-6xl mx-auto space-y-6">
@@ -481,10 +269,10 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                     <p className="text-xs text-gray-400 font-medium">{currentShift.name} ({currentShift.time})</p>
                   </div>
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide flex-shrink-0 ${shiftSubmitted.status === 'APPROVED'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : shiftSubmitted.status === 'REJECTED'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-amber-100 text-amber-700'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : shiftSubmitted.status === 'REJECTED'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-amber-100 text-amber-700'
                     }`}>
                     <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>
                       {shiftSubmitted.status === 'APPROVED' ? 'verified' : shiftSubmitted.status === 'REJECTED' ? 'cancel' : 'schedule'}
@@ -772,49 +560,51 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
       </main>
 
       {/* Sync KiotViet Modal */}
-      {showSyncModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-cyan-50">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-2xl">sync</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">Đồng bộ KiotViet</h3>
-                  <p className="text-xs text-gray-500">Lấy tồn kho real-time từ KiotViet</p>
+      {
+        showSyncModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-cyan-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-2xl">sync</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">Đồng bộ KiotViet</h3>
+                    <p className="text-xs text-gray-500">Lấy tồn kho real-time từ KiotViet</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600">
-                Hệ thống sẽ kết nối <strong>KiotViet</strong> để lấy số tồn kho chính xác tại thời điểm này và cập nhật vào cột <strong>"Hệ thống"</strong>.
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2">
-                <span className="material-symbols-outlined text-blue-500 text-sm mt-0.5">tips_and_updates</span>
-                <p className="text-xs text-blue-700">
-                  Nên đồng bộ <strong>trước khi bắt đầu kiểm</strong> để có số liệu chính xác nhất.
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-gray-600">
+                  Hệ thống sẽ kết nối <strong>KiotViet</strong> để lấy số tồn kho chính xác tại thời điểm này và cập nhật vào cột <strong>"Hệ thống"</strong>.
                 </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-blue-500 text-sm mt-0.5">tips_and_updates</span>
+                  <p className="text-xs text-blue-700">
+                    Nên đồng bộ <strong>trước khi bắt đầu kiểm</strong> để có số liệu chính xác nhất.
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-              <button
-                onClick={() => setShowSyncModal(false)}
-                className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleSync}
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-lg">cloud_sync</span>
-                Đồng bộ ngay
-              </button>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
+                <button
+                  onClick={() => setShowSyncModal(false)}
+                  className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSync}
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-lg">cloud_sync</span>
+                  Đồng bộ ngay
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Submit Confirmation Modal */}
       <ConfirmModal
@@ -827,7 +617,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
         onCancel={() => setConfirmSubmit({ show: false, message: '', title: '' })}
         loading={submitting}
       />
-    </div>
+    </div >
   );
 };
 

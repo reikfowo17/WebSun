@@ -1,13 +1,3 @@
-/**
- * Constants
- * 
- * Application-wide constants and configuration
- */
-
-// ===========================================================================
-// XP & LEVELING
-// ===========================================================================
-
 export const XP_PER_LEVEL = 500;
 
 export const XP_REWARDS = {
@@ -17,10 +7,6 @@ export const XP_REWARDS = {
     PERFECT_AUDIT: 50,
     FIRST_TASK: 100,
 } as const;
-
-// ===========================================================================
-// STATUS COLORS
-// ===========================================================================
 
 export const STATUS_COLORS = {
     PENDING: {
@@ -60,10 +46,6 @@ export const EXPIRY_STATUS_COLORS = {
     },
 } as const;
 
-// ===========================================================================
-// ROUTES & VIEWS
-// ===========================================================================
-
 export const ADMIN_VIEWS = [
     'DASHBOARD',
     'INVENTORY_HQ',
@@ -80,10 +62,6 @@ export const EMPLOYEE_VIEWS = [
     'PROFILE',
 ] as const;
 
-// ===========================================================================
-// STORES
-// ===========================================================================
-
 export interface StoreConfig {
     id: string;
     code: string;
@@ -91,25 +69,6 @@ export interface StoreConfig {
     color: string;
     bgColor: string;
 }
-
-export const STORES: StoreConfig[] = [
-    { id: 'BEE', code: 'BEE', name: 'SM BEE', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
-    { id: 'PLAZA', code: 'PLAZA', name: 'SM PLAZA', color: 'text-blue-700', bgColor: 'bg-blue-100' },
-    { id: 'MIEN_DONG', code: 'MIỀN ĐÔNG', name: 'SM MIỀN ĐÔNG', color: 'text-green-700', bgColor: 'bg-green-100' },
-    { id: 'HT_PEARL', code: 'HT PEARL', name: 'SM HT PEARL', color: 'text-purple-700', bgColor: 'bg-purple-100' },
-    { id: 'GREEN_TOPAZ', code: 'GREEN_TOPAZ', name: 'SM GREEN TOPAZ', color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
-];
-
-export const SHIFTS = [
-    { value: 1, label: 'Ca 1 (6:00 - 14:00)' },
-    { value: 2, label: 'Ca 2 (14:00 - 22:00)' },
-    { value: 3, label: 'Ca 3 (22:00 - 6:00)' },
-] as const;
-
-
-// ===========================================================================
-// VALIDATION
-// ===========================================================================
 
 export const VALIDATION = {
     USERNAME_MIN_LENGTH: 3,
@@ -119,10 +78,6 @@ export const VALIDATION = {
     NAME_MIN_LENGTH: 2,
     NAME_MAX_LENGTH: 100,
 } as const;
-
-// ===========================================================================
-// DATE FORMATS
-// ===========================================================================
 
 export const DATE_FORMAT = {
     DISPLAY: 'dd/MM/yyyy',

@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { InventoryArchiveService } from '../../../services/archive';
 import type { RecoveryScanResult, MissingProduct } from '../../../services/archive';
 import { RecoveryService } from '../../../services/recovery';
-import { STORES } from '../../../constants';
+import { SystemService, StoreConfig } from '../../../services/system';
 
 interface RecoveryScanModalProps {
     toast: any;
@@ -24,11 +24,16 @@ const RecoveryScanModal: React.FC<RecoveryScanModalProps> = ({ toast, onClose, o
     const [selectedYear, setSelectedYear] = useState(now.getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // last month default
     const [scanning, setScanning] = useState(false);
+    const [stores, setStores] = useState<StoreConfig[]>([]);
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, fileName: '' });
     const [scanResult, setScanResult] = useState<RecoveryScanResult | null>(null);
     const [selectedStore, setSelectedStore] = useState<string>('ALL');
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [creatingRecovery, setCreatingRecovery] = useState(false);
+
+    React.useEffect(() => {
+        SystemService.getStores().then(setStores);
+    }, []);
 
     // ── Scan Logic ──
     const handleScan = useCallback(async () => {
@@ -77,7 +82,7 @@ const RecoveryScanModal: React.FC<RecoveryScanModalProps> = ({ toast, onClose, o
             if (!selectedItems.has(key)) continue;
 
             try {
-                const storeConfig = STORES.find(s => s.code === item.store_code);
+                const storeConfig = stores.find(s => s.code === item.store_code);
                 const result = await RecoveryService.createRecoveryItem({
                     store_id: storeConfig?.id || item.store_code,
                     product_name: item.product_name,

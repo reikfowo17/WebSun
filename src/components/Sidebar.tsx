@@ -70,7 +70,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     ...(isAdmin ? [
       { path: '/', label: 'Bảng Điều Khiển', icon: 'dashboard' },
       { path: '/hq', label: 'Quản Lý Tồn Kho', icon: 'inventory_2' },
-      { path: '/expiry-hq', label: 'Quản Lý Hạn Dùng', icon: 'event_busy' }
+      { path: '/expiry-hq', label: 'Quản Lý Hạn Dùng', icon: 'event_busy' },
+      { path: '/settings', label: 'Cấu hình Hệ thống', icon: 'settings' }
     ] : [
       { path: '/', label: 'Trang chủ', icon: 'grid_view' },
       { path: '/inventory', label: 'Kiểm Kho', icon: 'inventory_2' },
@@ -88,8 +89,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     <aside className="h-full flex-shrink-0 relative z-40 transition-all duration-300" style={{ width: sidebarMode === 'expanded' ? 260 : 72 }}>
       <div
         className={`fixed left-0 top-0 h-full bg-white flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-50 border-r border-gray-200 ${isExpanded
-            ? `w-[260px] ${sidebarMode === 'hover' ? 'shadow-[4px_0_24px_rgba(0,0,0,0.08)]' : ''}`
-            : 'w-[72px]'
+          ? `w-[260px] ${sidebarMode === 'hover' ? 'shadow-[4px_0_24px_rgba(0,0,0,0.08)]' : ''}`
+          : 'w-[72px]'
           }`}
         style={{ willChange: 'width' }}
         onMouseEnter={handleMouseEnter}

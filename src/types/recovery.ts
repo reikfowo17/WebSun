@@ -68,9 +68,6 @@ export interface RecoveryHistoryEntry {
     changed_at: string;
 }
 
-
-
-// Input types for creating/updating
 export interface CreateRecoveryItemInput {
     store_id: string;
     product_id?: string;

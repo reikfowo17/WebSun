@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InventoryService } from '../../services';
 import type { MasterItem } from '../../services';
-import { STORES } from '../../constants';
+import { SystemService, StoreConfig } from '../../services/system';
 import ConfirmModal from '../../components/ConfirmModal';
 import * as XLSX from 'xlsx';
 
@@ -44,6 +44,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [editingProduct, setEditingProduct] = useState<MasterItem | null>(null);
     const [productForm, setProductForm] = useState({ barcode: '', name: '', pvn: '', category: '' });
     const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
+    const [stores, setStores] = useState<StoreConfig[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'newSession'; message: string } | null>(null);
 
@@ -80,7 +81,10 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     }, [toast]);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => { loadMasterProducts(); }, []);
+    useEffect(() => {
+        loadMasterProducts();
+        SystemService.getStores().then(setStores);
+    }, []);
 
     const handleDistribute = async () => {
         if (!products.length) return toast.error('Danh sách sản phẩm trống');
@@ -97,13 +101,13 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         try {
             if (selectedStore === 'ALL') {
                 const results = await Promise.allSettled(
-                    STORES.map(s => InventoryService.distributeToStore(s.id, selectedShift))
+                    stores.map(s => InventoryService.distributeToStore(s.code, selectedShift))
                 );
                 const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
                 if (failed.length === 0) {
-                    toast.success(`Đã phân phối cho tất cả ${STORES.length} cửa hàng (Ca ${selectedShift})`);
-                } else if (failed.length < STORES.length) {
-                    toast.warning(`Phân phối xong nhưng ${failed.length}/${STORES.length} cửa hàng gặp lỗi`);
+                    toast.success(`Đã phân phối cho tất cả ${stores.length} cửa hàng (Ca ${selectedShift})`);
+                } else if (failed.length < stores.length) {
+                    toast.warning(`Phân phối xong nhưng ${failed.length}/${stores.length} cửa hàng gặp lỗi`);
                 } else {
                     toast.error('Phân phối thất bại cho tất cả cửa hàng');
                 }
@@ -272,7 +276,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                 <span className="material-symbols-outlined dh-select-icon">storefront</span>
                                 <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="dh-select">
                                     <option value="ALL">Tất cả cửa hàng</option>
-                                    {STORES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    {stores.map(s => <option key={s.id} value={s.code}>{s.name}</option>)}
                                 </select>
                                 <span className="material-symbols-outlined dh-chevron">expand_more</span>
                             </div>
@@ -308,7 +312,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                 </div>
                                 <div className="dh-summary-row">
                                     <span>Cửa hàng</span>
-                                    <strong>{selectedStore === 'ALL' ? `${STORES.length} CH` : STORES.find(s => s.id === selectedStore)?.name || selectedStore}</strong>
+                                    <strong>{selectedStore === 'ALL' ? `${stores.length} CH` : stores.find(s => s.code === selectedStore)?.name || selectedStore}</strong>
                                 </div>
                                 <div className="dh-summary-row">
                                     <span>Ca</span>

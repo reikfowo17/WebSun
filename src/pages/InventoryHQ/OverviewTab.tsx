@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { InventoryService } from '../../services';
-import { STORES } from '../../constants';
 import ItemsDetailPanel from './components/ItemsDetailPanel';
 
 interface ToastFn {
@@ -391,7 +390,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast, onNavigateToRevi
             {/* ── Side Panel ── */}
             <ItemsDetailPanel
                 storeId={selectedStore?.id || ''}
-                storeName={STORES.find(s => s.code === selectedStore?.code)?.name || selectedStore?.name || ''}
+                storeName={selectedStore?.name || ''}
                 checkDate={date}
                 shift={selectedStore?.shift || 1}
                 isOpen={!!selectedStore}

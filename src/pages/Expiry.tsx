@@ -3,16 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import type { User, ExpiryProduct } from '../types';
 import { ExpiryService } from '../services';
 import { useToast } from '../contexts';
+import PortalHeader from '../components/PortalHeader';
 
 interface ExpiryProps {
   user: User;
   onBack?: () => void;
 }
 
-/** 
- * Config mirrors GAS TongDate.js logic
- * Các ngưỡng có thể tùy chỉnh bởi admin (từ ExpiryHQ)
- */
 const EXPIRY_CONFIG = {
   NEAR_EXPIRY_DAYS: 5,
   PRODUCTION_DAYS_THRESHOLD: 7,
@@ -209,52 +206,50 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
-            >
-              <span className="material-symbols-outlined text-gray-600">arrow_back</span>
-            </button>
-            <div>
-              <h1 className="text-xl font-black text-gray-900 flex items-center gap-2">
-                <span className="material-symbols-outlined text-amber-500">schedule</span>
-                Kiểm Soát Hạn Dùng
-              </h1>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {user.store || 'Store'} • {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => window.print()}
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-all shadow-sm"
-            >
-              <span className="material-symbols-outlined text-lg">print</span>
-              In Checklist
-            </button>
-            <button
-              onClick={handleSubmitReport}
-              disabled={submitting || selectedItems.size === 0}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] ${selectedItems.size > 0
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-orange-200 hover:shadow-orange-300'
-                : 'bg-gray-300 cursor-not-allowed shadow-none'
-                }`}
-            >
-              {submitting ? (
-                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-              ) : (
-                <span className="material-symbols-outlined text-lg">send</span>
-              )}
-              Nộp Báo Cáo {selectedItems.size > 0 && `(${selectedItems.size})`}
-            </button>
+      <PortalHeader>
+        <div className="flex items-center gap-4 py-1">
+          <button
+            onClick={() => navigate('/')}
+            className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+          >
+            <span className="material-symbols-outlined text-gray-600">arrow_back</span>
+          </button>
+          <div>
+            <h1 className="text-xl font-black text-gray-900 flex items-center gap-2">
+              <span className="material-symbols-outlined text-amber-500">schedule</span>
+              Kiểm Soát Hạn Dùng
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {user.store || 'Store'} • {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
           </div>
         </div>
-      </header>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-all shadow-sm"
+          >
+            <span className="material-symbols-outlined text-lg">print</span>
+            In Checklist
+          </button>
+          <button
+            onClick={handleSubmitReport}
+            disabled={submitting || selectedItems.size === 0}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] ${selectedItems.size > 0
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-orange-200 hover:shadow-orange-300'
+              : 'bg-gray-300 cursor-not-allowed shadow-none'
+              }`}
+          >
+            {submitting ? (
+              <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined text-lg">send</span>
+            )}
+            Nộp Báo Cáo {selectedItems.size > 0 && `(${selectedItems.size})`}
+          </button>
+        </div>
+      </PortalHeader>
 
 
       <main className="flex-1 overflow-y-auto px-6 py-6">

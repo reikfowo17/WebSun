@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types';
 import { DashboardService, type TaskItem } from '../services';
+import PortalHeader from '../components/PortalHeader';
 
 interface DashboardProps {
   user: User;
@@ -163,25 +164,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   return (
     <div className="min-h-full bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-6 py-5">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-gray-800 flex items-center gap-2">
-              {greeting}, <span className="text-primary">{user.name.split(' ').pop()}</span>! <span className="text-2xl animate-pulse">👋</span>
-            </h1>
-            <p className="text-sm text-gray-400 mt-1">Chọn công việc để bắt đầu ngày mới đầy năng lượng.</p>
+      <PortalHeader>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black text-gray-800 flex items-center gap-2">
+            {greeting}, <span className="text-primary">{user.name.split(' ').pop()}</span>! <span className="text-2xl animate-pulse">👋</span>
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">Chọn công việc để bắt đầu ngày mới đầy năng lượng.</p>
+        </div>
+        <div className="hidden md:flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-xs font-semibold text-gray-400 uppercase">Hôm nay</p>
+            <p className="text-sm font-bold text-gray-700">{new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
           </div>
-          <div className="hidden md:flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xs font-semibold text-gray-400 uppercase">Hôm nay</p>
-              <p className="text-sm font-bold text-gray-700">{new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <span className="material-symbols-outlined text-gray-400">calendar_today</span>
-            </div>
+          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+            <span className="material-symbols-outlined text-gray-400">calendar_today</span>
           </div>
         </div>
-      </header>
+      </PortalHeader>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
         {/* Stats Row */}

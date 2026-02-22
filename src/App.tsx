@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 // Contexts
 import { UserProvider, useUser } from './contexts';
-import { ToastProvider } from './contexts';
+import { ToastProvider, useToast } from './contexts';
 
 // Components
 import Layout from './components/Layout';
@@ -18,10 +18,7 @@ const Expiry = React.lazy(() => import('./pages/Expiry'));
 const InventoryHQ = React.lazy(() => import('./pages/InventoryHQ'));
 const ExpiryHQ = React.lazy(() => import('./pages/ExpiryHQ'));
 const Profile = React.lazy(() => import('./pages/Profile'));
-
-// ===========================================================================
-// ANIMATION CONFIG
-// ===========================================================================
+const Settings = React.lazy(() => import('./pages/Settings'));
 
 const pageVariants = {
   initial: { opacity: 0, x: 20 },
@@ -47,10 +44,6 @@ const AnimatedPage: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   </motion.div>
 );
 
-// ===========================================================================
-// LOADING SKELETON
-// ===========================================================================
-
 const LoadingSkeleton: React.FC = () => (
   <div className="h-full flex items-center justify-center bg-gray-50 min-h-screen">
     <div className="text-center">
@@ -59,10 +52,6 @@ const LoadingSkeleton: React.FC = () => (
     </div>
   </div>
 );
-
-// ===========================================================================
-// PROTECTED ROUTE WRAPPER
-// ===========================================================================
 
 const ProtectedLayout: React.FC = () => {
   const { isAuthenticated, isLoading, user, logout } = useUser();
@@ -88,10 +77,6 @@ const ProtectedLayout: React.FC = () => {
   );
 };
 
-// ===========================================================================
-// APP CONTENT (Routes)
-// ===========================================================================
-
 const AppRoutes: React.FC = () => {
   const location = useLocation();
 
@@ -109,6 +94,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/hq" element={<AnimatedPage><InventoryHQWrapper /></AnimatedPage>} />
           <Route path="/expiry-hq" element={<AnimatedPage><ExpiryHQWrapper /></AnimatedPage>} />
           <Route path="/profile" element={<AnimatedPage><ProfileWrapper /></AnimatedPage>} />
+          <Route path="/settings" element={<AnimatedPage><SettingsWrapper /></AnimatedPage>} />
         </Route>
 
         {/* Catch all */}
@@ -118,7 +104,6 @@ const AppRoutes: React.FC = () => {
   );
 };
 
-// Wrappers to adapt props until we fully refactor pages
 const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useUser();
   if (isLoading) return <LoadingSkeleton />;
@@ -157,9 +142,12 @@ const ProfileWrapper = () => {
   return user ? <Profile user={user} /> : null;
 };
 
-// ===========================================================================
-// APP ROOT
-// ===========================================================================
+const SettingsWrapper = () => {
+  const { user } = useUser();
+  const toast = useToast();
+  // Assume admin checking inside or we can check here
+  return user && user.role === 'ADMIN' ? <Settings toast={toast} /> : <Navigate to="/" replace />;
+};
 
 const App: React.FC = () => {
   return (
