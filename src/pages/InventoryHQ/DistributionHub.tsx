@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { InventoryService } from '../../services';
 import type { MasterItem } from '../../services';
 import { SystemService, StoreConfig } from '../../services/system';
+import { getDistributionStatus, redistributeToStore, resetDistribution } from '../../services/inventory/stores';
+import type { DistributionStatus } from '../../services/inventory/stores';
 import ConfirmModal from '../../components/ConfirmModal';
 import * as XLSX from 'xlsx';
 
@@ -46,7 +48,9 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
     const [stores, setStores] = useState<StoreConfig[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'newSession'; message: string } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'redistribute' | 'reset' | 'newSession'; message: string } | null>(null);
+    const [distStatus, setDistStatus] = useState<DistributionStatus | null>(null);
+    const [loadingStatus, setLoadingStatus] = useState(false);
     const filteredProducts = useMemo(() => {
         if (!searchQuery) return products;
         const q = searchQuery.toLowerCase();
@@ -77,16 +81,49 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         }
     }, [toast]);
 
+    const loadDistStatus = useCallback(async () => {
+        if (selectedStore === 'ALL') { setDistStatus(null); return; }
+        setLoadingStatus(true);
+        try {
+            const st = await getDistributionStatus(selectedStore, selectedShift);
+            setDistStatus(st);
+        } catch { setDistStatus(null); }
+        finally { setLoadingStatus(false); }
+    }, [selectedStore, selectedShift]);
+
     useEffect(() => {
         loadMasterProducts();
         SystemService.getStores().then(setStores);
     }, []);
+
+    useEffect(() => { loadDistStatus(); }, [loadDistStatus]);
 
     const handleDistribute = async () => {
         if (!products.length) return toast.error('Danh sách sản phẩm trống');
         setConfirmAction({
             type: 'distribute',
             message: `Xác nhận phân bổ ${products.length} sản phẩm cho ${selectedStore === 'ALL' ? 'TẤT CẢ CỬA HÀNG' : selectedStore} (Ca ${selectedShift})?`
+        });
+    };
+
+    const handleRedistribute = async () => {
+        if (selectedStore === 'ALL') return toast.error('Chọn một cửa hàng cụ thể để phân phối lại');
+        // First try without force to get status
+        const r = await redistributeToStore(selectedStore, selectedShift, false);
+        if (!r.success) {
+            // Has checked items → ask user to confirm force
+            setConfirmAction({ type: 'redistribute', message: r.message || 'Xác nhận phân phối lại?' });
+        } else {
+            toast.success(r.message || 'Đã phân phối lại');
+            loadDistStatus();
+        }
+    };
+
+    const handleResetDist = () => {
+        if (selectedStore === 'ALL') return toast.error('Chọn một cửa hàng cụ thể để reset');
+        setConfirmAction({
+            type: 'reset',
+            message: `Xóa toàn bộ phân phối cho ${selectedStore} Ca ${selectedShift} hôm nay? Dữ liệu đã nhập sẽ bị mất.`
         });
     };
 
@@ -114,7 +151,28 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
             toast.error('Lỗi hệ thống');
         } finally {
             setProcessing(null);
+            loadDistStatus();
         }
+    };
+
+    const executeRedistribute = async () => {
+        setConfirmAction(null);
+        setProcessing(ProcessingState.DISTRIBUTE);
+        try {
+            const r = await redistributeToStore(selectedStore, selectedShift, true);
+            r.success ? toast.success(r.message || 'Đã phân phối lại!') : toast.error(r.message || 'Lỗi');
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(null); loadDistStatus(); }
+    };
+
+    const executeReset = async () => {
+        setConfirmAction(null);
+        setProcessing(ProcessingState.DISTRIBUTE);
+        try {
+            const r = await resetDistribution(selectedStore, selectedShift, true);
+            r.success ? toast.success(r.message || 'Đã reset!') : toast.error(r.message || 'Lỗi');
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(null); loadDistStatus(); }
     };
 
     const handleNewSession = () => {
@@ -335,6 +393,69 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Distribution Status */}
+                        {selectedStore !== 'ALL' && (
+                            <>
+                                <div className="dh-divider" />
+                                <div className="dh-field">
+                                    <label className="dh-label">Trạng thái phân phối</label>
+                                    {loadingStatus ? (
+                                        <div className="dh-status-loading">
+                                            <span className="material-symbols-outlined dh-spin" style={{ fontSize: 16 }}>sync</span>
+                                            <span>Đang kiểm tra...</span>
+                                        </div>
+                                    ) : distStatus?.distributed ? (
+                                        <div className="dh-status-card dh-status-active">
+                                            <div className="dh-status-header">
+                                                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10b981' }}>check_circle</span>
+                                                <span>Đã phân phối</span>
+                                            </div>
+                                            <div className="dh-status-details">
+                                                <div className="dh-status-row">
+                                                    <span>Tổng SP</span>
+                                                    <strong>{distStatus.totalItems}</strong>
+                                                </div>
+                                                <div className="dh-status-row">
+                                                    <span>Đã nhập</span>
+                                                    <strong style={{ color: distStatus.checkedItems > 0 ? '#f59e0b' : '#6b7280' }}>{distStatus.checkedItems}</strong>
+                                                </div>
+                                                {distStatus.reportStatus && (
+                                                    <div className="dh-status-row">
+                                                        <span>Báo cáo</span>
+                                                        <span className={`dh-report-badge ${distStatus.reportStatus.toLowerCase()}`}>{distStatus.reportStatus}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="dh-status-actions">
+                                                <button
+                                                    onClick={handleRedistribute}
+                                                    disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
+                                                    className="dh-btn-redistrib"
+                                                    title={distStatus.reportStatus === 'APPROVED' ? 'Báo cáo đã duyệt — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
+                                                >
+                                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>sync_alt</span>
+                                                    Phân phối lại
+                                                </button>
+                                                <button
+                                                    onClick={handleResetDist}
+                                                    disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
+                                                    className="dh-btn-reset-dist"
+                                                    title="Xóa toàn bộ phân phối cho store/ca này"
+                                                >
+                                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete_sweep</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="dh-status-card dh-status-empty">
+                                            <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#d1d5db' }}>inbox</span>
+                                            <span>Chưa phân phối cho ca này</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Footer Actions */}
@@ -400,11 +521,26 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
             {/* CONFIRM MODAL */}
             <ConfirmModal
                 isOpen={!!confirmAction}
-                title={confirmAction?.type === 'distribute' ? 'Phân phối sản phẩm' : 'Làm mới phiên'}
+                title={
+                    confirmAction?.type === 'distribute' ? 'Phân phối sản phẩm'
+                        : confirmAction?.type === 'redistribute' ? 'Phân phối lại'
+                            : confirmAction?.type === 'reset' ? 'Reset phân phối'
+                                : 'Làm mới phiên'
+                }
                 message={confirmAction?.message || ''}
                 variant={confirmAction?.type === 'distribute' ? 'info' : 'warning'}
-                confirmText={confirmAction?.type === 'distribute' ? 'Phân phối' : 'Xác nhận'}
-                onConfirm={() => { confirmAction?.type === 'distribute' ? executeDistribute() : executeNewSession(); }}
+                confirmText={
+                    confirmAction?.type === 'distribute' ? 'Phân phối'
+                        : confirmAction?.type === 'redistribute' ? 'Xác nhận phân phối lại'
+                            : confirmAction?.type === 'reset' ? 'Xác nhận reset'
+                                : 'Xác nhận'
+                }
+                onConfirm={() => {
+                    if (confirmAction?.type === 'distribute') executeDistribute();
+                    else if (confirmAction?.type === 'redistribute') executeRedistribute();
+                    else if (confirmAction?.type === 'reset') executeReset();
+                    else executeNewSession();
+                }}
                 onCancel={() => setConfirmAction(null)}
             />
         </div>
@@ -522,6 +658,28 @@ const CSS_TEXT = `
 .dh-btn-dist:disabled { opacity:.45; cursor:not-allowed; }
 @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
 .dh-spin { animation:spin 1s linear infinite; }
+
+/* Distribution Status */
+.dh-status-loading { display:flex; align-items:center; gap:8px; padding:12px; color:#9ca3af; font-size:12px; }
+.dh-status-card { border-radius:10px; padding:14px; border:1px solid #e5e7eb; }
+.dh-status-active { background:#f0fdf4; border-color:#bbf7d0; }
+.dh-status-empty { background:#f9fafb; display:flex; align-items:center; gap:10px; font-size:12px; color:#9ca3af; }
+.dh-status-header { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#065f46; margin-bottom:10px; }
+.dh-status-details { display:flex; flex-direction:column; gap:0; }
+.dh-status-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:12px; color:#6b7280; border-bottom:1px solid rgba(0,0,0,.04); }
+.dh-status-row:last-child { border-bottom:none; }
+.dh-status-row strong { font-weight:600; color:#111827; }
+.dh-report-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase; letter-spacing:.03em; }
+.dh-report-badge.approved { background:#d1fae5; color:#065f46; }
+.dh-report-badge.pending { background:#fef3c7; color:#92400e; }
+.dh-report-badge.rejected { background:#fef2f2; color:#991b1b; }
+.dh-status-actions { display:flex; gap:6px; margin-top:10px; }
+.dh-btn-redistrib { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:7px 0; background:#fff; border:1px solid #d1d5db; border-radius:6px; font-size:11px; font-weight:600; color:#374151; cursor:pointer; transition:all .15s; }
+.dh-btn-redistrib:hover:not(:disabled) { background:#eff6ff; border-color:#93c5fd; color:#2563eb; }
+.dh-btn-redistrib:disabled { opacity:.4; cursor:not-allowed; }
+.dh-btn-reset-dist { width:34px; display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid #d1d5db; border-radius:6px; color:#9ca3af; cursor:pointer; transition:all .15s; }
+.dh-btn-reset-dist:hover:not(:disabled) { background:#fef2f2; border-color:#fca5a5; color:#ef4444; }
+.dh-btn-reset-dist:disabled { opacity:.4; cursor:not-allowed; }
 
 /* ─── Overlay / Modal ─── */
 .dh-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); backdrop-filter:blur(6px); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; }

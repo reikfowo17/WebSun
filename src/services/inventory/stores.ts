@@ -1,106 +1,349 @@
 import { supabase, isSupabaseConfigured } from "../../lib/supabase";
-import { REPORT_STATUS, DIFF_REASON_OPTIONS, ReportStatus, DiffReason, ReportSummary, ReportDetail, ReviewResult, BulkReviewResult, InventoryProduct, MasterItem } from "./types";
-export async function distributeToStore(storeCode: string, shift: number): Promise<{ success: boolean; message?: string }> {
-        if (!storeCode || !shift) {
-            return { success: false, message: 'Thiếu thông tin bắt buộc' };
-        }
-        if (shift < 1 || shift > 3) {
-            return { success: false, message: 'Ca không hợp lệ (1-3)' };
-        }
 
-        if (isSupabaseConfigured()) {
-            try {
-                const { data: store } = await supabase
-                    .from('stores')
-                    .select('id')
-                    .eq('code', storeCode)
-                    .single();
+export interface DistributionStatus {
+    distributed: boolean;
+    totalItems: number;
+    checkedItems: number;   
+    reportSubmitted: boolean;
+    reportStatus: string | null;
+    distributedAt: string | null;
+    distributedBy: string | null;
+}
 
-                if (!store) {
-                    return { success: false, message: 'Cửa hàng không tồn tại' };
-                }
+interface DistributeResult {
+    success: boolean;
+    message?: string;
+    itemCount?: number;
+}
 
-                const { data: products } = await supabase
-                    .from('products')
-                    .select('id, barcode');
+async function getStoreId(storeCode: string): Promise<string | null> {
+    const { data } = await supabase
+        .from('stores')
+        .select('id, is_active')
+        .eq('code', storeCode)
+        .single();
+    if (!data) return null;
+    if (data.is_active === false) return null; 
+    return data.id;
+}
 
-                if (!products || products.length === 0) {
-                    return { success: false, message: 'Không có sản phẩm' };
-                }
+function getToday(): string {
+    return new Date().toISOString().split('T')[0];
+}
 
-                const today = new Date().toISOString().split('T')[0];
-                const inventoryItems = products.map((p: any) => ({
-                    store_id: store.id,
-                    product_id: p.id,
-                    shift: shift,
-                    check_date: today,
-                    system_stock: 0,
-                    actual_stock: null,
-                    diff_reason: null,
-                    status: 'PENDING' as const,
-                    snapshot_at: null,
-                }));
+async function getCurrentUserId(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id || null;
+}
 
-                const { error } = await supabase
-                    .from('inventory_items')
-                    .upsert(inventoryItems, {
-                        onConflict: 'store_id,product_id,shift,check_date',
-                        ignoreDuplicates: true
-                    });
+async function logDistribution(
+    storeId: string, shift: number, checkDate: string,
+    action: string, productCount: number, notes?: string
+) {
+    const userId = await getCurrentUserId();
+    await supabase.from('inventory_distribution_log').insert({
+        store_id: storeId,
+        shift,
+        check_date: checkDate,
+        action,
+        product_count: productCount,
+        performed_by: userId,
+        notes,
+    });
+}
 
-                if (error) throw error;
+export async function getDistributionStatus(
+    storeCode: string, shift: number, date?: string
+): Promise<DistributionStatus> {
+    const empty: DistributionStatus = {
+        distributed: false, totalItems: 0, checkedItems: 0,
+        reportSubmitted: false, reportStatus: null,
+        distributedAt: null, distributedBy: null,
+    };
 
-                return {
-                    success: true,
-                    message: `Đã phân phối ${products.length} sản phẩm`
-                };
-            } catch (e: any) {
-                console.error('[Inventory] Distribute error:', e);
-                return { success: false, message: 'Lỗi: ' + e.message };
-            }
-        }
-        return { success: false, message: 'Database disconnected' };
+    if (!isSupabaseConfigured()) return empty;
+
+    try {
+        const storeId = await getStoreId(storeCode);
+        if (!storeId) return empty;
+
+        const checkDate = date || getToday();
+
+        const { data: items, error } = await supabase
+            .from('inventory_items')
+            .select('id, actual_stock, distributed_at, distributed_by')
+            .eq('store_id', storeId)
+            .eq('shift', shift)
+            .eq('check_date', checkDate);
+
+        if (error || !items || items.length === 0) return empty;
+
+        const { data: report } = await supabase
+            .from('inventory_reports')
+            .select('status')
+            .eq('store_id', storeId)
+            .eq('shift', shift)
+            .eq('check_date', checkDate)
+            .single();
+
+        return {
+            distributed: true,
+            totalItems: items.length,
+            checkedItems: items.filter(i => i.actual_stock !== null).length,
+            reportSubmitted: !!report,
+            reportStatus: report?.status || null,
+            distributedAt: items[0]?.distributed_at || null,
+            distributedBy: items[0]?.distributed_by || null,
+        };
+    } catch (e) {
+        console.error('[Inventory] Get distribution status error:', e);
+        return empty;
     }
-export async function getStores(): Promise<{ success: boolean; stores: any[] }> {
-        if (isSupabaseConfigured()) {
-            try {
-                const { data, error } = await supabase
-                    .from('stores')
-                    .select('*')
-                    .order('name');
+}
 
-                if (error) throw error;
-                return { success: true, stores: data || [] };
-            } catch (e) {
-                console.error('[Inventory] Get stores error:', e);
-                return { success: false, stores: [] };
+export async function distributeToStore(
+    storeCode: string, shift: number
+): Promise<DistributeResult> {
+    if (!storeCode || !shift) return { success: false, message: 'Thiếu thông tin bắt buộc' };
+    if (shift < 1 || shift > 3) return { success: false, message: 'Ca không hợp lệ (1-3)' };
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+
+    try {
+        const storeId = await getStoreId(storeCode);
+        if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại hoặc đã ngừng hoạt động' };
+
+        const { data: products } = await supabase.from('products').select('id');
+        if (!products?.length) return { success: false, message: 'Không có sản phẩm trong danh mục' };
+
+        const today = getToday();
+        const userId = await getCurrentUserId();
+
+        const inventoryItems = products.map((p: any) => ({
+            store_id: storeId,
+            product_id: p.id,
+            shift,
+            check_date: today,
+            system_stock: 0,
+            actual_stock: null,
+            diff_reason: null,
+            status: 'PENDING' as const,
+            snapshot_at: null,
+            distributed_by: userId,
+            distributed_at: new Date().toISOString(),
+        }));
+
+        const { error } = await supabase
+            .from('inventory_items')
+            .upsert(inventoryItems, {
+                onConflict: 'store_id,product_id,shift,check_date',
+                ignoreDuplicates: true,
+            });
+
+        if (error) throw error;
+
+        await logDistribution(storeId, shift, today, 'DISTRIBUTE', products.length);
+
+        return {
+            success: true,
+            itemCount: products.length,
+            message: `Đã phân phối ${products.length} sản phẩm cho ${storeCode} ca ${shift}`,
+        };
+    } catch (e: any) {
+        console.error('[Inventory] Distribute error:', e);
+        return { success: false, message: 'Lỗi: ' + e.message };
+    }
+}
+
+export async function redistributeToStore(
+    storeCode: string, shift: number, force = false
+): Promise<DistributeResult> {
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+
+    try {
+        const status = await getDistributionStatus(storeCode, shift);
+
+        if (status.reportStatus === 'APPROVED') {
+            return { success: false, message: 'Báo cáo đã được DUYỆT — không thể phân phối lại. Hãy liên hệ quản lý.' };
+        }
+
+        if (status.checkedItems > 0 && !force) {
+            return {
+                success: false,
+                message: `Có ${status.checkedItems}/${status.totalItems} sản phẩm đã được nhập liệu. Phân phối lại sẽ XÓA dữ liệu đã nhập. Bạn có chắc chắn?`,
+            };
+        }
+
+        const resetResult = await resetDistribution(storeCode, shift, true);
+        if (!resetResult.success) return resetResult;
+
+        const distResult = await distributeToStore(storeCode, shift);
+
+        if (distResult.success) {
+            const storeId = await getStoreId(storeCode);
+            if (storeId) {
+                await logDistribution(storeId, shift, getToday(), 'REDISTRIBUTE', distResult.itemCount || 0,
+                    `Force=${force}, had ${status.checkedItems} checked items`);
             }
         }
+
+        return {
+            ...distResult,
+            message: distResult.success
+                ? `Đã phân phối lại ${distResult.itemCount} sản phẩm (đã xóa ${status.totalItems} mục cũ)`
+                : distResult.message,
+        };
+    } catch (e: any) {
+        console.error('[Inventory] Redistribute error:', e);
+        return { success: false, message: 'Lỗi: ' + e.message };
+    }
+}
+
+export async function resetDistribution(
+    storeCode: string, shift: number, force = false
+): Promise<DistributeResult> {
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+
+    try {
+        const storeId = await getStoreId(storeCode);
+        if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại' };
+
+        const today = getToday();
+
+        const { data: report } = await supabase
+            .from('inventory_reports')
+            .select('id, status')
+            .eq('store_id', storeId)
+            .eq('shift', shift)
+            .eq('check_date', today)
+            .single();
+
+        if (report?.status === 'APPROVED') {
+            return { success: false, message: 'Báo cáo đã DUYỆT — không thể reset' };
+        }
+
+        if (!force) {
+            const { count } = await supabase
+                .from('inventory_items')
+                .select('id', { count: 'exact', head: true })
+                .eq('store_id', storeId)
+                .eq('shift', shift)
+                .eq('check_date', today)
+                .not('actual_stock', 'is', null);
+
+            if (count && count > 0) {
+                return {
+                    success: false,
+                    message: `Có ${count} sản phẩm đã được nhập liệu. Dùng force=true để xóa.`,
+                };
+            }
+        }
+
+        if (report) {
+            await supabase.from('inventory_reports').delete().eq('id', report.id);
+        }
+
+        const { error, count: deletedCount } = await supabase
+            .from('inventory_items')
+            .delete({ count: 'exact' })
+            .eq('store_id', storeId)
+            .eq('shift', shift)
+            .eq('check_date', today);
+
+        if (error) throw error;
+
+        await logDistribution(storeId, shift, today, 'RESET', deletedCount || 0, force ? 'Forced reset' : undefined);
+
+        return {
+            success: true,
+            itemCount: deletedCount || 0,
+            message: `Đã xóa ${deletedCount || 0} mục phân phối`,
+        };
+    } catch (e: any) {
+        console.error('[Inventory] Reset error:', e);
+        return { success: false, message: 'Lỗi: ' + e.message };
+    }
+}
+
+export async function addProductsToDistribution(
+    storeCode: string, shift: number, productIds: string[]
+): Promise<DistributeResult> {
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+    if (!productIds.length) return { success: false, message: 'Không có sản phẩm để thêm' };
+
+    try {
+        const storeId = await getStoreId(storeCode);
+        if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại' };
+
+        const today = getToday();
+        const userId = await getCurrentUserId();
+
+        const items = productIds.map(pid => ({
+            store_id: storeId,
+            product_id: pid,
+            shift,
+            check_date: today,
+            system_stock: 0,
+            actual_stock: null,
+            status: 'PENDING' as const,
+            distributed_by: userId,
+            distributed_at: new Date().toISOString(),
+        }));
+
+        const { error } = await supabase
+            .from('inventory_items')
+            .upsert(items, {
+                onConflict: 'store_id,product_id,shift,check_date',
+                ignoreDuplicates: true,
+            });
+
+        if (error) throw error;
+
+        await logDistribution(storeId, shift, today, 'ADD_PRODUCTS', productIds.length);
+
+        return {
+            success: true,
+            itemCount: productIds.length,
+            message: `Đã thêm ${productIds.length} sản phẩm`,
+        };
+    } catch (e: any) {
+        console.error('[Inventory] Add products error:', e);
+        return { success: false, message: 'Lỗi: ' + e.message };
+    }
+}
+
+export async function getStores(): Promise<{ success: boolean; stores: any[] }> {
+    if (!isSupabaseConfigured()) return { success: false, stores: [] };
+    try {
+        const { data, error } = await supabase
+            .from('stores')
+            .select('*')
+            .order('name');
+        if (error) throw error;
+        return { success: true, stores: data || [] };
+    } catch (e) {
+        console.error('[Inventory] Get stores error:', e);
         return { success: false, stores: [] };
     }
+}
+
 export async function updateStore(id: string, data: {
-        name?: string;
-        code?: string;
-        address?: string;
-    }): Promise<{ success: boolean; error?: string }> {
-        if (!id) return { success: false, error: 'ID cửa hàng không hợp lệ' };
+    name?: string;
+    code?: string;
+    address?: string;
+}): Promise<{ success: boolean; error?: string }> {
+    if (!id) return { success: false, error: 'ID cửa hàng không hợp lệ' };
+    if (!isSupabaseConfigured()) return { success: false, error: 'Database disconnected' };
 
-        if (isSupabaseConfigured()) {
-            try {
-                const { error } = await supabase
-                    .from('stores')
-                    .update(data)
-                    .eq('id', id);
-
-                if (error) throw error;
-                return { success: true };
-            } catch (e: any) {
-                console.error('[Inventory] Update store error:', e);
-                return { success: false, error: 'Không thể cập nhật: ' + e.message };
-            }
-        }
-        return { success: false, error: 'Database disconnected' };
+    try {
+        const { error } = await supabase.from('stores').update(data).eq('id', id);
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        console.error('[Inventory] Update store error:', e);
+        return { success: false, error: 'Không thể cập nhật: ' + e.message };
     }
+}
+
 
 
 

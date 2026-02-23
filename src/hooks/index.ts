@@ -1,185 +1,189 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from "react";
 
 export function useDebounce<T>(value: T, delay: number): T {
-    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
 
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [value, delay]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
 
-    return debouncedValue;
+  return debouncedValue;
 }
 
 export function useLocalStorage<T>(
-    key: string,
-    initialValue: T
+  key: string,
+  initialValue: T,
 ): [T, (value: T | ((prev: T) => T)) => void] {
-    const [storedValue, setStoredValue] = useState<T>(() => {
-        try {
-            const item = window.localStorage.getItem(key);
-            return item ? JSON.parse(item) : initialValue;
-        } catch (error) {
-            console.error(`Error reading localStorage key "${key}":`, error);
-            return initialValue;
-        }
-    });
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(`Error reading localStorage key "${key}":`, error);
+      return initialValue;
+    }
+  });
 
-    const setValue = useCallback((value: T | ((prev: T) => T)) => {
-        try {
-            const valueToStore = value instanceof Function ? value(storedValue) : value;
-            setStoredValue(valueToStore);
-            window.localStorage.setItem(key, JSON.stringify(valueToStore));
-        } catch (error) {
-            console.error(`Error setting localStorage key "${key}":`, error);
-        }
-    }, [key, storedValue]);
+  const setValue = useCallback(
+    (value: T | ((prev: T) => T)) => {
+      try {
+        const valueToStore =
+          value instanceof Function ? value(storedValue) : value;
+        setStoredValue(valueToStore);
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      } catch (error) {
+        console.error(`Error setting localStorage key "${key}":`, error);
+      }
+    },
+    [key, storedValue],
+  );
 
-    return [storedValue, setValue];
+  return [storedValue, setValue];
 }
 
 export function usePrevious<T>(value: T): T | undefined {
-    const ref = useRef<T | undefined>(undefined);
+  const ref = useRef<T | undefined>(undefined);
 
-    useEffect(() => {
-        ref.current = value;
-    }, [value]);
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
 
-    return ref.current;
+  return ref.current;
 }
 
 interface AsyncState<T> {
-    data: T | null;
-    loading: boolean;
-    error: Error | null;
+  data: T | null;
+  loading: boolean;
+  error: Error | null;
 }
 
 export function useAsync<T>(
-    asyncFn: () => Promise<T>,
-    immediate = true
+  asyncFn: () => Promise<T>,
+  immediate = true,
 ): AsyncState<T> & { execute: () => Promise<void> } {
-    const [state, setState] = useState<AsyncState<T>>({
-        data: null,
-        loading: immediate,
-        error: null,
-    });
+  const [state, setState] = useState<AsyncState<T>>({
+    data: null,
+    loading: immediate,
+    error: null,
+  });
 
-    const execute = useCallback(async () => {
-        setState({ data: null, loading: true, error: null });
-        try {
-            const data = await asyncFn();
-            setState({ data, loading: false, error: null });
-        } catch (error) {
-            setState({ data: null, loading: false, error: error as Error });
-        }
-    }, [asyncFn]);
+  const execute = useCallback(async () => {
+    setState({ data: null, loading: true, error: null });
+    try {
+      const data = await asyncFn();
+      setState({ data, loading: false, error: null });
+    } catch (error) {
+      setState({ data: null, loading: false, error: error as Error });
+    }
+  }, [asyncFn]);
 
-    useEffect(() => {
-        if (immediate) {
-            execute();
-        }
-    }, [execute, immediate]);
+  useEffect(() => {
+    if (immediate) {
+      execute();
+    }
+  }, [execute, immediate]);
 
-    return { ...state, execute };
+  return { ...state, execute };
 }
 
 export function useOnClickOutside(
-    ref: React.RefObject<HTMLElement>,
-    handler: (event: MouseEvent | TouchEvent) => void
+  ref: React.RefObject<HTMLElement>,
+  handler: (event: MouseEvent | TouchEvent) => void,
 ): void {
-    useEffect(() => {
-        const listener = (event: MouseEvent | TouchEvent) => {
-            if (!ref.current || ref.current.contains(event.target as Node)) {
-                return;
-            }
-            handler(event);
-        };
+  useEffect(() => {
+    const listener = (event: MouseEvent | TouchEvent) => {
+      if (!ref.current || ref.current.contains(event.target as Node)) {
+        return;
+      }
+      handler(event);
+    };
 
-        document.addEventListener('mousedown', listener);
-        document.addEventListener('touchstart', listener);
+    document.addEventListener("mousedown", listener);
+    document.addEventListener("touchstart", listener);
 
-        return () => {
-            document.removeEventListener('mousedown', listener);
-            document.removeEventListener('touchstart', listener);
-        };
-    }, [ref, handler]);
+    return () => {
+      document.removeEventListener("mousedown", listener);
+      document.removeEventListener("touchstart", listener);
+    };
+  }, [ref, handler]);
 }
 
 export function useKeyPress(targetKey: string): boolean {
-    const [keyPressed, setKeyPressed] = useState(false);
+  const [keyPressed, setKeyPressed] = useState(false);
 
-    useEffect(() => {
-        const downHandler = (event: KeyboardEvent) => {
-            if (event.key === targetKey) {
-                setKeyPressed(true);
-            }
-        };
+  useEffect(() => {
+    const downHandler = (event: KeyboardEvent) => {
+      if (event.key === targetKey) {
+        setKeyPressed(true);
+      }
+    };
 
-        const upHandler = (event: KeyboardEvent) => {
-            if (event.key === targetKey) {
-                setKeyPressed(false);
-            }
-        };
+    const upHandler = (event: KeyboardEvent) => {
+      if (event.key === targetKey) {
+        setKeyPressed(false);
+      }
+    };
 
-        window.addEventListener('keydown', downHandler);
-        window.addEventListener('keyup', upHandler);
+    window.addEventListener("keydown", downHandler);
+    window.addEventListener("keyup", upHandler);
 
-        return () => {
-            window.removeEventListener('keydown', downHandler);
-            window.removeEventListener('keyup', upHandler);
-        };
-    }, [targetKey]);
+    return () => {
+      window.removeEventListener("keydown", downHandler);
+      window.removeEventListener("keyup", upHandler);
+    };
+  }, [targetKey]);
 
-    return keyPressed;
+  return keyPressed;
 }
 
 interface WindowSize {
-    width: number;
-    height: number;
+  width: number;
+  height: number;
 }
 
 export function useWindowSize(): WindowSize {
-    const [windowSize, setWindowSize] = useState<WindowSize>({
+  const [windowSize, setWindowSize] = useState<WindowSize>({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
         width: window.innerWidth,
         height: window.innerHeight,
-    });
+      });
+    };
 
-    useEffect(() => {
-        const handleResize = () => {
-            setWindowSize({
-                width: window.innerWidth,
-                height: window.innerHeight,
-            });
-        };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    return windowSize;
+  return windowSize;
 }
 
 export function useMediaQuery(query: string): boolean {
-    const [matches, setMatches] = useState(
-        () => window.matchMedia(query).matches
-    );
+  const [matches, setMatches] = useState(
+    () => window.matchMedia(query).matches,
+  );
 
-    useEffect(() => {
-        const mediaQuery = window.matchMedia(query);
-        const handler = (event: MediaQueryListEvent) => setMatches(event.matches);
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const handler = (event: MediaQueryListEvent) => setMatches(event.matches);
 
-        mediaQuery.addEventListener('change', handler);
-        return () => mediaQuery.removeEventListener('change', handler);
-    }, [query]);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, [query]);
 
-    return matches;
+  return matches;
 }
 
-export const useIsMobile = () => useMediaQuery('(max-width: 640px)');
-export const useIsTablet = () => useMediaQuery('(max-width: 1024px)');
-export const useIsDesktop = () => useMediaQuery('(min-width: 1025px)');
+export const useIsMobile = () => useMediaQuery("(max-width: 640px)");
+export const useIsTablet = () => useMediaQuery("(max-width: 1024px)");
+export const useIsDesktop = () => useMediaQuery("(min-width: 1025px)");

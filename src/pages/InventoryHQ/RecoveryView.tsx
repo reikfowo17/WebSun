@@ -42,7 +42,7 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
 
     useEffect(() => {
         let filtered = items;
-        if (selectedStatus !== 'ALL') filtered = filtered.filter(i => i.status_enum === selectedStatus);
+        if (selectedStatus !== 'ALL') filtered = filtered.filter(i => i.status === selectedStatus);
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
             filtered = filtered.filter(i =>
@@ -188,7 +188,7 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
                                                 </div>
                                             </td></tr>
                                         ) : filteredItems.map((item, idx) => {
-                                            const st = getStatus(item.status_enum);
+                                            const st = getStatus(item.status);
                                             return (
                                                 <tr key={item.id} className="rv-row" onClick={() => handleViewDetail(item)}>
                                                     <td><span className="rv-rownum">{idx + 1}</span></td>

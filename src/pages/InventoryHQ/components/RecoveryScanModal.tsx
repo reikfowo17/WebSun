@@ -85,8 +85,7 @@ const RecoveryScanModal: React.FC<RecoveryScanModalProps> = ({ toast, onClose, o
                 const storeConfig = stores.find(s => s.code === item.store_code);
                 const result = await RecoveryService.createRecoveryItem({
                     store_id: storeConfig?.id || item.store_code,
-                    product_name: item.product_name,
-                    barcode: item.barcode,
+                    product_id: item.product_id,
                     quantity: Math.abs(item.diff),
                     unit_price: 0, // Will need to be filled in manually or from KiotViet
                     reason: item.diff_reason || 'Kiểm kho phát hiện thiếu',

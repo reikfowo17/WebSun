@@ -30,19 +30,16 @@ export interface ArchivedReportMetadata {
     created_at: string;
 }
 
-/** Shape of one archived day's full JSON file */
 export interface ArchivedDayData {
     date: string;
     exported_at: string;
     total_items: number;
     total_stores: number;
     stores: Record<string, Record<string, ArchivedInventoryItem[]>>;
-    /** Report metadata — included since archive pipeline v2 */
     reports?: ArchivedReportMetadata[];
     total_reports?: number;
 }
 
-/** Archive log entry from DB */
 export interface ArchiveLogEntry {
     id: string;
     archive_date: string;
@@ -75,6 +72,7 @@ export interface DailySummary {
 
 /** Missing product found during recovery scan */
 export interface MissingProduct {
+    product_id?: string;
     product_name: string;
     barcode: string;
     sp: string;

@@ -1,37 +1,46 @@
-import React, { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { Suspense } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  Outlet,
+} from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 
 // Contexts
-import { UserProvider, useUser } from './contexts';
-import { ToastProvider, useToast } from './contexts';
+import { UserProvider, useUser } from "./contexts";
+import { ToastProvider, useToast } from "./contexts";
 
 // Components
-import Layout from './components/Layout';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 // Pages (lazy load)
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const Inventory = React.lazy(() => import('./pages/Inventory'));
-const Expiry = React.lazy(() => import('./pages/Expiry'));
-const InventoryHQ = React.lazy(() => import('./pages/InventoryHQ'));
-const ExpiryHQ = React.lazy(() => import('./pages/ExpiryHQ'));
-const Profile = React.lazy(() => import('./pages/Profile'));
-const Settings = React.lazy(() => import('./pages/Settings/Settings'));
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const Inventory = React.lazy(() => import("./pages/Inventory"));
+const Expiry = React.lazy(() => import("./pages/Expiry"));
+const InventoryHQ = React.lazy(() => import("./pages/InventoryHQ"));
+const ExpiryHQ = React.lazy(() => import("./pages/ExpiryHQ"));
+const Profile = React.lazy(() => import("./pages/Profile"));
+const Settings = React.lazy(() => import("./pages/Settings/Settings"));
 
 const pageVariants = {
   initial: { opacity: 0, x: 20 },
   in: { opacity: 1, x: 0 },
-  out: { opacity: 0, x: -20 }
+  out: { opacity: 0, x: -20 },
 };
 
 const pageTransition = {
-  ease: 'anticipate',
-  duration: 0.3
+  ease: "anticipate",
+  duration: 0.3,
 } as const;
 
-const AnimatedPage: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+const AnimatedPage: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
   <motion.div
     initial="initial"
     animate="in"
@@ -66,10 +75,7 @@ const ProtectedLayout: React.FC = () => {
   }
 
   return (
-    <Layout
-      user={user}
-      onLogout={logout}
-    >
+    <Layout user={user} onLogout={logout}>
       <Suspense fallback={<LoadingSkeleton />}>
         <Outlet />
       </Suspense>
@@ -81,20 +87,87 @@ const AppRoutes: React.FC = () => {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode='wait'>
+    <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/login" element={<AnimatedPage><PublicOnlyRoute><Login /></PublicOnlyRoute></AnimatedPage>} />
-        <Route path="/register" element={<AnimatedPage><PublicOnlyRoute><Register /></PublicOnlyRoute></AnimatedPage>} />
+        <Route
+          path="/login"
+          element={
+            <AnimatedPage>
+              <PublicOnlyRoute>
+                <Login />
+              </PublicOnlyRoute>
+            </AnimatedPage>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <AnimatedPage>
+              <PublicOnlyRoute>
+                <Register />
+              </PublicOnlyRoute>
+            </AnimatedPage>
+          }
+        />
 
         {/* Protected Routes */}
         <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<AnimatedPage><DashboardWrapper /></AnimatedPage>} />
-          <Route path="/inventory" element={<AnimatedPage><InventoryWrapper /></AnimatedPage>} />
-          <Route path="/expiry" element={<AnimatedPage><ExpiryWrapper /></AnimatedPage>} />
-          <Route path="/hq" element={<AnimatedPage><InventoryHQWrapper /></AnimatedPage>} />
-          <Route path="/expiry-hq" element={<AnimatedPage><ExpiryHQWrapper /></AnimatedPage>} />
-          <Route path="/profile" element={<AnimatedPage><ProfileWrapper /></AnimatedPage>} />
-          <Route path="/settings" element={<AnimatedPage><SettingsWrapper /></AnimatedPage>} />
+          <Route
+            path="/"
+            element={
+              <AnimatedPage>
+                <DashboardWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <AnimatedPage>
+                <InventoryWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/expiry"
+            element={
+              <AnimatedPage>
+                <ExpiryWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/hq"
+            element={
+              <AnimatedPage>
+                <InventoryHQWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/expiry-hq"
+            element={
+              <AnimatedPage>
+                <ExpiryHQWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <AnimatedPage>
+                <ProfileWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <AnimatedPage>
+                <SettingsWrapper />
+              </AnimatedPage>
+            }
+          />
         </Route>
 
         {/* Catch all */}
@@ -104,7 +177,9 @@ const AppRoutes: React.FC = () => {
   );
 };
 
-const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { isAuthenticated, isLoading } = useUser();
   if (isLoading) return <LoadingSkeleton />;
   if (isAuthenticated) return <Navigate to="/" replace />;
@@ -146,7 +221,11 @@ const SettingsWrapper = () => {
   const { user } = useUser();
   const toast = useToast();
   // Assume admin checking inside or we can check here
-  return user && user.role === 'ADMIN' ? <Settings toast={toast} /> : <Navigate to="/" replace />;
+  return user && user.role === "ADMIN" ? (
+    <Settings toast={toast} />
+  ) : (
+    <Navigate to="/" replace />
+  );
 };
 
 const App: React.FC = () => {

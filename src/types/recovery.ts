@@ -12,8 +12,8 @@ export interface RecoveryItem {
     store_id: string;
     product_id?: string;
 
-    // Item details
-    product_name: string;
+    // Item details (from product join)
+    product_name?: string;
     barcode?: string;
     quantity: number;
     unit_price: number;
@@ -21,7 +21,7 @@ export interface RecoveryItem {
 
     // Recovery details
     reason: string;
-    status_enum: RecoveryStatus;
+    status: RecoveryStatus;
 
     // Creation
     created_by: string;
@@ -44,7 +44,6 @@ export interface RecoveryItem {
     // Metadata
     notes?: string;
     updated_at: string;
-
 }
 
 export interface RecoveryDocument {
@@ -71,8 +70,6 @@ export interface RecoveryHistoryEntry {
 export interface CreateRecoveryItemInput {
     store_id: string;
     product_id?: string;
-    product_name: string;
-    barcode?: string;
     quantity: number;
     unit_price: number;
     reason: string;
@@ -80,8 +77,6 @@ export interface CreateRecoveryItemInput {
 }
 
 export interface UpdateRecoveryItemInput {
-    product_name?: string;
-    barcode?: string;
     quantity?: number;
     unit_price?: number;
     reason?: string;

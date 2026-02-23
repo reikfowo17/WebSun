@@ -231,11 +231,11 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
                 <div className="p-6 space-y-6">
                     {/* Status & Actions */}
                     <div className="flex items-center justify-between">
-                        <div>{getStatusBadge(currentItem.status_enum)}</div>
+                        <div>{getStatusBadge(currentItem.status)}</div>
 
                         {/* Workflow Actions */}
                         <div className="flex items-center gap-2">
-                            {currentItem.status_enum === 'PENDING' && (
+                            {currentItem.status === 'PENDING' && (
                                 <>
                                     <button
                                         onClick={handleApprove}
@@ -256,7 +256,7 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
                                 </>
                             )}
 
-                            {currentItem.status_enum === 'APPROVED' && (
+                            {currentItem.status === 'APPROVED' && (
                                 <button
                                     onClick={handleMarkInProgress}
                                     disabled={!!processing}
@@ -267,7 +267,7 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
                                 </button>
                             )}
 
-                            {currentItem.status_enum === 'IN_PROGRESS' && (
+                            {currentItem.status === 'IN_PROGRESS' && (
                                 <button
                                     onClick={() => setShowRecoverModal(true)}
                                     disabled={!!processing}
@@ -278,7 +278,7 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
                                 </button>
                             )}
 
-                            {!['RECOVERED', 'REJECTED', 'CANCELLED'].includes(currentItem.status_enum) && (
+                            {!['RECOVERED', 'REJECTED', 'CANCELLED'].includes(currentItem.status) && (
                                 <button
                                     onClick={handleCancel}
                                     disabled={!!processing}

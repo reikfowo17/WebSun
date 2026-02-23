@@ -12,13 +12,13 @@ interface AddRecoveryModalProps {
 const AddRecoveryModal: React.FC<AddRecoveryModalProps> = ({ toast, onClose, onSuccess }) => {
     const [form, setForm] = useState<CreateRecoveryItemInput>({
         store_id: '',
-        product_name: '',
-        barcode: '',
+        product_id: '',
         quantity: 0,
         unit_price: 0,
         reason: '',
         notes: ''
     });
+    const [selectedProductDisplay, setSelectedProductDisplay] = useState('');
 
     const [stores, setStores] = useState<any[]>([]);
     const [products, setProducts] = useState<any[]>([]);
@@ -58,10 +58,12 @@ const AddRecoveryModal: React.FC<AddRecoveryModalProps> = ({ toast, onClose, onS
             setForm(prev => ({
                 ...prev,
                 product_id: product.id,
-                product_name: product.name,
-                barcode: product.barcode || '',
                 unit_price: product.unitPrice || 0
             }));
+            setSelectedProductDisplay(`${product.name} (${product.barcode || 'N/A'})`);
+        } else {
+            setForm(prev => ({ ...prev, product_id: '' }));
+            setSelectedProductDisplay('');
         }
     };
 
@@ -73,8 +75,8 @@ const AddRecoveryModal: React.FC<AddRecoveryModalProps> = ({ toast, onClose, onS
             toast.error('Vui lòng chọn cửa hàng');
             return;
         }
-        if (!form.product_name) {
-            toast.error('Vui lòng nhập tên sản phẩm');
+        if (!form.product_id) {
+            toast.error('Vui lòng chọn sản phẩm');
             return;
         }
         if (!form.quantity || form.quantity <= 0) {
@@ -151,51 +153,27 @@ const AddRecoveryModal: React.FC<AddRecoveryModalProps> = ({ toast, onClose, onS
                         </select>
                     </div>
 
-                    {/* Product Selection (Optional) */}
+                    {/* Product Selection (Required) */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Chọn sản phẩm có sẵn (không bắt buộc)
+                            Sản phẩm <span className="text-red-500">*</span>
                         </label>
                         <select
+                            value={form.product_id || ''}
                             onChange={(e) => handleProductSelect(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            required
                         >
-                            <option value="">-- Hoặc nhập thủ công bên dưới --</option>
+                            <option value="">-- Chọn sản phẩm --</option>
                             {products.map(product => (
                                 <option key={product.id} value={product.id}>
                                     {product.name} - {product.barcode}
                                 </option>
                             ))}
                         </select>
-                    </div>
-
-                    {/* Product Name */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tên sản phẩm <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            value={form.product_name}
-                            onChange={(e) => setForm({ ...form, product_name: e.target.value })}
-                            placeholder="Nhập tên sản phẩm"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            required
-                        />
-                    </div>
-
-                    {/* Barcode */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Mã vạch
-                        </label>
-                        <input
-                            type="text"
-                            value={form.barcode}
-                            onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                            placeholder="Nhập mã vạch (nếu có)"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        />
+                        {selectedProductDisplay && (
+                            <p className="text-sm text-gray-500 mt-1">Đã chọn: {selectedProductDisplay}</p>
+                        )}
                     </div>
 
                     {/* Quantity & Unit Price */}

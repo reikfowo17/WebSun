@@ -20,7 +20,7 @@ class RecoveryServiceClass {
         try {
             let query = supabase
                 .from('recovery_items')
-                .select('*')
+                .select('*, products:product_id(name, barcode)')
                 .order('created_at', { ascending: false });
 
             // Apply filters
@@ -28,7 +28,7 @@ class RecoveryServiceClass {
                 query = query.eq('store_id', filters.store_id);
             }
             if (filters?.status) {
-                query = query.eq('status_enum', filters.status);
+                query = query.eq('status', filters.status);
             }
             if (filters?.created_by) {
                 query = query.eq('created_by', filters.created_by);
@@ -40,7 +40,7 @@ class RecoveryServiceClass {
                 query = query.lte('created_at', filters.to_date);
             }
             if (filters?.search) {
-                query = query.or(`product_name.ilike.%${filters.search}%,barcode.ilike.%${filters.search}%,reason.ilike.%${filters.search}%`);
+                query = query.or(`reason.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`);
             }
 
             const { data, error } = await query;
@@ -50,7 +50,12 @@ class RecoveryServiceClass {
                 throw error;
             }
 
-            return data || [];
+            return (data || []).map((item: any) => ({
+                ...item,
+                product_name: item.products?.name || '',
+                barcode: item.products?.barcode || '',
+                products: undefined,
+            }));
         } catch (e: any) {
             console.error('[Recovery] Get items error:', e);
             return [];
@@ -63,12 +68,17 @@ class RecoveryServiceClass {
         try {
             const { data, error } = await supabase
                 .from('recovery_items')
-                .select('*')
+                .select('*, products:product_id(name, barcode)')
                 .eq('id', id)
                 .single();
 
             if (error) throw error;
-            return data;
+            return data ? {
+                ...data,
+                product_name: data.products?.name || '',
+                barcode: data.products?.barcode || '',
+                products: undefined,
+            } : null;
         } catch (e: any) {
             console.error('[Recovery] Get item error:', e);
             return null;
@@ -80,8 +90,8 @@ class RecoveryServiceClass {
             return { success: false, error: 'Database not configured' };
         }
 
-        if (!input.product_name) {
-            return { success: false, error: 'Tên sản phẩm là bắt buộc' };
+        if (!input.product_id) {
+            return { success: false, error: 'Sản phẩm là bắt buộc' };
         }
         if (!input.quantity || input.quantity <= 0) {
             return { success: false, error: 'Số lượng phải lớn hơn 0' };
@@ -104,7 +114,7 @@ class RecoveryServiceClass {
                 .insert([{
                     ...input,
                     created_by: session.user.id,
-                    status_enum: 'PENDING'
+                    status: 'PENDING'
                 }])
                 .select()
                 .single();
@@ -178,7 +188,7 @@ class RecoveryServiceClass {
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
-                    status_enum: 'PENDING',
+                    status: 'PENDING',
                     submitted_at: new Date().toISOString()
                 })
                 .eq('id', id)
@@ -206,7 +216,7 @@ class RecoveryServiceClass {
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
-                    status_enum: 'APPROVED',
+                    status: 'APPROVED',
                     approved_by: session.user.id,
                     approved_at: new Date().toISOString(),
                     notes: notes || null
@@ -243,7 +253,7 @@ class RecoveryServiceClass {
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
-                    status_enum: 'REJECTED',
+                    status: 'REJECTED',
                     rejected_by: session.user.id,
                     rejected_at: new Date().toISOString(),
                     rejection_reason: reason
@@ -276,7 +286,7 @@ class RecoveryServiceClass {
             const { data, error } = await supabase
                 .from('recovery_items')
                 .update({
-                    status_enum: 'RECOVERED',
+                    status: 'RECOVERED',
                     recovered_at: new Date().toISOString(),
                     recovered_amount: recoveredAmount || null
                 })
@@ -304,7 +314,7 @@ class RecoveryServiceClass {
         try {
             const { data, error } = await supabase
                 .from('recovery_items')
-                .update({ status_enum: status })
+                .update({ status: status })
                 .eq('id', id)
                 .select()
                 .single();
@@ -416,7 +426,7 @@ class RecoveryServiceClass {
         try {
             let query = supabase
                 .from('recovery_items')
-                .select('status_enum, total_amount, recovered_amount, store_id');
+                .select('status, total_amount, recovered_amount, store_id');
 
             if (storeId) {
                 query = query.eq('store_id', storeId);
@@ -432,10 +442,10 @@ class RecoveryServiceClass {
                 total_items: data.length,
                 total_amount: data.reduce((sum, item) => sum + (item.total_amount || 0), 0),
                 recovered_amount: data.reduce((sum, item) => sum + (item.recovered_amount || 0), 0),
-                pending_count: data.filter(i => i.status_enum === 'PENDING').length,
-                approved_count: data.filter(i => i.status_enum === 'APPROVED').length,
-                recovered_count: data.filter(i => i.status_enum === 'RECOVERED').length,
-                rejected_count: data.filter(i => i.status_enum === 'REJECTED').length
+                pending_count: data.filter(i => i.status === 'PENDING').length,
+                approved_count: data.filter(i => i.status === 'APPROVED').length,
+                recovered_count: data.filter(i => i.status === 'RECOVERED').length,
+                rejected_count: data.filter(i => i.status === 'REJECTED').length
             };
 
             return stats;
