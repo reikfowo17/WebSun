@@ -141,7 +141,7 @@ export const SettingsStores: React.FC<SettingsStoresProps> = ({ toast, initialSt
         }
     };
 
-    const handleStoreDragLeave = (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
+    const handleStoreDragLeave = (_e: React.DragEvent<HTMLTableRowElement>, index: number) => {
         if (dragStoreOverIndex === index) {
             setDragStoreOverIndex(null);
         }
@@ -178,36 +178,56 @@ export const SettingsStores: React.FC<SettingsStoresProps> = ({ toast, initialSt
         }
     };
 
+    const activeCount = stores.filter(s => s.is_active !== false).length;
+
     return (
         <div className="stg-section-animate">
             <div className="stg-table-wrap">
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#fff', gap: '8px' }}>
-                    <div className="stg-badge">{stores.length} cửa hàng</div>
-                    <button onClick={handleAddStore} className="stg-btn stg-btn-primary stg-emerald" disabled={saving}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add_business</span>
-                        Thêm Cửa Hàng
-                    </button>
+                {/* ─── Toolbar ─── */}
+                <div className="stg-toolbar">
+                    <div className="stg-toolbar-left">
+                        <span className="stg-badge">{stores.length} cửa hàng</span>
+                        {stores.length > 0 && (
+                            <span style={{ fontSize: 12, color: 'var(--stg-text-muted)' }}>
+                                · {activeCount} đang hoạt động
+                            </span>
+                        )}
+                    </div>
+                    <div className="stg-toolbar-right">
+                        <button
+                            onClick={handleAddStore}
+                            className="stg-btn stg-btn-primary stg-emerald"
+                            disabled={saving || editingStoreIndex !== null}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add_business</span>
+                            Thêm Cửa Hàng
+                        </button>
+                    </div>
                 </div>
+
+                {/* ─── Table ─── */}
                 <table className="stg-table stg-table-fixed">
                     <colgroup>
                         <col style={{ width: '8%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '45%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '17%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '44%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '20%' }} />
                     </colgroup>
                     <thead>
                         <tr>
-                            <th style={{ paddingLeft: '36px' }}>#</th>
+                            <th style={{ paddingLeft: 36 }}>#</th>
                             <th style={{ textAlign: 'center' }}>MÃ ERP</th>
-                            <th style={{ paddingLeft: '8px' }}>TÊN CỬA HÀNG</th>
-                            <th style={{ textAlign: 'center' }}>HOẠT ĐỘNG</th>
+                            <th>TÊN CỬA HÀNG</th>
+                            <th style={{ textAlign: 'center' }}>TRẠNG THÁI</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {stores.map((store, i) => {
                             const isNew = store.id === '';
+                            const isEditing = editingStoreIndex === i;
+                            const isActive = store.is_active !== false;
                             return (
                                 <tr
                                     key={store.id || `new-${i}`}
@@ -219,89 +239,97 @@ export const SettingsStores: React.FC<SettingsStoresProps> = ({ toast, initialSt
                                     onDrop={(e) => handleStoreDrop(e, i)}
                                     onDragEnd={handleStoreDragEnd}
                                     style={{
-                                        borderTop: dragStoreOverIndex === i && draggedStoreIndex !== i && dragStoreOverIndex < (draggedStoreIndex || 0) ? '2px solid #10b981' : undefined,
-                                        borderBottom: dragStoreOverIndex === i && draggedStoreIndex !== i && dragStoreOverIndex > (draggedStoreIndex || 0) ? '2px solid #10b981' : undefined,
+                                        borderTop: dragStoreOverIndex === i && draggedStoreIndex !== i && dragStoreOverIndex < (draggedStoreIndex || 0) ? '2px solid var(--stg-success)' : undefined,
+                                        borderBottom: dragStoreOverIndex === i && draggedStoreIndex !== i && dragStoreOverIndex > (draggedStoreIndex || 0) ? '2px solid var(--stg-success)' : undefined,
+                                        opacity: !isActive && !isEditing ? 0.55 : 1,
                                     }}
                                 >
+                                    {/* ─ Drag + Number ─ */}
                                     <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 8 }}>
                                             <span
-                                                className="material-symbols-outlined drag-handle"
-                                                style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '20px' }}
+                                                className="material-symbols-outlined stg-drag-handle"
                                                 onMouseEnter={() => setDragStoreId(i)}
                                                 onMouseLeave={() => setDragStoreId(null)}
                                             >drag_indicator</span>
                                             <span className="stg-row-num">{i + 1}</span>
                                         </div>
                                     </td>
+
+                                    {/* ─ Store Code ─ */}
                                     <td>
-                                        {editingStoreIndex === i ? (
+                                        {isEditing ? (
                                             <input
                                                 type="text"
                                                 value={draftStore?.code || ''}
                                                 onChange={(e) => handleUpdateDraftStore('code', e.target.value.toUpperCase())}
                                                 className="stg-input stg-input-mono stg-input-center"
                                                 placeholder="ABC"
+                                                aria-label="Mã ERP cửa hàng"
                                                 autoFocus
                                             />
                                         ) : (
-                                            <div className="stg-input-mono" style={{ textAlign: 'center', fontWeight: 600, color: '#334155' }}>
-                                                {store.code || <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 400 }}>Trống</span>}
+                                            <div className="stg-input-mono" style={{ textAlign: 'center', fontWeight: 700, color: 'var(--stg-text)', letterSpacing: '0.05em' }}>
+                                                {store.code || <span style={{ color: 'var(--stg-text-muted)', fontStyle: 'italic', fontWeight: 400 }}>—</span>}
                                             </div>
                                         )}
                                     </td>
+
+                                    {/* ─ Store Name ─ */}
                                     <td>
-                                        {editingStoreIndex === i ? (
-                                            <input
-                                                type="text"
-                                                value={draftStore?.name || ''}
-                                                onChange={(e) => handleUpdateDraftStore('name', e.target.value)}
-                                                className="stg-input"
-                                                placeholder="VD: Siêu thị Sunmart BEE"
-                                            />
-                                        ) : (
-                                            <div style={{ color: '#475569', fontWeight: 500, paddingLeft: 8 }}>
-                                                {store.name || <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 400 }}>Chưa có tên</span>}
+                                        <div className="stg-store-name-cell">
+                                            <div className="stg-store-icon">
+                                                <span className="material-symbols-outlined">storefront</span>
                                             </div>
-                                        )}
+                                            {isEditing ? (
+                                                <input
+                                                    type="text"
+                                                    value={draftStore?.name || ''}
+                                                    onChange={(e) => handleUpdateDraftStore('name', e.target.value)}
+                                                    className="stg-input"
+                                                    placeholder="VD: Siêu thị Sunmart BEE"
+                                                    aria-label="Tên cửa hàng"
+                                                    style={{ flex: 1 }}
+                                                />
+                                            ) : (
+                                                <div>
+                                                    <div style={{ color: 'var(--stg-text)', fontWeight: 600 }}>
+                                                        {store.name || <span style={{ color: 'var(--stg-text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Chưa có tên</span>}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
+
+                                    {/* ─ Active Toggle ─ */}
                                     <td style={{ textAlign: 'center' }}>
-                                        <button
-                                            className={`stg-toggle-switch ${store.is_active !== false ? 'active' : ''}`}
-                                            onClick={() => handleToggleStoreActive(i)}
-                                            disabled={saving}
-                                            style={{
-                                                background: store.is_active !== false ? '#10b981' : '#cbd5e1',
-                                                border: 'none',
-                                                borderRadius: '20px',
-                                                width: '40px',
-                                                height: '22px',
-                                                position: 'relative',
-                                                cursor: saving ? 'not-allowed' : 'pointer',
-                                                transition: 'all 0.2s',
-                                                padding: 0,
-                                                opacity: saving ? 0.7 : 1
-                                            }}
-                                            title={store.is_active !== false ? "Đang hoạt động" : "Ngưng hoạt động"}
-                                        >
-                                            <span style={{
-                                                position: 'absolute',
-                                                top: '2px',
-                                                left: store.is_active !== false ? '19px' : '2px',
-                                                width: '18px',
-                                                height: '18px',
-                                                background: '#fff',
-                                                borderRadius: '50%',
-                                                transition: 'all 0.2s'
-                                            }} />
-                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            <span className={`stg-status-dot ${isActive ? 'active' : 'inactive'}`} />
+                                            <button
+                                                className={`stg-toggle-btn ${isActive ? 'active' : 'inactive'}`}
+                                                onClick={() => handleToggleStoreActive(i)}
+                                                disabled={saving}
+                                                title={isActive ? 'Đang hoạt động — bấm để tắt' : 'Đã tắt — bấm để bật'}
+                                                aria-label={`Trạng thái cửa hàng ${store.name}: ${isActive ? 'Hoạt động' : 'Ngưng'}`}
+                                            >
+                                                <span className="stg-toggle-knob" />
+                                            </button>
+                                            <span className={`stg-status-label ${isActive ? 'active' : 'inactive'}`}>
+                                                {isActive ? 'Bật' : 'Tắt'}
+                                            </span>
+                                        </div>
                                     </td>
+
+                                    {/* ─ Actions ─ */}
                                     <td>
-                                        <div className="stg-row-actions">
-                                            {editingStoreIndex === i ? (
+                                        <div className="stg-row-actions" style={isEditing ? { opacity: 1 } : undefined}>
+                                            {isEditing ? (
                                                 <>
                                                     <button onClick={() => handleSaveStore(i)} className="stg-btn-icon stg-btn-save" title="Lưu" disabled={saving}>
-                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
+                                                        {saving
+                                                            ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: 16 }}>progress_activity</span>
+                                                            : <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
+                                                        }
                                                     </button>
                                                     <button onClick={() => handleCancelStore(i)} className="stg-btn-icon" title="Hủy" disabled={saving}>
                                                         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
@@ -324,11 +352,14 @@ export const SettingsStores: React.FC<SettingsStoresProps> = ({ toast, initialSt
                         })}
                     </tbody>
                 </table>
+
+                {/* ─── Empty State ─── */}
                 {stores.length === 0 && (
                     <div className="stg-empty">
                         <span className="material-symbols-outlined">domain_disabled</span>
                         <p>Chưa có cửa hàng nào được định nghĩa</p>
-                        <button onClick={handleAddStore} className="stg-btn stg-btn-outline stg-emerald" style={{ marginTop: 12 }} disabled={saving}>
+                        <p style={{ fontSize: 12, marginBottom: 12 }}>Thêm cửa hàng đầu tiên để bắt đầu quản lý hệ thống</p>
+                        <button onClick={handleAddStore} className="stg-btn stg-btn-primary stg-emerald" disabled={saving}>
                             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add_business</span>
                             Tạo cửa hàng đầu tiên
                         </button>

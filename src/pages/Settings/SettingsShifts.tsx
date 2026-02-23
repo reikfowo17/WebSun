@@ -6,6 +6,12 @@ interface SettingsShiftsProps {
     initialShifts: ShiftConfig[];
 }
 
+const SHIFT_ICONS: Record<number, string> = {
+    0: 'light_mode',
+    1: 'partly_cloudy_day',
+    2: 'dark_mode',
+};
+
 export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialShifts }) => {
     const [shifts, setShifts] = useState<ShiftConfig[]>(initialShifts);
     const [saving, setSaving] = useState(false);
@@ -88,6 +94,7 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
     };
 
     const handleRemoveShift = (index: number) => {
+        if (!window.confirm(`Xóa ca "${shifts[index].name || 'chưa đặt tên'}"?`)) return;
         const remaining = shifts.filter((_, i) => i !== index);
         const newShifts = remaining.map((shift, idx) => ({ ...shift, id: idx + 1 }));
         setShifts(newShifts);
@@ -115,7 +122,7 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
         }
     };
 
-    const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
+    const handleDragLeave = (_e: React.DragEvent<HTMLTableRowElement>, index: number) => {
         if (dragOverIndex === index) {
             setDragOverIndex(null);
         }
@@ -157,143 +164,176 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
         }
     };
 
+    const getShiftIcon = (shift: ShiftConfig, index: number): string => {
+        if (shift.icon && shift.icon !== 'schedule') return shift.icon;
+        return SHIFT_ICONS[index] || 'schedule';
+    };
+
     return (
         <div className="stg-section-animate">
             <div className="stg-table-wrap">
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#fff', gap: '8px' }}>
-                    <button onClick={handleAddShift} className="stg-btn stg-btn-outline" disabled={saving}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-                        Thêm Ca
-                    </button>
-                    <button
-                        onClick={handleSaveShifts}
-                        disabled={saving}
-                        className="stg-btn stg-btn-primary"
-                    >
-                        {saving
-                            ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: 16 }}>hourglass_empty</span>
-                            : <span className="material-symbols-outlined" style={{ fontSize: 16 }}>cloud_done</span>
-                        }
-                        {saving ? 'Đang lưu...' : 'Triển khai Ca'}
-                    </button>
+                {/* ─── Toolbar ─── */}
+                <div className="stg-toolbar">
+                    <div className="stg-toolbar-left">
+                        <span className="stg-badge">{shifts.length} ca làm</span>
+                    </div>
+                    <div className="stg-toolbar-right">
+                        <button
+                            onClick={handleAddShift}
+                            className="stg-btn stg-btn-outline"
+                            disabled={saving || editingShiftIndex !== null}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
+                            Thêm Ca
+                        </button>
+                        <button
+                            onClick={handleSaveShifts}
+                            disabled={saving}
+                            className="stg-btn stg-btn-primary"
+                        >
+                            {saving
+                                ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: 16 }}>hourglass_empty</span>
+                                : <span className="material-symbols-outlined" style={{ fontSize: 16 }}>rocket_launch</span>
+                            }
+                            {saving ? 'Đang lưu...' : 'Triển khai'}
+                        </button>
+                    </div>
                 </div>
+
+                {/* ─── Table ─── */}
                 <table className="stg-table stg-table-fixed">
                     <colgroup>
                         <col style={{ width: '8%' }} />
                         <col style={{ width: '42%' }} />
-                        <col style={{ width: '42%' }} />
-                        <col style={{ width: '8%' }} />
+                        <col style={{ width: '38%' }} />
+                        <col style={{ width: '12%' }} />
                     </colgroup>
                     <thead>
                         <tr>
-                            <th style={{ paddingLeft: '36px' }}>MÃ</th>
-                            <th style={{ paddingLeft: '8px' }}>TÊN CA</th>
-                            <th style={{ paddingLeft: '8px' }}>KHUNG GIỜ</th>
+                            <th style={{ paddingLeft: 36 }}>#</th>
+                            <th>TÊN CA LÀM VIỆC</th>
+                            <th>KHUNG GIỜ</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {shifts.map((shift, i) => (
-                            <tr
-                                key={shift.id || i}
-                                className={`stg-table-row ${draggedShiftIndex === i ? 'dragging' : ''}`}
-                                draggable={dragShiftId === i || draggedShiftIndex === i}
-                                onDragStart={(e) => handleDragStart(e, i)}
-                                onDragOver={(e) => handleDragOver(e, i)}
-                                onDragLeave={(e) => handleDragLeave(e, i)}
-                                onDrop={(e) => handleDrop(e, i)}
-                                onDragEnd={handleDragEnd}
-                                style={{
-                                    borderTop: dragOverIndex === i && draggedShiftIndex !== i && dragOverIndex < (draggedShiftIndex || 0) ? '2px solid #3b82f6' : undefined,
-                                    borderBottom: dragOverIndex === i && draggedShiftIndex !== i && dragOverIndex > (draggedShiftIndex || 0) ? '2px solid #3b82f6' : undefined,
-                                }}
-                            >
-                                <td>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '16px' }}>
-                                        <span
-                                            className="material-symbols-outlined drag-handle"
-                                            style={{ cursor: 'grab', color: '#cbd5e1', fontSize: '20px' }}
-                                            onMouseEnter={() => setDragShiftId(i)}
-                                            onMouseLeave={() => setDragShiftId(null)}
-                                        >drag_indicator</span>
-                                        <span className="stg-row-num">{i + 1}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="stg-shift-name-cell">
-                                        <span className="material-symbols-outlined stg-shift-inline-icon">
-                                            {shift.icon === 'schedule' ? (i === 0 ? 'light_mode' : i === 1 ? 'partly_cloudy_day' : i === 2 ? 'dark_mode' : 'schedule') : (shift.icon || 'schedule')}
-                                        </span>
-                                        {editingShiftIndex === i ? (
+                        {shifts.map((shift, i) => {
+                            const isEditing = editingShiftIndex === i;
+                            const isNew = shift.name === '' && shift.time === '' && isEditing;
+                            return (
+                                <tr
+                                    key={shift.id || i}
+                                    className={`stg-table-row${isNew ? ' stg-row-new' : ''} ${draggedShiftIndex === i ? 'dragging' : ''}`}
+                                    draggable={dragShiftId === i || draggedShiftIndex === i}
+                                    onDragStart={(e) => handleDragStart(e, i)}
+                                    onDragOver={(e) => handleDragOver(e, i)}
+                                    onDragLeave={(e) => handleDragLeave(e, i)}
+                                    onDrop={(e) => handleDrop(e, i)}
+                                    onDragEnd={handleDragEnd}
+                                    style={{
+                                        borderTop: dragOverIndex === i && draggedShiftIndex !== i && dragOverIndex < (draggedShiftIndex || 0) ? '2px solid var(--stg-primary)' : undefined,
+                                        borderBottom: dragOverIndex === i && draggedShiftIndex !== i && dragOverIndex > (draggedShiftIndex || 0) ? '2px solid var(--stg-primary)' : undefined,
+                                    }}
+                                >
+                                    {/* ─ Drag + Number ─ */}
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 16 }}>
+                                            <span
+                                                className="material-symbols-outlined stg-drag-handle"
+                                                onMouseEnter={() => setDragShiftId(i)}
+                                                onMouseLeave={() => setDragShiftId(null)}
+                                            >drag_indicator</span>
+                                            <span className="stg-row-num">{i + 1}</span>
+                                        </div>
+                                    </td>
+
+                                    {/* ─ Shift Name ─ */}
+                                    <td>
+                                        <div className="stg-shift-name-cell">
+                                            <span className="material-symbols-outlined stg-shift-inline-icon">
+                                                {getShiftIcon(shift, i)}
+                                            </span>
+                                            {isEditing ? (
+                                                <input
+                                                    type="text"
+                                                    value={draftShift?.name || ''}
+                                                    onChange={(e) => handleUpdateDraftShift('name', e.target.value)}
+                                                    className="stg-input"
+                                                    placeholder="VD: Ca Sáng"
+                                                    aria-label="Tên ca làm việc"
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <span style={{ fontWeight: 600, color: 'var(--stg-text)' }}>
+                                                    {shift.name || <span style={{ color: 'var(--stg-text-muted)', fontStyle: 'italic', fontWeight: 400 }}>Chưa đặt tên</span>}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+
+                                    {/* ─ Time Range ─ */}
+                                    <td>
+                                        {isEditing ? (
                                             <input
                                                 type="text"
-                                                value={draftShift?.name || ''}
-                                                onChange={(e) => handleUpdateDraftShift('name', e.target.value)}
-                                                className="stg-input"
-                                                placeholder="VD: Ca Sáng"
-                                                autoFocus
+                                                value={draftShift?.time || ''}
+                                                onChange={(e) => handleUpdateDraftShift('time', e.target.value)}
+                                                className="stg-input stg-input-mono"
+                                                placeholder="06:00 – 14:00"
+                                                aria-label="Khung giờ ca làm việc"
                                             />
                                         ) : (
-                                            <span style={{ fontWeight: 500, color: '#334155' }}>
-                                                {shift.name || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Chưa đặt tên</span>}
+                                            <span className="stg-input-mono" style={{ color: 'var(--stg-text-secondary)', fontSize: 13 }}>
+                                                {shift.time || <span style={{ color: 'var(--stg-text-muted)', fontStyle: 'italic' }}>Chưa có giờ</span>}
                                             </span>
                                         )}
-                                    </div>
-                                </td>
-                                <td>
-                                    {editingShiftIndex === i ? (
-                                        <input
-                                            type="text"
-                                            value={draftShift?.time || ''}
-                                            onChange={(e) => handleUpdateDraftShift('time', e.target.value)}
-                                            className="stg-input stg-input-mono"
-                                            placeholder="06:00 – 14:00"
-                                        />
-                                    ) : (
-                                        <span className="stg-input-mono" style={{ color: '#475569' }}>
-                                            {shift.time || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Chưa có giờ</span>}
-                                        </span>
-                                    )}
-                                </td>
-                                <td>
-                                    <div className="stg-row-actions">
-                                        {editingShiftIndex === i ? (
-                                            <>
-                                                <button onClick={() => handleSaveDraftShift(i)} className="stg-btn-icon stg-btn-save" title="Lưu">
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
-                                                </button>
-                                                <button onClick={() => handleCancelShift(i)} className="stg-btn-icon" title="Hủy">
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <button onClick={() => handleEditShift(i)} className="stg-btn-icon" title="Chỉnh sửa">
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
-                                                </button>
-                                                <button onClick={() => handleRemoveShift(i)} className="stg-btn-icon stg-btn-danger" title="Xóa ca này" disabled={saving}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_outline</span>
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+
+                                    {/* ─ Actions ─ */}
+                                    <td>
+                                        <div className="stg-row-actions" style={isEditing ? { opacity: 1 } : undefined}>
+                                            {isEditing ? (
+                                                <>
+                                                    <button onClick={() => handleSaveDraftShift(i)} className="stg-btn-icon stg-btn-save" title="Lưu">
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
+                                                    </button>
+                                                    <button onClick={() => handleCancelShift(i)} className="stg-btn-icon" title="Hủy">
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => handleEditShift(i)} className="stg-btn-icon" title="Chỉnh sửa">
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
+                                                    </button>
+                                                    <button onClick={() => handleRemoveShift(i)} className="stg-btn-icon stg-btn-danger" title="Xóa ca này" disabled={saving}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_outline</span>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
+
+                {/* ─── Empty State ─── */}
                 {shifts.length === 0 && (
                     <div className="stg-empty">
                         <span className="material-symbols-outlined">event_busy</span>
                         <p>Chưa có dữ liệu ca làm việc</p>
-                        <button onClick={handleAddShift} className="stg-btn stg-btn-outline" style={{ marginTop: 12 }} disabled={saving}>
+                        <p style={{ fontSize: 12, marginBottom: 12 }}>Tạo ca đầu tiên để cấu hình khung giờ làm việc</p>
+                        <button onClick={handleAddShift} className="stg-btn stg-btn-primary" disabled={saving}>
                             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
                             Tạo ca đầu tiên
                         </button>
                     </div>
                 )}
             </div>
-            {/* Info Banner */}
+
+            {/* ─── Info Banner ─── */}
             <div className="stg-info-banner">
                 <span className="material-symbols-outlined">info</span>
                 <span>Thay đổi cấu hình ca sẽ áp dụng cho toàn bộ hệ thống kiểm kho khi <strong>Triển khai</strong>.</span>

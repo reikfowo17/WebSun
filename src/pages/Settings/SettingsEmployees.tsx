@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { SystemService, EmployeeConfig, UserStoreAssignment, StoreConfig } from '../../services/system';
 
 interface SettingsEmployeesProps {
@@ -112,154 +112,106 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
             emp.username?.toLowerCase().includes(q);
     });
 
-    const getRoleBadge = (role: string) => {
-        if (role === 'ADMIN') {
-            return <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px' }}>ADMIN</span>;
-        }
-        return <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px' }}>NHÂN VIÊN</span>;
-    };
-
     return (
         <div className="stg-section-animate">
             <div className="stg-table-wrap">
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#fff', gap: '8px' }}>
-                    <div style={{ position: 'relative', flex: 1, maxWidth: '320px' }}>
-                        <span className="material-symbols-outlined" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '18px' }}>search</span>
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="stg-input"
-                            placeholder="Tìm nhân viên..."
-                            style={{ paddingLeft: '34px', width: '100%', borderRadius: '8px', border: '1px solid #e2e8f0', height: '36px', fontSize: '13px' }}
-                        />
+                {/* ─── Toolbar ─── */}
+                <div className="stg-toolbar">
+                    <div className="stg-toolbar-left">
+                        <div className="stg-search-wrap">
+                            <span className="material-symbols-outlined stg-search-icon">search</span>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="stg-search-input"
+                                placeholder="Tìm nhân viên theo tên, mã, username..."
+                                aria-label="Tìm kiếm nhân viên"
+                            />
+                        </div>
                     </div>
-                    <div className="stg-badge">{employees.length} nhân viên</div>
+                    <div className="stg-toolbar-right">
+                        <span className="stg-badge">{employees.length} nhân viên</span>
+                    </div>
                 </div>
 
-                {/* Employee List */}
-                <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                {/* ─── Employee List ─── */}
+                <div style={{ maxHeight: 600, overflowY: 'auto' }}>
                     {filteredEmployees.map((emp) => {
                         const isExpanded = expandedUserId === emp.id;
+                        const isAdmin = emp.role === 'ADMIN';
                         return (
-                            <div key={emp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                {/* Employee Row */}
+                            <div key={emp.id}>
+                                {/* ─ Employee Row ─ */}
                                 <div
+                                    className={`stg-emp-row${isExpanded ? ' expanded' : ''}`}
                                     onClick={() => handleExpandEmployee(emp.id)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        padding: '16px 20px',
-                                        cursor: 'pointer',
-                                        background: isExpanded ? '#f8fafc' : '#ffffff',
-                                        transition: 'all 0.2s',
-                                        gap: '16px',
-                                    }}
-                                    onMouseEnter={(e) => { if (!isExpanded) (e.currentTarget as HTMLDivElement).style.background = '#fafbfc'; }}
-                                    onMouseLeave={(e) => { if (!isExpanded) (e.currentTarget as HTMLDivElement).style.background = '#ffffff'; }}
                                 >
-                                    {/* Avatar circle */}
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '50%',
-                                        background: `linear-gradient(135deg, ${emp.role === 'ADMIN' ? '#f59e0b, #d97706' : '#3b82f6, #2563eb'})`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: '#fff',
-                                        fontWeight: 700,
-                                        fontSize: '15px',
-                                        flexShrink: 0,
-                                        textTransform: 'uppercase',
-                                    }}>
+                                    {/* Avatar */}
+                                    <div className={`stg-emp-avatar ${isAdmin ? 'admin' : 'staff'}`}>
                                         {emp.name?.charAt(0) || '?'}
                                     </div>
 
                                     {/* Info */}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                                            <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '14px' }}>{emp.name}</span>
-                                            {getRoleBadge(emp.role)}
+                                    <div className="stg-emp-info">
+                                        <div className="stg-emp-name">
+                                            <span>{emp.name}</span>
+                                            <span className={`stg-role-badge ${isAdmin ? 'admin' : 'staff'}`}>
+                                                {isAdmin ? 'ADMIN' : 'NHÂN VIÊN'}
+                                            </span>
                                         </div>
-                                        <div style={{ color: '#94a3b8', fontSize: '12px' }}>
-                                            {emp.employee_id && <span>Mã: {emp.employee_id} • </span>}
+                                        <div className="stg-emp-meta">
+                                            {emp.employee_id && <span>Mã: {emp.employee_id} · </span>}
                                             <span>@{emp.username}</span>
                                         </div>
                                     </div>
 
                                     {/* Expand arrow */}
-                                    <span
-                                        className="material-symbols-outlined"
-                                        style={{
-                                            color: '#94a3b8',
-                                            fontSize: '20px',
-                                            transition: 'transform 0.3s',
-                                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                                        }}
-                                    >expand_more</span>
+                                    <span className={`material-symbols-outlined stg-emp-expand-icon${isExpanded ? ' expanded' : ''}`}>
+                                        expand_more
+                                    </span>
                                 </div>
 
-                                {/* Expanded: Store assignments */}
+                                {/* ─ Expanded: Store assignments ─ */}
                                 {isExpanded && (
-                                    <div style={{
-                                        padding: '0 20px 20px 76px',
-                                        background: '#f8fafc',
-                                        animation: 'fadeIn 0.2s ease',
-                                    }}>
-                                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                                    <div className="stg-expand-panel">
+                                        <div className="stg-expand-label">
                                             Chi nhánh được gán
                                         </div>
 
                                         {loadingStores ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 0', color: '#94a3b8', fontSize: '13px' }}>
-                                                <span className="material-symbols-outlined stg-spin" style={{ fontSize: '16px' }}>progress_activity</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', color: 'var(--stg-text-muted)', fontSize: 13 }}>
+                                                <span className="material-symbols-outlined stg-spin" style={{ fontSize: 16 }}>progress_activity</span>
                                                 Đang tải...
                                             </div>
                                         ) : (
                                             <>
                                                 {assignments.length === 0 && (
-                                                    <div style={{ padding: '12px 0', color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>
+                                                    <div style={{ padding: '12px 0', color: 'var(--stg-text-muted)', fontSize: 13, fontStyle: 'italic' }}>
                                                         Chưa được gán chi nhánh nào
                                                     </div>
                                                 )}
 
                                                 {/* Store chips */}
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                                                <div className="stg-chips-grid">
                                                     {assignments.map((assignment) => (
                                                         <div
                                                             key={assignment.id}
-                                                            style={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '6px',
-                                                                padding: '6px 12px',
-                                                                borderRadius: '8px',
-                                                                background: assignment.is_primary ? '#ecfdf5' : '#ffffff',
-                                                                border: `1px solid ${assignment.is_primary ? '#a7f3d0' : '#e2e8f0'}`,
-                                                                fontSize: '13px',
-                                                                transition: 'all 0.2s',
-                                                            }}
+                                                            className={`stg-store-chip${assignment.is_primary ? ' primary' : ''}`}
                                                         >
-                                                            <span className="material-symbols-outlined" style={{
-                                                                fontSize: '16px',
-                                                                color: assignment.is_primary ? '#059669' : '#94a3b8',
-                                                            }}>
+                                                            <span className="material-symbols-outlined stg-chip-icon">
                                                                 {assignment.is_primary ? 'star' : 'storefront'}
                                                             </span>
 
-                                                            <span style={{ fontWeight: 600, color: '#334155' }}>
+                                                            <span className="stg-chip-code">
                                                                 {assignment.store?.code || '?'}
                                                             </span>
-                                                            <span style={{ color: '#64748b' }}>
+                                                            <span className="stg-chip-name">
                                                                 {assignment.store?.name || 'Chi nhánh'}
                                                             </span>
 
                                                             {assignment.is_primary && (
-                                                                <span style={{ background: '#059669', color: '#fff', padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700 }}>
-                                                                    CHÍNH
-                                                                </span>
+                                                                <span className="stg-chip-primary-tag">CHÍNH</span>
                                                             )}
 
                                                             {!assignment.is_primary && (
@@ -268,9 +220,9 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
                                                                     className="stg-btn-icon"
                                                                     title="Đặt làm chi nhánh chính"
                                                                     disabled={saving}
-                                                                    style={{ width: '28px', height: '28px' }}
+                                                                    style={{ width: 28, height: 28 }}
                                                                 >
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>star_outline</span>
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>star_outline</span>
                                                                 </button>
                                                             )}
 
@@ -279,9 +231,9 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
                                                                 className="stg-btn-icon stg-btn-danger"
                                                                 title="Xóa chi nhánh"
                                                                 disabled={saving}
-                                                                style={{ width: '28px', height: '28px' }}
+                                                                style={{ width: 28, height: 28 }}
                                                             >
-                                                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                                                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
                                                             </button>
                                                         </div>
                                                     ))}
@@ -289,14 +241,14 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
 
                                                 {/* Add store row */}
                                                 {addingStoreForUser === emp.id ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div className="stg-add-store-form">
                                                         <select
                                                             value={selectedStoreId}
                                                             onChange={(e) => setSelectedStoreId(e.target.value)}
                                                             className="stg-input"
-                                                            style={{ flex: 1, maxWidth: '300px', height: '36px', borderRadius: '8px', fontSize: '13px', border: '1px solid #e2e8f0' }}
+                                                            style={{ flex: 1, maxWidth: 300 }}
                                                         >
-                                                            <option value="">-- Chọn chi nhánh --</option>
+                                                            <option value="">— Chọn chi nhánh —</option>
                                                             {availableStores.map(s => (
                                                                 <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
                                                             ))}
@@ -305,18 +257,16 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
                                                             onClick={() => handleAddStore(emp.id)}
                                                             className="stg-btn stg-btn-primary stg-emerald"
                                                             disabled={saving || !selectedStoreId}
-                                                            style={{ height: '36px', fontSize: '13px' }}
                                                         >
                                                             {saving
-                                                                ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: '14px' }}>progress_activity</span>
-                                                                : <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>check</span>
+                                                                ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: 14 }}>progress_activity</span>
+                                                                : <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check</span>
                                                             }
                                                             Thêm
                                                         </button>
                                                         <button
                                                             onClick={() => { setAddingStoreForUser(null); setSelectedStoreId(''); }}
                                                             className="stg-btn stg-btn-outline"
-                                                            style={{ height: '36px', fontSize: '13px' }}
                                                         >
                                                             Hủy
                                                         </button>
@@ -326,9 +276,9 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
                                                         onClick={(e) => { e.stopPropagation(); setAddingStoreForUser(emp.id); setSelectedStoreId(''); }}
                                                         className="stg-btn stg-btn-outline stg-emerald"
                                                         disabled={saving || availableStores.length === 0}
-                                                        style={{ fontSize: '12px', padding: '5px 12px' }}
+                                                        style={{ fontSize: 12, padding: '6px 14px' }}
                                                     >
-                                                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>add</span>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
                                                         Thêm chi nhánh
                                                     </button>
                                                 )}
@@ -341,10 +291,14 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
                     })}
                 </div>
 
+                {/* ─── Empty State ─── */}
                 {filteredEmployees.length === 0 && (
                     <div className="stg-empty">
                         <span className="material-symbols-outlined">person_off</span>
                         <p>{searchQuery ? 'Không tìm thấy nhân viên phù hợp' : 'Chưa có nhân viên nào'}</p>
+                        {searchQuery && (
+                            <p style={{ fontSize: 12 }}>Thử tìm kiếm với từ khóa khác</p>
+                        )}
                     </div>
                 )}
             </div>

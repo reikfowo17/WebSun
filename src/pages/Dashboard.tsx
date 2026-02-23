@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { User } from '../types';
 import { DashboardService, type TaskItem } from '../services';
 import PortalHeader from '../components/PortalHeader';
+import '../styles/hq-sidebar.css';
 
 interface DashboardProps {
   user: User;
@@ -44,10 +45,48 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
-          <p className="text-gray-400 mt-2">Đang tải dữ liệu...</p>
+      <div className="p-8 max-w-7xl mx-auto hq-skeleton">
+        {/* Header skeleton */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+          <div>
+            <div className="hq-sk-line" style={{ width: 180, height: 24, marginBottom: 8 }} />
+            <div className="hq-sk-line" style={{ width: 220, height: 12 }} />
+          </div>
+          <div className="hq-sk-pill" style={{ width: 120, height: 32 }} />
+        </div>
+
+        {/* Cards skeleton */}
+        <div className="hq-sk-line" style={{ width: 80, height: 10, marginBottom: 16 }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginBottom: 48 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} className="hq-sk-wrap" style={{ padding: 0 }}>
+              <div className="hq-sk-card" style={{ height: 128, borderRadius: '14px 14px 0 0' }} />
+              <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="hq-sk-line" style={{ width: '50%', height: 12 }} />
+                <div className="hq-sk-pill" style={{ width: 60 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Table skeleton */}
+        <div className="hq-sk-wrap">
+          <div className="hq-sk-toolbar">
+            <div className="hq-sk-pill" style={{ width: 140 }} />
+          </div>
+          <div className="hq-sk-table-head" />
+          <div className="hq-sk-body">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="hq-sk-row">
+                <div className="hq-sk-circle" />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+                  <div className="hq-sk-line" style={{ width: `${75 - i * 8}%` }} />
+                  <div className="hq-sk-line" style={{ width: `${45 + i * 5}%`, height: 10 }} />
+                </div>
+                <div className="hq-sk-pill" style={{ width: 64 }} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

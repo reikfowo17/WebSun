@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { InventoryService } from '../../services';
 import { SystemService, StoreConfig } from '../../services/system';
 import ItemsDetailPanel from './components/ItemsDetailPanel';
+import '../../styles/hq-sidebar.css';
 
 interface ToastFn {
     success: (msg: string) => void;
@@ -133,10 +134,54 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ date, toast }) => {
 
     if (loading && stores.length === 0) {
         return (
-            <div className="ov-loading">
-                <span className="material-symbols-outlined ov-spin" style={{ fontSize: 32, color: '#6366f1' }}>sync</span>
-                <p>Đang tải dữ liệu tổng quan...</p>
-            </div>
+            <>
+                <style>{CSS_TEXT}</style>
+                <div className="ov-root hq-skeleton">
+                    {/* Summary strip skeleton */}
+                    <div className="hq-sk-wrap" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px' }}>
+                        {[1, 2, 3].map(i => (
+                            <React.Fragment key={i}>
+                                {i > 1 && <div style={{ width: 1, height: 32, background: '#f1f5f9', flexShrink: 0 }} />}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div className="hq-sk-circle" style={{ width: 10, height: 10, borderRadius: '50%' }} />
+                                    <div className="hq-sk-line" style={{ width: 60, height: 12 }} />
+                                    <div className="hq-sk-line" style={{ width: 24, height: 20 }} />
+                                </div>
+                            </React.Fragment>
+                        ))}
+                        <div style={{ flex: 1 }} />
+                        <div className="hq-sk-pill" style={{ width: 100 }} />
+                    </div>
+
+                    {/* Store cards skeleton */}
+                    <div className="ov-grid">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="hq-sk-wrap">
+                                {/* Card header */}
+                                <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid #f1f5f9' }}>
+                                    <div className="hq-sk-circle" style={{ width: 42, height: 42, borderRadius: 12 }} />
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+                                        <div className="hq-sk-line" style={{ width: `${70 - i * 10}%`, height: 16 }} />
+                                        <div className="hq-sk-line" style={{ width: 80, height: 10 }} />
+                                    </div>
+                                </div>
+                                {/* Shift rows */}
+                                <div style={{ padding: 12, display: 'flex', flexDirection: 'column' as const, gap: 8, background: '#f8fafc' }}>
+                                    {[1, 2, 3].map(s => (
+                                        <div key={s} className="hq-sk-row" style={{ borderRadius: 12, background: '#fff', border: 'none' }}>
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, gap: 5 }}>
+                                                <div className="hq-sk-line" style={{ width: `${90 - s * 15}%`, height: 14 }} />
+                                                <div className="hq-sk-line" style={{ width: `${50 + s * 5}%`, height: 10 }} />
+                                            </div>
+                                            <div className="hq-sk-pill" style={{ width: 72 }} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </>
         );
     }
 
