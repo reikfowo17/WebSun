@@ -26,7 +26,10 @@ const TAB_META: Record<TabId, { label: string; desc: string }> = {
 const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
     const toast = useToast();
     const [activeTab, setActiveTab] = useState<TabId>('OVERVIEW');
-    const [currentDate, setCurrentDate] = useState(new Date().toISOString().slice(0, 10));
+    const [currentDate, setCurrentDate] = useState(() => {
+        const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+        return vnNow.toISOString().slice(0, 10);
+    });
     const [pendingCount, setPendingCount] = useState(0);
     const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
 

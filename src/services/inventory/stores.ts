@@ -79,7 +79,37 @@ export async function getDistributionStatus(
         const storeId = await getStoreId(storeCode);
         if (!storeId) return empty;
 
-        const checkDate = date || await getInventoryDate(shift);
+        let checkDate = date;
+
+        if (!checkDate) {
+            // Try RPC date first, then fallback to actual DB data
+            const rpcDate = await getInventoryDate(shift);
+
+            // Check if items exist for RPC date
+            const { data: rpcItems } = await supabase
+                .from('inventory_items')
+                .select('id', { count: 'exact', head: true })
+                .eq('store_id', storeId)
+                .eq('shift', shift)
+                .eq('check_date', rpcDate);
+
+            if (rpcItems && rpcItems.length > 0) {
+                checkDate = rpcDate;
+            } else {
+                // RPC date has no items — find most recent actual date
+                const { data: latestItem } = await supabase
+                    .from('inventory_items')
+                    .select('check_date')
+                    .eq('store_id', storeId)
+                    .eq('shift', shift)
+                    .order('check_date', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (!latestItem) return empty;
+                checkDate = latestItem.check_date;
+            }
+        }
 
         const { data: items, error } = await supabase
             .from('inventory_items')
@@ -96,7 +126,7 @@ export async function getDistributionStatus(
             .eq('store_id', storeId)
             .eq('shift', shift)
             .eq('check_date', checkDate)
-            .single();
+            .maybeSingle();
 
         return {
             distributed: true,
@@ -219,56 +249,102 @@ export async function resetDistribution(
         const storeId = await getStoreId(storeCode);
         if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại' };
 
-        const today = await getInventoryDate(shift);
-
-        const { data: report } = await supabase
-            .from('inventory_reports')
-            .select('id, status')
+        // Find ACTUAL dates that have items for this store+shift
+        const { data: existingItems } = await supabase
+            .from('inventory_items')
+            .select('check_date')
             .eq('store_id', storeId)
-            .eq('shift', shift)
-            .eq('check_date', today)
-            .single();
+            .eq('shift', shift);
 
-        if (report?.status === 'APPROVED') {
-            return { success: false, message: 'Báo cáo đã DUYỆT — không thể reset' };
+        const uniqueDates = [...new Set((existingItems || []).map((d: any) => d.check_date))];
+        console.log(`[Reset] store=${storeCode} shift=${shift} foundDates=[${uniqueDates.join(',')}] itemCount=${existingItems?.length || 0}`);
+
+        if (uniqueDates.length === 0) {
+            return { success: true, itemCount: 0, message: 'Không có phân phối nào để xóa' };
         }
 
         if (!force) {
+            // Check if any items have been checked
             const { count } = await supabase
                 .from('inventory_items')
                 .select('id', { count: 'exact', head: true })
                 .eq('store_id', storeId)
                 .eq('shift', shift)
-                .eq('check_date', today)
+                .in('check_date', uniqueDates)
                 .not('actual_stock', 'is', null);
 
             if (count && count > 0) {
                 return {
                     success: false,
-                    message: `Có ${count} sản phẩm đã được nhập liệu. Dùng force=true để xóa.`,
+                    message: `Có ${count} sản phẩm đã được nhập liệu. Phân phối lại sẽ XÓA dữ liệu đã nhập. Bạn có chắc chắn?`,
                 };
             }
         }
 
-        if (report) {
-            await supabase.from('inventory_reports').delete().eq('id', report.id);
+        // Use SECURITY DEFINER RPC to bypass RLS
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_reset_distribution', {
+            p_store_id: storeId,
+            p_shift: shift,
+            p_check_dates: uniqueDates,
+        });
+
+        if (rpcError) {
+            console.error('[Reset] RPC error, falling back to direct delete:', rpcError.message);
+
+            // Fallback: direct delete (may fail due to RLS)
+            for (const d of uniqueDates) {
+                const { data: report } = await supabase
+                    .from('inventory_reports')
+                    .select('id, status')
+                    .eq('store_id', storeId)
+                    .eq('shift', shift)
+                    .eq('check_date', d)
+                    .maybeSingle();
+
+                if (report?.status === 'APPROVED') {
+                    return { success: false, message: `Báo cáo ngày ${d} đã DUYỆT — không thể reset` };
+                }
+                if (report) {
+                    await supabase.from('inventory_reports').delete().eq('id', report.id);
+                }
+            }
+
+            const { error, count: deletedCount } = await supabase
+                .from('inventory_items')
+                .delete({ count: 'exact' })
+                .eq('store_id', storeId)
+                .eq('shift', shift)
+                .in('check_date', uniqueDates);
+
+            if (error) throw error;
+            console.log(`[Reset] Fallback deletedCount=${deletedCount}`);
+
+            const latestDate = uniqueDates.sort().pop() || '';
+            await logDistribution(storeId, shift, latestDate, 'RESET', deletedCount || 0, force ? 'Forced reset' : undefined);
+
+            return {
+                success: true,
+                itemCount: deletedCount || 0,
+                message: `Đã xóa ${deletedCount || 0} mục phân phối`,
+            };
         }
 
-        const { error, count: deletedCount } = await supabase
-            .from('inventory_items')
-            .delete({ count: 'exact' })
-            .eq('store_id', storeId)
-            .eq('shift', shift)
-            .eq('check_date', today);
+        // RPC succeeded
+        const result = rpcResult as any;
+        console.log(`[Reset] RPC result:`, result);
 
-        if (error) throw error;
+        if (!result?.success) {
+            return { success: false, message: result?.message || 'Lỗi khi reset' };
+        }
 
-        await logDistribution(storeId, shift, today, 'RESET', deletedCount || 0, force ? 'Forced reset' : undefined);
+        const deletedCount = result.deleted_items || 0;
+        const latestDate = uniqueDates.sort().pop() || '';
+        await logDistribution(storeId, shift, latestDate, 'RESET', deletedCount, force ? 'Forced reset' : undefined);
 
         return {
             success: true,
-            itemCount: deletedCount || 0,
-            message: `Đã xóa ${deletedCount || 0} mục phân phối`,
+            itemCount: deletedCount,
+            message: result.message || `Đã xóa ${deletedCount} mục phân phối`,
         };
     } catch (e: any) {
         console.error('[Inventory] Reset error:', e);

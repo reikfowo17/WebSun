@@ -10,354 +10,319 @@ interface InventoryProps {
   onBack?: () => void;
 }
 
+const makeFilterTabs = (stats: { total: number; checked: number; missing: number; over: number }, editable: boolean) => {
+  const tabs: { key: string; label: string; count: number; accent: string }[] = [
+    { key: 'ALL', label: 'Tất cả', count: stats.total, accent: 'bg-gray-600 dark:bg-gray-200 text-white dark:text-gray-800' },
+  ];
+  if (editable) tabs.push({ key: 'PENDING', label: 'Chưa kiểm', count: stats.total - stats.checked, accent: 'bg-gray-400 text-white' });
+  tabs.push({ key: 'MISSING', label: 'Thiếu', count: stats.missing, accent: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' });
+  tabs.push({ key: 'OVER', label: 'Thừa', count: stats.over, accent: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' });
+  return tabs;
+};
+
 const Inventory: React.FC<InventoryProps> = ({ user }) => {
   const navigate = useNavigate();
-
   const {
-    shifts,
-    shiftsLoading,
-    shift,
-    setShift,
-    products,
-    loading,
-    submitting,
-    syncing,
-    search,
-    setSearch,
-    filterStatus,
-    setFilterStatus,
-    showSyncModal,
-    setShowSyncModal,
-    shiftSubmitted,
-    setShiftSubmitted,
-    confirmSubmit,
-    setConfirmSubmit,
-    stats,
-    filteredProducts,
-    progressPercent,
-    currentShift,
-    updateField,
-    handleSubmit,
-    doSubmit,
-    handlePrint,
-    handleSync
+    shifts, shiftsLoading, shift, setShift,
+    products, loading, submitting, syncing,
+    search, setSearch, filterStatus, setFilterStatus,
+    showSyncModal, setShowSyncModal,
+    shiftSubmitted, setShiftSubmitted,
+    confirmSubmit, setConfirmSubmit,
+    stats, filteredProducts, progressPercent, currentShift,
+    updateField, handleSubmit, doSubmit, handlePrint, handleSync
   } = useInventory(user);
 
-  /* ─── Loading ─── */
   if (shiftsLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="inv-spinner" />
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]" role="status">
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="inv-page">
-      {/* ══════ PORTAL HEADER ══════ */}
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-[#0a0a0a]">
       <PortalHeader>
-        <div className="flex items-center justify-between w-full h-full pr-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="inv-icon-btn" aria-label="Quay lại">
-              <span className="material-symbols-outlined">arrow_back</span>
-            </button>
-            <div>
-              <h1 className="text-base font-extrabold text-gray-900 flex items-center gap-1.5 leading-tight">
-                <span className="material-symbols-outlined text-primary text-lg">inventory_2</span>
-                Kiểm Kho
-              </h1>
-              <p className="text-[10px] text-gray-400 leading-tight">
-                {user.store} • {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
+            <span className="material-symbols-outlined text-emerald-500">inventory_2</span>
+            <span>Kiểm Kho</span>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!shiftSubmitted.submitted && (
+            <>
+              <button
+                onClick={() => setShowSyncModal(true)}
+                disabled={syncing || loading}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-sm font-medium ${syncing ? 'text-blue-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <span className={`material-symbols-outlined text-lg ${syncing ? 'animate-spin' : ''}`}>
+                  {syncing ? 'progress_activity' : 'cloud_sync'}
+                </span>
+                <span className="hidden sm:inline">{syncing ? 'Đang sync...' : 'Đồng bộ'}</span>
+              </button>
+              <button onClick={handlePrint} disabled={products.length === 0} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 disabled:opacity-50">
+                <span className="material-symbols-outlined text-lg">print</span>
+              </button>
+            </>
+          )}
 
           {!shiftSubmitted.submitted && (
             <button
               onClick={handleSubmit}
               disabled={submitting || loading || stats.checked === 0}
-              className="inv-primary-btn"
+              className="flex items-center gap-2 px-4 py-1.5 ml-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold shadow-sm shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? (
-                <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
-              ) : (
-                <span className="material-symbols-outlined text-base">send</span>
-              )}
-              <span className="hidden sm:inline">Nộp Báo Cáo</span>
+              <span className={`material-symbols-outlined text-lg ${submitting ? 'animate-spin' : ''}`}>
+                {submitting ? 'progress_activity' : 'send'}
+              </span>
+              <span className="hidden sm:inline">Nộp báo cáo</span>
             </button>
           )}
         </div>
       </PortalHeader>
 
-      {/* ══════ CONTROL BAR: Shifts + Tools ══════ */}
-      <div className="inv-control-bar">
-        {/* Shift pills */}
-        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0 hidden sm:block">Ca</span>
-          {shifts.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setShift(s.id)}
-              className={`inv-shift-pill ${shift === s.id ? 'active' : ''}`}
-              style={shift === s.id ? {
-                background: `linear-gradient(135deg, var(--sf), var(--st))`,
-                ['--sf' as any]: s.color.includes('amber') ? '#fbbf24' : s.color.includes('blue') ? '#60a5fa' : '#a78bfa',
-                ['--st' as any]: s.color.includes('orange') ? '#fb923c' : s.color.includes('indigo') ? '#818cf8' : '#8b5cf6',
-              } : undefined}
-            >
-              <span className="material-symbols-outlined text-sm">{s.icon}</span>
-              {s.name}
-            </button>
-          ))}
-          <span className="text-[11px] text-gray-400 ml-1 hidden sm:inline flex-shrink-0">{currentShift.time}</span>
-        </div>
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="max-w-6xl mx-auto space-y-5">
 
-        {/* Tools */}
-        {!shiftSubmitted.submitted && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button
-              onClick={() => setShowSyncModal(true)}
-              disabled={syncing || loading}
-              className={`inv-tool-btn ${syncing ? 'syncing' : ''}`}
-            >
-              <span className={`material-symbols-outlined text-sm ${syncing ? 'animate-spin' : ''}`}>
-                {syncing ? 'progress_activity' : 'cloud_sync'}
-              </span>
-              <span className="hidden sm:inline">{syncing ? 'Đang...' : 'Đồng bộ Kiot'}</span>
-            </button>
-            <button onClick={handlePrint} disabled={products.length === 0} className="inv-tool-btn">
-              <span className="material-symbols-outlined text-sm">print</span>
-              <span className="hidden sm:inline">In</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ══════ MAIN CONTENT ══════ */}
-      <main className="inv-main">
-        <div className="max-w-6xl mx-auto space-y-3">
-
-          {/* ── INLINE PROGRESS ── */}
-          <div className="inv-progress-row">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span className="font-bold">{stats.checked}/{stats.total}</span>
-              <span className="text-gray-300">đã kiểm</span>
-            </div>
-            <div className="inv-progress-track flex-1 mx-3">
-              <div
-                className={`inv-progress-fill ${progressPercent === 100 ? 'done' : ''}`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <span className={`text-xs font-extrabold ${progressPercent === 100 ? 'text-emerald-600' : 'text-gray-400'}`}>
-              {progressPercent}%
-            </span>
-          </div>
-
-          {/* ══════ SUBMITTED STATE ══════ */}
-          {shiftSubmitted.submitted && !shiftSubmitted.viewingData ? (
-            <div className="inv-success-card">
-              <div className="inv-success-glow" />
-              <div className="relative text-center py-10 px-6">
-                {/* Icon */}
-                <div className="relative inline-flex mb-5">
-                  <div className="absolute inset-0 w-20 h-20 rounded-full bg-emerald-400/20 animate-pulse" />
-                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-xl">
-                    <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                  </div>
-                </div>
-                <h2 className="text-xl font-black text-gray-900 mb-1">Đã hoàn tất!</h2>
-                <p className="text-sm text-gray-500 mb-6">{currentShift.name} ({currentShift.time})</p>
-
-                {/* Submitter chip */}
-                <div className="inline-flex items-center gap-3 bg-white/80 rounded-xl px-4 py-2.5 ring-1 ring-gray-100 mb-6">
-                  <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-sm">person</span>
-                  </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-800">{shiftSubmitted.submittedBy}</span>
-                      <span className={`inv-badge ${(shiftSubmitted.status || 'pending').toLowerCase()}`}>
-                        {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-400">
-                      {shiftSubmitted.submittedAt
-                        ? new Date(shiftSubmitted.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-                        : 'Vừa xong'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action row */}
-                <div className="flex gap-3 max-w-xs mx-auto">
+          {/* Controls & Progress Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Shifts */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-[#1a1a1a] p-2 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
+              <div className="flex p-1 bg-gray-100 dark:bg-[#0a0a0a] rounded-xl w-full sm:w-auto overflow-x-auto hide-scrollbar">
+                {shifts.map(s => (
                   <button
-                    onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: true }))}
-                    className="flex-1 inv-outline-btn"
+                    key={s.id}
+                    onClick={() => setShift(s.id)}
+                    className={`flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${shift === s.id
+                      ? 'bg-white dark:bg-[#1a1a1a] shadow-sm text-emerald-600 dark:text-emerald-400 font-bold transform hover:-translate-y-0.5'
+                      : 'text-gray-500 dark:text-gray-400 font-medium hover:text-gray-700 dark:hover:text-gray-200'
+                      }`}
                   >
-                    <span className="material-symbols-outlined text-lg">visibility</span>
+                    <span className="material-symbols-outlined text-lg">{s.icon}</span>
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 px-4 font-medium">
+                <span className="material-symbols-outlined text-base">schedule</span>
+                {currentShift.time}
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div className="bg-white dark:bg-[#1a1a1a] p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800">
+              <div className="flex justify-between items-end mb-2">
+                <div>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.checked}/{stats.total}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">đã kiểm</span>
+                </div>
+                <span className="text-emerald-500 font-bold text-lg">{progressPercent}%</span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Success / Data View */}
+          {shiftSubmitted.submitted && !shiftSubmitted.viewingData ? (
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-md overflow-hidden relative mt-8">
+              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-emerald-50 to-transparent dark:from-emerald-900/10 pointer-events-none"></div>
+              <div className="p-10 flex flex-col items-center text-center relative z-10">
+                <div className="mb-8 relative">
+                  <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center animate-pulse">
+                    <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                      <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+                    </div>
+                  </div>
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-bounce delay-75 opacity-80" />
+                  <div className="absolute -bottom-1 -left-2 w-4 h-4 bg-blue-400 rounded-full animate-bounce delay-150 opacity-80" />
+                </div>
+                <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">Đã hoàn tất!</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-sm">
+                  Báo cáo kiểm kho <strong>{currentShift.name} ({currentShift.time})</strong> đã được ghi nhận.
+                </p>
+
+                <div className="bg-gray-50 dark:bg-[#0a0a0a] rounded-xl p-4 flex items-center gap-4 mb-8 border border-gray-100 dark:border-gray-800 shadow-sm max-w-md w-full">
+                  <div className="w-10 h-10 bg-gray-800 text-white rounded-lg flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined">person</span>
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="font-bold text-gray-900 dark:text-white">{shiftSubmitted.submittedBy}</div>
+                    <div className="text-xs text-gray-500">{shiftSubmitted.submittedAt ? new Date(shiftSubmitted.submittedAt).toLocaleString('vi-VN') : 'Vừa xong'}</div>
+                  </div>
+                  <span className={`px-3 py-1 text-xs font-bold uppercase rounded-lg border ${shiftSubmitted.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                    shiftSubmitted.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+                      'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'
+                    }`}>
+                    {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                  </span>
+                </div>
+
+                <div className="flex gap-4">
+                  <button onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: true }))} className="px-6 py-2.5 bg-white dark:bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all flex items-center gap-2">
+                    <span className="material-symbols-outlined text-xl">visibility</span>
                     Xem báo cáo
                   </button>
-                  <button onClick={() => navigate('/')} className="flex-1 inv-dark-btn">
-                    <span className="material-symbols-outlined text-lg">home</span>
-                    Về trang chủ
+                  <button onClick={() => navigate('/')} className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-semibold hover:bg-gray-800 dark:hover:bg-gray-100 transition-all flex items-center gap-2">
+                    <span className="material-symbols-outlined text-xl">home</span>
+                    Trang chủ
                   </button>
                 </div>
               </div>
             </div>
-
-          ) : shiftSubmitted.submitted && shiftSubmitted.viewingData ? (
-            /* ══════ READ-ONLY DETAIL ══════ */
-            <>
-              <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-3">
-                <button onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: false }))} className="inv-icon-btn small">
-                  <span className="material-symbols-outlined text-sm">arrow_back</span>
-                </button>
-                <div className="flex-1">
-                  <h2 className="text-sm font-extrabold text-gray-900">Báo cáo {currentShift.name}</h2>
-                  <p className="text-[10px] text-gray-400">{shiftSubmitted.submittedBy} • {currentShift.time}</p>
+          ) : (
+            /* Table Area */
+            <div className="space-y-4">
+              {shiftSubmitted.submitted && shiftSubmitted.viewingData && (
+                <div className="flex items-center gap-3 bg-white dark:bg-[#1a1a1a] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+                  <button onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: false }))} className="w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center">
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
+                  <div>
+                    <h3 className="font-bold text-gray-900 dark:text-white">Chi tiết {currentShift.name}</h3>
+                    <p className="text-xs text-gray-500">{shiftSubmitted.submittedBy}</p>
+                  </div>
                 </div>
-                <span className={`inv-badge ${(shiftSubmitted.status || 'pending').toLowerCase()}`}>
-                  {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-                </span>
-              </div>
+              )}
 
-              {/* Search + Filter */}
-              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                <div className="inv-search flex-1 max-w-sm">
-                  <span className="material-symbols-outlined">search</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm sản phẩm..." />
-                  {search && <button onClick={() => setSearch('')} className="inv-search-x"><span className="material-symbols-outlined text-xs">close</span></button>}
-                </div>
-                <div className="inv-tabs">
-                  {[
-                    { key: 'ALL', label: 'Tất cả', count: stats.total },
-                    { key: 'MISSING', label: 'Thiếu', count: stats.missing, accent: 'red' },
-                    { key: 'OVER', label: 'Thừa', count: stats.over, accent: 'amber' },
-                  ].map(t => (
-                    <button key={t.key} onClick={() => setFilterStatus(t.key)} className={`inv-tab ${filterStatus === t.key ? 'on' : ''} ${t.accent || ''}`}>
-                      {t.label} <span className="inv-tab-count">{t.count}</span>
+              {/* Search & Tabs */}
+              <div className="flex flex-col xl:flex-row gap-4">
+                <div className="relative flex-1 group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-gray-400 group-focus-within:text-emerald-500 transition-colors">search</span>
+                  </div>
+                  <input
+                    value={search} onChange={e => setSearch(e.target.value)}
+                    className="block w-full pl-12 pr-10 py-3.5 border-none ring-1 ring-gray-200 dark:ring-gray-800 rounded-2xl bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 shadow-sm transition-shadow outline-none font-medium"
+                    placeholder="Tìm sản phẩm (tên, barcode)..."
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <span className="material-symbols-outlined text-sm">close</span>
                     </button>
-                  ))}
+                  )}
+                </div>
+                <div className="flex items-center bg-white dark:bg-[#1a1a1a] p-1.5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-x-auto hide-scrollbar">
+                  {makeFilterTabs(stats, !shiftSubmitted.submitted).map(t => {
+                    const isActive = filterStatus === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        onClick={() => setFilterStatus(t.key)}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${isActive
+                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}
+                      >
+                        {t.label}
+                        <span className={`text-[11px] py-0.5 px-2 rounded-md ${isActive ? 'bg-gray-700 dark:bg-gray-200 text-white dark:text-gray-800' : t.accent}`}>
+                          {t.count}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* Read-only table */}
-              <div className="inv-card">
-                <div className="overflow-x-auto">
-                  <table className="inv-table">
-                    <colgroup>
-                      <col style={{ width: '5%' }} /><col style={{ width: '30%' }} /><col style={{ width: '15%' }} />
-                      <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '20%' }} />
-                    </colgroup>
-                    <thead><tr>
-                      <th className="text-center">#</th><th>Sản phẩm</th><th className="text-center">Barcode</th>
-                      <th className="text-center">Kiot</th><th className="text-center">Thực tế</th><th className="text-center">Lệch</th><th>Ghi chú</th>
-                    </tr></thead>
-                    <tbody>
-                      {filteredProducts.map((p, i) => {
-                        const d = p.diff;
-                        const cls = d == null ? '' : d === 0 ? 'ok' : d < 0 ? 'miss' : 'over';
-                        return (
-                          <tr key={p.id} className={cls ? `row-${cls}` : ''}>
-                            <td className="text-center text-gray-400 text-xs">{i + 1}</td>
-                            <td className="font-semibold text-gray-800 truncate">{p.productName}</td>
-                            <td className="text-center text-xs text-gray-400 font-mono">{p.barcode || ''}</td>
-                            <td className="text-center font-bold">{p.systemStock ?? '-'}</td>
-                            <td className="text-center font-bold text-gray-900">{p.actualStock ?? '-'}</td>
-                            <td className={`text-center font-extrabold diff-${cls}`}>
-                              {d == null ? '-' : d > 0 ? `+${d}` : d}
-                            </td>
-                            <td className="text-xs text-gray-400">{p.note || '—'}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-
-          ) : !shiftSubmitted.submitted ? (
-            /* ══════ EDITABLE MODE ══════ */
-            <>
-              {/* Search + Filter */}
-              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                <div className="inv-search flex-1 max-w-md">
-                  <span className="material-symbols-outlined">search</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm sản phẩm theo tên hoặc barcode..." />
-                  {search && <button onClick={() => setSearch('')} className="inv-search-x"><span className="material-symbols-outlined text-xs">close</span></button>}
-                </div>
-                <div className="inv-tabs">
-                  {[
-                    { key: 'ALL', label: 'Tất cả', count: stats.total },
-                    { key: 'PENDING', label: 'Chưa kiểm', count: stats.total - stats.checked },
-                    { key: 'MISSING', label: 'Thiếu', count: stats.missing, accent: 'red' },
-                    { key: 'OVER', label: 'Thừa', count: stats.over, accent: 'amber' },
-                  ].map(t => (
-                    <button key={t.key} onClick={() => setFilterStatus(t.key)} className={`inv-tab ${filterStatus === t.key ? 'on' : ''} ${t.accent || ''}`}>
-                      {t.label} <span className="inv-tab-count">{t.count}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Table */}
+              {/* Data Table */}
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <div className="inv-spinner" />
-                  <p className="text-sm text-gray-400">Đang tải...</p>
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm font-medium text-gray-500">Đang tải dữ liệu...</p>
                 </div>
               ) : filteredProducts.length === 0 ? (
-                <div className="text-center py-16 bg-white/60 rounded-2xl border-2 border-dashed border-gray-200">
-                  <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">inventory_2</span>
-                  <p className="font-bold text-gray-500">{search ? 'Không tìm thấy sản phẩm' : 'Danh sách trống'}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{search ? 'Thử từ khóa khác' : ''}</p>
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-200 dark:border-gray-800 py-20 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
+                    <span className="material-symbols-outlined text-3xl text-gray-400">inventory_2</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Không tìm thấy</h3>
+                  <p className="text-sm text-gray-500">Hãy thử tìm với từ khóa hoặc bộ lọc khác.</p>
                 </div>
               ) : (
-                <div className="inv-card">
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="inv-table editable">
-                      <colgroup>
-                        <col style={{ width: '4%' }} /><col style={{ width: '24%' }} /><col style={{ width: '9%' }} />
-                        <col style={{ width: '14%' }} /><col style={{ width: '7%' }} /><col style={{ width: '14%' }} />
-                        <col style={{ width: '8%' }} /><col style={{ width: '20%' }} />
-                      </colgroup>
-                      <thead><tr>
-                        <th className="text-center">#</th><th>Tên Sản Phẩm</th><th className="text-center">Mã SP</th>
-                        <th className="text-center">Barcode</th><th className="text-center">Kiot</th>
-                        <th className="text-center inv-th-highlight">Thực tế</th><th className="text-center">Lệch</th><th>Ghi chú</th>
-                      </tr></thead>
-                      <tbody>
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                      <thead className="bg-gray-50/50 dark:bg-[#111]">
+                        <tr>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-12">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sản phẩm</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Mã Kiot</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider w-32">Thực tế</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Lệch</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-48">Ghi chú</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {filteredProducts.map((p, i) => {
+                          const isSubmitted = shiftSubmitted.submitted;
                           const d = p.diff;
-                          const cls = d == null ? '' : d === 0 ? 'ok' : d < 0 ? 'miss' : 'over';
+                          const hasDiff = d != null && d !== 0;
+
+                          const rowClass = hasDiff
+                            ? 'bg-yellow-50/30 dark:bg-yellow-900/10 hover:bg-yellow-50/60 dark:hover:bg-yellow-900/20'
+                            : i % 2 === 0 ? 'bg-white dark:bg-[#1a1a1a] hover:bg-gray-50/80 dark:hover:bg-gray-800/30' : 'bg-gray-50/40 dark:bg-[#171717] hover:bg-gray-50/80 dark:hover:bg-gray-800/30';
+
                           return (
-                            <tr key={p.id} className={`${i % 2 ? 'alt' : ''} ${cls ? `row-${cls}` : ''}`}>
-                              <td className="text-center text-gray-400 text-xs">{i + 1}</td>
-                              <td className="font-semibold text-gray-800 truncate">{p.productName}</td>
-                              <td className="text-center text-[11px] text-gray-400 font-mono">{p.sp || ''}</td>
-                              <td className="text-center text-[11px] text-gray-400 font-mono">{p.barcode || ''}</td>
-                              <td className="text-center font-bold text-gray-600">{p.systemStock ?? '-'}</td>
-                              <td className="inv-input-cell">
-                                <input
-                                  type="number"
-                                  inputMode="numeric"
-                                  value={p.actualStock == null ? '' : p.actualStock}
-                                  onChange={e => updateField(String(p.id), 'actualStock', e.target.value)}
-                                  placeholder="0"
-                                />
+                            <tr key={p.id} className={`transition-colors border-l-4 ${hasDiff ? (d > 0 ? 'border-yellow-400' : 'border-red-400') : 'border-transparent'} ${rowClass}`}>
+                              <td className="px-4 py-3 text-center text-xs text-gray-400 font-medium">{i + 1}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{p.productName}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{p.barcode || p.sp || 'N/A'}</span>
+                                </div>
                               </td>
-                              <td className={`text-center font-extrabold diff-${cls}`}>
-                                {d == null ? '-' : d}
+                              <td className="px-4 py-3 text-center text-sm font-semibold text-gray-600 dark:text-gray-400">
+                                {p.systemStock ?? '-'}
                               </td>
-                              <td className="inv-note-cell">
-                                <input
-                                  type="text"
-                                  value={p.note || ''}
-                                  onChange={e => updateField(String(p.id), 'note', e.target.value)}
-                                  placeholder="..."
-                                />
+                              <td className="px-4 py-3 text-center">
+                                {isSubmitted ? (
+                                  <span className="font-extrabold text-base text-gray-900 dark:text-white">{p.actualStock ?? '-'}</span>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    value={p.actualStock == null ? '' : p.actualStock}
+                                    onChange={e => updateField(String(p.id), 'actualStock', e.target.value)}
+                                    className="w-full h-10 text-center font-bold text-lg bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-shadow"
+                                    placeholder="-"
+                                  />
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {d == null ? (
+                                  <span className="text-gray-400 font-medium">-</span>
+                                ) : (
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold leading-none ${d === 0 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                                    d > 0 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-500' :
+                                      'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                    }`}>
+                                    {d > 0 ? `+${d}` : d}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {isSubmitted ? (
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">{p.note || '—'}</span>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={p.note || ''}
+                                    onChange={e => updateField(String(p.id), 'note', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#1a1a1a] outline-none transition-shadow"
+                                    placeholder="Ghi chú..."
+                                  />
+                                )}
                               </td>
                             </tr>
                           );
@@ -367,37 +332,38 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                   </div>
                 </div>
               )}
-            </>
-          ) : null}
+            </div>
+          )}
         </div>
-      </main>
+      </div>
 
-      {/* ══════ SYNC MODAL ══════ */}
+      {/* Sync Modal */}
       {showSyncModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="inv-modal">
-            <div className="inv-modal-head">
-              <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <span className="material-symbols-outlined text-xl">cloud_sync</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSyncModal(false)}></div>
+          <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+            <div className="p-6">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-2xl">cloud_sync</span>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-gray-800">Đồng bộ KiotViet</h3>
-                <p className="text-[11px] text-gray-400">Cập nhật tồn kho real-time</p>
-              </div>
-            </div>
-            <div className="p-5 space-y-3">
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Hệ thống sẽ lấy số tồn kho từ <strong>KiotViet</strong> và cập nhật vào cột <strong>"Kiot"</strong>.
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Đồng bộ KiotViet</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Lấy số liệu tồn kho mới nhất từ hệ thống KiotViet. Vui lòng đồng bộ trước khi bắt đầu kiểm hàng.
               </p>
-              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <span className="material-symbols-outlined text-blue-500 text-sm mt-0.5">tips_and_updates</span>
-                <p className="text-xs text-blue-700">Nên đồng bộ <strong>trước khi kiểm</strong> để có số liệu chính xác.</p>
-              </div>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
-              <button onClick={() => setShowSyncModal(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Hủy</button>
-              <button onClick={handleSync} className="px-4 py-2 text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-base">cloud_sync</span>Đồng bộ ngay
+            <div className="flex border-t border-gray-100 dark:border-gray-800">
+              <button
+                onClick={() => setShowSyncModal(false)}
+                className="flex-1 py-3.5 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <div className="w-px bg-gray-100 dark:bg-gray-800"></div>
+              <button
+                onClick={() => { handleSync(); setShowSyncModal(false); }}
+                className="flex-1 py-3.5 text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              >
+                Đồng bộ ngay
               </button>
             </div>
           </div>
@@ -409,7 +375,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
         title={confirmSubmit.title}
         message={confirmSubmit.message}
         variant="warning"
-        confirmText="Nộp báo cáo"
+        confirmText="Xác nhận nộp"
         onConfirm={doSubmit}
         onCancel={() => setConfirmSubmit({ show: false, message: '', title: '' })}
         loading={submitting}

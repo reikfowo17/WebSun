@@ -450,10 +450,14 @@ export async function getOverview(date: string): Promise<{
     }
 
     try {
+        const prevDate = new Date(date + 'T00:00:00');
+        prevDate.setDate(prevDate.getDate() - 1);
+        const yesterdayStr = prevDate.toISOString().slice(0, 10);
+
         const { data: storesOverview, error } = await supabase
             .from('inventory_overview_dashboard')
             .select('*')
-            .eq('check_date', date);
+            .in('check_date', [date, yesterdayStr]);
 
         if (error) throw error;
 
@@ -482,18 +486,48 @@ export async function getOverview(date: string): Promise<{
             };
         }).filter((store: any) => store.progress.total > 0);
 
+        const deduped = new Map<string, any>();
+        for (const s of stores) {
+            const key = `${s.code}-${s.shift}`;
+            const existing = deduped.get(key);
+            if (!existing) {
+                deduped.set(key, s);
+            } else {
+                const preferDate = s.shift === 3 ? yesterdayStr : date;
+                const sDate = (storesOverview || []).find((r: any) =>
+                    r.store_code === s.code && r.shift === s.shift && r.check_date === preferDate
+                );
+                if (sDate) {
+                    const pct = sDate.total_items > 0 ? Math.round((sDate.checked_items / sDate.total_items) * 100) : 0;
+                    deduped.set(key, {
+                        ...s,
+                        progress: {
+                            total: sDate.total_items,
+                            checked: sDate.checked_items,
+                            matched: sDate.matched_items,
+                            missing: sDate.missing_items,
+                            over: sDate.over_items,
+                            percentage: pct,
+                        },
+                        reportStatus: sDate.report_status || null,
+                    });
+                }
+            }
+        }
+        const finalStores = Array.from(deduped.values());
+
         const stats = {
-            totalStores: stores.length,
-            completedStores: stores.filter((s: any) => s.reportStatus === 'APPROVED').length,
-            inProgressStores: stores.filter((s: any) => s.reportStatus === 'PENDING' || (s.progress.checked > 0 && !s.reportStatus)).length,
-            pendingStores: stores.filter((s: any) => s.progress.checked === 0 && !s.reportStatus).length,
-            issuesCount: stores.reduce((sum: number, s: any) => sum + s.progress.missing + s.progress.over, 0)
+            totalStores: finalStores.length,
+            completedStores: finalStores.filter((s: any) => s.reportStatus === 'APPROVED').length,
+            inProgressStores: finalStores.filter((s: any) => s.reportStatus === 'PENDING' || (s.progress.checked > 0 && !s.reportStatus)).length,
+            pendingStores: finalStores.filter((s: any) => s.progress.checked === 0 && !s.reportStatus).length,
+            issuesCount: finalStores.reduce((sum: number, s: any) => sum + s.progress.missing + s.progress.over, 0)
         };
 
         return {
             success: true,
             stats,
-            stores
+            stores: finalStores
         };
     } catch (e: any) {
         console.error('[Inventory] Get overview error:', e);

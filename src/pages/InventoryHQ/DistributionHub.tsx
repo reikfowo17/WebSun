@@ -50,6 +50,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'redistribute' | 'redistributeAll' | 'reset' | 'resetAll' | 'newSession'; message: string } | null>(null);
     const [distStatus, setDistStatus] = useState<DistributionStatus | null>(null);
+    const [allStoresStatus, setAllStoresStatus] = useState<{ distributed: number; totalItems: number; checkedItems: number } | null>(null);
     const [loadingStatus, setLoadingStatus] = useState(false);
     const filteredProducts = useMemo(() => {
         if (!searchQuery) return products;
@@ -82,14 +83,34 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     }, [toast]);
 
     const loadDistStatus = useCallback(async () => {
-        if (selectedStore === 'ALL') { setDistStatus(null); return; }
         setLoadingStatus(true);
         try {
-            const st = await getDistributionStatus(selectedStore, selectedShift);
-            setDistStatus(st);
-        } catch { setDistStatus(null); }
-        finally { setLoadingStatus(false); }
-    }, [selectedStore, selectedShift]);
+            if (selectedStore === 'ALL') {
+                setDistStatus(null);
+                // Load aggregated status for all stores
+                if (stores.length > 0) {
+                    const results = await Promise.all(
+                        stores.map(s => getDistributionStatus(s.code, selectedShift))
+                    );
+                    const distributed = results.filter(r => r.distributed).length;
+                    const totalItems = results.reduce((sum, r) => sum + r.totalItems, 0);
+                    const checkedItems = results.reduce((sum, r) => sum + r.checkedItems, 0);
+                    setAllStoresStatus({ distributed, totalItems, checkedItems });
+                } else {
+                    setAllStoresStatus(null);
+                }
+            } else {
+                setAllStoresStatus(null);
+                const st = await getDistributionStatus(selectedStore, selectedShift);
+                setDistStatus(st);
+            }
+        } catch {
+            setDistStatus(null);
+            setAllStoresStatus(null);
+        } finally {
+            setLoadingStatus(false);
+        }
+    }, [selectedStore, selectedShift, stores]);
 
     useEffect(() => {
         loadMasterProducts();
@@ -425,102 +446,109 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
 
                         <div className="dh-divider" />
 
-                        {/* Summary */}
-                        <div className="dh-field">
-                            <label className="dh-label">Tổng quan</label>
-                            <div className="dh-summary-items">
-                                <div className="dh-summary-row">
-                                    <span>Tổng sản phẩm</span>
-                                    <strong>{products.length}</strong>
-                                </div>
-                                <div className="dh-summary-row">
-                                    <span>Cửa hàng</span>
-                                    <strong>{selectedStore === 'ALL' ? `${stores.length} CH` : stores.find(s => s.code === selectedStore)?.name || selectedStore}</strong>
-                                </div>
-                                <div className="dh-summary-row">
-                                    <span>Ca</span>
-                                    <strong>Ca {selectedShift}</strong>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Distribution Status */}
-                        {selectedStore !== 'ALL' && (
-                            <>
-                                <div className="dh-divider" />
-                                <div className="dh-field">
-                                    <label className="dh-label">Trạng thái phân phối</label>
+                        <div className="dh-field">
+                            <label className="dh-label">Trạng thái phân phối</label>
+                            {selectedStore === 'ALL' ? (
+                                /* ALL stores mode — show bulk actions */
+                                <div className="dh-status-card dh-status-all">
+                                    <div className="dh-status-header">
+                                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#3b82f6' }}>store</span>
+                                        <span>{stores.length} cửa hàng • Ca {selectedShift}</span>
+                                    </div>
                                     {loadingStatus ? (
-                                        <div className="dh-status-loading">
+                                        <div className="dh-status-loading" style={{ padding: '4px 0' }}>
                                             <span className="material-symbols-outlined dh-spin" style={{ fontSize: 16 }}>sync</span>
                                             <span>Đang kiểm tra...</span>
                                         </div>
-                                    ) : distStatus?.distributed ? (
-                                        <div className="dh-status-card dh-status-active">
-                                            <div className="dh-status-header">
-                                                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10b981' }}>check_circle</span>
-                                                <span>Đã phân phối</span>
-                                            </div>
-                                            <div className="dh-status-details">
-                                                <div className="dh-status-row">
-                                                    <span>Tổng SP</span>
-                                                    <strong>{distStatus.totalItems}</strong>
-                                                </div>
-                                                <div className="dh-status-row">
-                                                    <span>Đã nhập</span>
-                                                    <strong style={{ color: distStatus.checkedItems > 0 ? '#f59e0b' : '#6b7280' }}>{distStatus.checkedItems}</strong>
-                                                </div>
-                                                {distStatus.reportStatus && (
-                                                    <div className="dh-status-row">
-                                                        <span>Báo cáo</span>
-                                                        <span className={`dh-report-badge ${distStatus.reportStatus.toLowerCase()}`}>{distStatus.reportStatus}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="dh-status-actions">
-                                                <button
-                                                    onClick={handleRedistribute}
-                                                    disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
-                                                    className="dh-btn-redistrib"
-                                                    title={distStatus.reportStatus === 'APPROVED' ? 'Báo cáo đã duyệt — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
-                                                >
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>sync_alt</span>
-                                                    Phân phối lại
-                                                </button>
-                                                <button
-                                                    onClick={handleResetDist}
-                                                    disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
-                                                    className="dh-btn-reset-dist"
-                                                    title="Xóa toàn bộ phân phối cho store/ca này"
-                                                >
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete_sweep</span>
-                                                </button>
-                                            </div>
-                                        </div>
                                     ) : (
-                                        <div className="dh-status-card dh-status-empty">
-                                            <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#d1d5db' }}>inbox</span>
-                                            <span>Chưa phân phối cho ca này</span>
+                                        <div className="dh-status-details">
+                                            <div className="dh-status-row">
+                                                <span>SP master</span>
+                                                <strong>{products.length}</strong>
+                                            </div>
+                                            <div className="dh-status-row">
+                                                <span>Đã phân phối</span>
+                                                <strong style={{ color: (allStoresStatus?.distributed || 0) > 0 ? '#10b981' : '#9ca3af' }}>
+                                                    {allStoresStatus?.distributed || 0}/{stores.length} CH
+                                                </strong>
+                                            </div>
+                                            {(allStoresStatus?.totalItems || 0) > 0 && (
+                                                <div className="dh-status-row">
+                                                    <span>Tổng items</span>
+                                                    <strong>{allStoresStatus!.checkedItems}/{allStoresStatus!.totalItems}</strong>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
+                                    <div className="dh-status-actions">
+                                        <button onClick={handleRedistribute} disabled={!!processing || !products.length} className="dh-btn-redistrib" title="Xóa toàn bộ dữ liệu & phân phối lại cho TẤT CẢ">
+                                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>sync_alt</span>
+                                            Phân phối lại tất cả
+                                        </button>
+                                        <button onClick={handleResetDist} disabled={!!processing} className="dh-btn-reset-dist" title="Xóa sạch toàn bộ phân phối">
+                                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete_sweep</span>
+                                        </button>
+                                    </div>
                                 </div>
-                            </>
-                        )}
+                            ) : loadingStatus ? (
+                                <div className="dh-status-loading">
+                                    <span className="material-symbols-outlined dh-spin" style={{ fontSize: 16 }}>sync</span>
+                                    <span>Đang kiểm tra...</span>
+                                </div>
+                            ) : distStatus?.distributed ? (
+                                <div className="dh-status-card dh-status-active">
+                                    <div className="dh-status-header">
+                                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#10b981' }}>check_circle</span>
+                                        <span>Đã phân phối</span>
+                                    </div>
+                                    <div className="dh-status-details">
+                                        <div className="dh-status-row">
+                                            <span>Tổng SP</span>
+                                            <strong>{distStatus.totalItems}</strong>
+                                        </div>
+                                        <div className="dh-status-row">
+                                            <span>Đã nhập</span>
+                                            <strong style={{ color: distStatus.checkedItems > 0 ? '#f59e0b' : '#6b7280' }}>{distStatus.checkedItems}</strong>
+                                        </div>
+                                        {distStatus.reportStatus && (
+                                            <div className="dh-status-row">
+                                                <span>Báo cáo</span>
+                                                <span className={`dh-report-badge ${distStatus.reportStatus.toLowerCase()}`}>{distStatus.reportStatus}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="dh-status-actions">
+                                        <button
+                                            onClick={handleRedistribute}
+                                            disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
+                                            className="dh-btn-redistrib"
+                                            title={distStatus.reportStatus === 'APPROVED' ? 'Báo cáo đã duyệt — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>sync_alt</span>
+                                            Phân phối lại
+                                        </button>
+                                        <button
+                                            onClick={handleResetDist}
+                                            disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
+                                            className="dh-btn-reset-dist"
+                                            title="Xóa toàn bộ phân phối cho store/ca này"
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete_sweep</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="dh-status-card dh-status-empty">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#d1d5db' }}>inbox</span>
+                                    <span>Chưa phân phối cho ca này</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="dh-side-footer" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {selectedStore === 'ALL' && (
-                            <div className="dh-side-actions">
-                                <button onClick={handleRedistribute} disabled={!!processing || !products.length} className="dh-btn-redistrib" style={{ flex: 1, padding: '10px 0', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }} title="Xóa toàn bộ dữ liệu & phân phối lại cho TẤT CẢ">
-                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>sync_alt</span>
-                                    Phân phối lại tất cả
-                                </button>
-                                <button onClick={handleResetDist} disabled={!!processing} className="dh-btn-reset-dist" style={{ width: '40px', padding: '10px 0' }} title="Xóa sạch toàn bộ phân phối">
-                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_sweep</span>
-                                </button>
-                            </div>
-                        )}
+                    {/* Footer Actions — simplified: only Reset + Distribute */}
+                    <div className="dh-side-footer">
                         <div className="dh-side-actions">
                             <button onClick={handleNewSession} className="dh-btn-reset" title="Xóa danh sách Excel hiện tại">
                                 <span className="material-symbols-outlined" style={{ fontSize: 17 }}>refresh</span> Reset
@@ -731,6 +759,8 @@ const CSS_TEXT = `
 .dh-status-card { border-radius:10px; padding:14px; border:1px solid #e5e7eb; }
 .dh-status-active { background:#f0fdf4; border-color:#bbf7d0; }
 .dh-status-empty { background:#f9fafb; display:flex; align-items:center; gap:10px; font-size:12px; color:#9ca3af; }
+.dh-status-all { background:#eff6ff; border-color:#bfdbfe; }
+.dh-status-all .dh-status-header { color:#1e40af; }
 .dh-status-header { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#065f46; margin-bottom:10px; }
 .dh-status-details { display:flex; flex-direction:column; gap:0; }
 .dh-status-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:12px; color:#6b7280; border-bottom:1px solid rgba(0,0,0,.04); }
