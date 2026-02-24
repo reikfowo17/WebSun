@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from "../../lib/supabase";
+
 export const NV_ALLOWED_FIELDS = ['actual_stock', 'note', 'diff_reason'] as const;
 export const ADMIN_ALLOWED_FIELDS = [...NV_ALLOWED_FIELDS, 'system_stock', 'status'] as const;
 export const REPORT_STATUS = {

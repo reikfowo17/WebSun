@@ -88,6 +88,11 @@ export interface MissingProduct {
     last_positive_date?: string;
     /** Number of consecutive days missing */
     consecutive_missing_days: number;
+    /** Smart recovery tags */
+    is_audited?: boolean;
+    is_offset?: boolean;
+    offset_with_barcode?: string;
+    is_new_stock_error?: boolean;
 }
 
 /** Result of scanning one month for missing products */
@@ -99,6 +104,7 @@ export interface RecoveryScanResult {
     total_missing_products: number;
     scanned_dates: string[];
     errors: string[];
+    overItems: any[];
 }
 
 // ── Service Class ──
@@ -211,6 +217,7 @@ class InventoryArchiveServiceClass {
             total_missing_products: 0,
             scanned_dates: [],
             errors: [],
+            overItems: [],
         };
 
         try {
@@ -268,8 +275,20 @@ class InventoryArchiveServiceClass {
                         for (const item of items) {
                             const key = `${storeCode}:${item.barcode || item.product_name}`;
 
+                            if (item.diff > 0) {
+                                // Keep over items for offsetting
+                                result.overItems.push({
+                                    ...item,
+                                    store_code: storeCode,
+                                    shift: shiftNum,
+                                    date: dayData.date
+                                });
+                            }
+
                             if (item.diff < 0) {
                                 // Product is missing
+                                const isAudited = item.actual_stock !== null;
+
                                 missingCountMap[key] = (missingCountMap[key] || 0) + 1;
 
                                 // Only add to results if this is the last occurrence
@@ -292,6 +311,7 @@ class InventoryArchiveServiceClass {
                                     date: dayData.date,
                                     last_positive_date: lastPositiveDateMap[key],
                                     consecutive_missing_days: missingCountMap[key],
+                                    is_audited: isAudited,
                                 };
 
                                 if (existingIdx >= 0) {
@@ -319,6 +339,20 @@ class InventoryArchiveServiceClass {
         }
 
         return result;
+    }
+
+    async analyzeMissingItemsWithKiotViet(missingItems: MissingProduct[], overItems: any[]): Promise<{ success: boolean; data?: { analyzedMissing: MissingProduct[], matchedCount: number }; error?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, error: 'Chưa cấu hình Supabase' };
+        try {
+            const { data, error } = await supabase.functions.invoke('analyze-recovery', {
+                body: { missingItems, overItems }
+            });
+            if (error) throw error;
+            return data;
+        } catch (e: any) {
+            console.error('[Archive] Analyze KiotViet error:', e.message);
+            return { success: false, error: e.message };
+        }
     }
 
     // ── Also scan today's DB data for items not yet archived ──

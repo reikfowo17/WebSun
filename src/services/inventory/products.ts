@@ -6,6 +6,7 @@ export async function getMasterItems(): Promise<{ success: boolean; items: Maste
             const { data, error } = await supabase
                 .from('products')
                 .select('*')
+                .eq('is_active', true)
                 .order('name');
 
             if (error) throw error;
@@ -122,6 +123,26 @@ export async function deleteMasterItem(id: string, userRole?: string): Promise<{
         } catch (e: any) {
             console.error('[Inventory] Delete master item error:', e);
             return { success: false, error: 'Không thể xóa: ' + e.message };
+        }
+    }
+    return { success: false, error: 'Database disconnected' };
+}
+export async function clearActiveMasterItems(userRole?: string): Promise<{ success: boolean; error?: string }> {
+    if (userRole !== 'ADMIN') {
+        console.error(`[Inventory] Unauthorized clearActiveMasterItems by role '${userRole}'`);
+        return { success: false, error: 'Chỉ Admin mới có quyền xóa toàn bộ danh sách' };
+    }
+
+    if (isSupabaseConfigured()) {
+        try {
+            // Using the RPC we created to bypass manual mass updates
+            const { error } = await supabase.rpc('admin_clear_products');
+
+            if (error) throw error;
+            return { success: true };
+        } catch (e: any) {
+            console.error('[Inventory] Clear master items error:', e);
+            return { success: false, error: 'Không thể reset danh sách: ' + e.message };
         }
     }
     return { success: false, error: 'Database disconnected' };

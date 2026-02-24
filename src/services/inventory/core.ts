@@ -7,7 +7,7 @@ export async function getItems(store: string, shift: number): Promise<{ success:
 
     if (isSupabaseConfigured()) {
         try {
-            const { data: serverDate } = await supabase.rpc('get_current_vietnam_date');
+            const { data: serverDate } = await supabase.rpc('get_inventory_date', { p_shift: shift });
             const dateStr = serverDate || new Date().toISOString().split('T')[0];
 
             const { data, error } = await supabase
@@ -20,6 +20,8 @@ export async function getItems(store: string, shift: number): Promise<{ success:
             status,
             note,
             shift,
+            diff_reason,
+            snapshot_at,
             products (
               id,
               name,
@@ -46,6 +48,8 @@ export async function getItems(store: string, shift: number): Promise<{ success:
                 diff: item.diff || 0,
                 status: item.status || 'PENDING',
                 note: item.note || '',
+                diffReason: item.diff_reason || null,
+                snapshotAt: item.snapshot_at || null,
             }));
 
             return { success: true, products };
@@ -98,9 +102,11 @@ export async function updateItem(id: string, field: string, value: any, userId?:
             };
 
             if (field === 'actual_stock' && value !== null && value !== '') {
-                // Convert to integer for DB (actual_stock is INT column)
-                updateData[field] = Number(value);
+                const numVal = Number(value);
+                updateData[field] = numVal;
 
+                // Fetch system_stock to compute status for immediate UI feedback
+                // Note: diff is a generated column in DB (COALESCE(actual_stock,0) - system_stock)
                 const { data: itemData } = await supabase
                     .from('inventory_items')
                     .select('system_stock')
@@ -109,15 +115,12 @@ export async function updateItem(id: string, field: string, value: any, userId?:
 
                 const item = itemData as any;
                 if (item) {
-                    // diff is a GENERATED column (COALESCE(actual_stock,0) - system_stock)
-                    // Do NOT include it in updateData — PostgreSQL computes it automatically
-                    const diff = Number(value) - (item.system_stock || 0);
+                    const diff = numVal - (item.system_stock || 0);
                     updateData.status = diff === 0 ? 'MATCHED' : (diff < 0 ? 'MISSING' : 'OVER');
                     updateData.checked_by = userId;
                     updateData.checked_at = new Date().toISOString();
                 }
             } else if (field === 'actual_stock' && (value === null || value === '')) {
-                // Clearing actual_stock — reset status
                 updateData[field] = null;
                 updateData.status = 'PENDING';
             }
@@ -156,8 +159,20 @@ export async function submitReport(storeCode: string, shift: number, userId: str
                 return { success: false, message: 'Cửa hàng không tồn tại' };
             }
 
-            const { data: serverDate } = await supabase.rpc('get_current_vietnam_date');
+            const { data: serverDate } = await supabase.rpc('get_inventory_date', { p_shift: shift });
             const today = serverDate || new Date().toISOString().split('T')[0];
+            const { data: existingReport } = await supabase
+                .from('inventory_reports')
+                .select('id, status')
+                .eq('store_id', store.id)
+                .eq('check_date', today)
+                .eq('shift', shift)
+                .maybeSingle();
+
+            if (existingReport) {
+                return { success: false, message: `Báo cáo đã được nộp (${existingReport.status}). Không thể nộp lại.` };
+            }
+
             const { data: items, error: itemsError } = await supabase
                 .from('inventory_items')
                 .select('*')
@@ -172,7 +187,6 @@ export async function submitReport(storeCode: string, shift: number, userId: str
 
             const checkedItems = items.filter((i: any) => i.actual_stock !== null);
 
-            // Create history records
             const historyItems = items.map((item: any) => ({
                 store_id: store.id,
                 product_id: item.product_id,
@@ -189,11 +203,12 @@ export async function submitReport(storeCode: string, shift: number, userId: str
 
             const { error: histError } = await supabase
                 .from('inventory_history')
-                .insert(historyItems);
+                .upsert(historyItems, {
+                    onConflict: 'store_id,product_id,check_date,shift',
+                });
 
             if (histError) throw histError;
 
-            // Create or update Report record
             const { error: reportError } = await supabase
                 .from('inventory_reports')
                 .upsert({
@@ -213,7 +228,7 @@ export async function submitReport(storeCode: string, shift: number, userId: str
             };
         } catch (e: any) {
             console.error('[Inventory] Submit report error:', e);
-            return { success: false, message: 'Lỗi: ' + e.message };
+            return { success: false, message: 'Lỗi hệ thống khi nộp báo cáo. Vui lòng thử lại.' };
         }
     }
     return { success: false, message: 'Database disconnected' };
@@ -224,7 +239,7 @@ export async function getReportStatus(storeCode: string, shift: number): Promise
     }
 
     try {
-        const { data: serverDate } = await supabase.rpc('get_current_vietnam_date');
+        const { data: serverDate } = await supabase.rpc('get_inventory_date', { p_shift: shift });
         const today = serverDate || new Date().toISOString().split('T')[0];
 
         const { data, error } = await supabase
@@ -485,28 +500,7 @@ export async function getOverview(date: string): Promise<{
         return { success: false };
     }
 }
-export async function updateReportComment(commentId: string, newComment: string): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-        return { success: false, error: 'Database not configured' };
-    }
 
-    if (!newComment || newComment.trim().length === 0) {
-        return { success: false, error: 'Comment cannot be empty' };
-    }
-
-    try {
-        const { error } = await supabase
-            .from('inventory_report_comments')
-            .update({ comment: newComment.trim() })
-            .eq('id', commentId);
-
-        if (error) throw error;
-        return { success: true };
-    } catch (e: any) {
-        console.error('[Inventory] Update comment error:', e);
-        return { success: false, error: 'Cannot update comment: ' + e.message };
-    }
-}
 export async function getReportItems(storeId: string, checkDate: string, shift: number): Promise<{
     success: boolean;
     items?: Array<{
@@ -556,7 +550,7 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
             system_stock: item.system_stock ?? 0,
             actual_stock: item.actual_stock,
             diff: item.diff,
-            status: item.status || 'UNCHECKED',
+            status: item.status || 'PENDING',
             note: item.note,
             diff_reason: item.diff_reason,
         }));
@@ -593,7 +587,7 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
             }
         };
 
-        await safeDel('inventory_report_comments', { report_id: reportId });
+
 
         if (report.store_id && report.check_date && report.shift) {
             await safeDel('inventory_history', {
@@ -613,7 +607,7 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
         return { success: true };
     } catch (e: any) {
         console.error('[Inventory] Delete report error:', e);
-        return { success: false, message: e.message };
+        return { success: false, message: 'Lỗi hệ thống khi xóa báo cáo' };
     }
 }
 

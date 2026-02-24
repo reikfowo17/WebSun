@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import NotificationBell from "./NotificationBell";
 import { User } from "../types";
 
 interface LayoutProps {
@@ -51,7 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
         user={user}
         onLogout={onLogout}
         collapsed={false}
-        onToggle={() => {}}
+        onToggle={() => { }}
       />
 
       <div className="flex flex-col flex-1 overflow-hidden relative">
@@ -78,6 +79,9 @@ const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
                 {isDark ? "light_mode" : "dark_mode"}
               </span>
             </button>
+
+            {/* Notifications */}
+            <NotificationBell userId={user.id} />
 
             {/* User Avatar Dropdown */}
             <div className="relative ml-1" ref={dropdownRef}>

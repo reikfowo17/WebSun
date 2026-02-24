@@ -88,3 +88,4 @@ export type ViewName =
     | 'PROFILE';
 
 export * from './recovery';
+export * from './notification';

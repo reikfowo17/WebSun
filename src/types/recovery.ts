@@ -44,6 +44,10 @@ export interface RecoveryItem {
     // Metadata
     notes?: string;
     updated_at: string;
+
+    // Assignment
+    assigned_to?: string;
+    assigned_to_name?: string | null;
 }
 
 export interface RecoveryDocument {

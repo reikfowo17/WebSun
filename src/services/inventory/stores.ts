@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from "../../lib/supabase";
 export interface DistributionStatus {
     distributed: boolean;
     totalItems: number;
-    checkedItems: number;   
+    checkedItems: number;
     reportSubmitted: boolean;
     reportStatus: string | null;
     distributedAt: string | null;
@@ -23,12 +23,24 @@ async function getStoreId(storeCode: string): Promise<string | null> {
         .eq('code', storeCode)
         .single();
     if (!data) return null;
-    if (data.is_active === false) return null; 
+    if (data.is_active === false) return null;
     return data.id;
 }
 
-function getToday(): string {
-    return new Date().toISOString().split('T')[0];
+async function getInventoryDate(shift?: number): Promise<string> {
+    try {
+        const { data } = await supabase.rpc('get_inventory_date', { p_shift: shift ?? null });
+        if (data) return data;
+    } catch (e) {
+        console.error('[Inventory] getInventoryDate RPC error, fallback to local:', e);
+    }
+    // Fallback: local Vietnam-ish time (UTC+7)
+    const vn = new Date(Date.now() + 7 * 3600 * 1000);
+    const h = vn.getUTCHours();
+    if (shift === 3 && h < 6) {
+        vn.setUTCDate(vn.getUTCDate() - 1);
+    }
+    return vn.toISOString().split('T')[0];
 }
 
 async function getCurrentUserId(): Promise<string | null> {
@@ -67,7 +79,7 @@ export async function getDistributionStatus(
         const storeId = await getStoreId(storeCode);
         if (!storeId) return empty;
 
-        const checkDate = date || getToday();
+        const checkDate = date || await getInventoryDate(shift);
 
         const { data: items, error } = await supabase
             .from('inventory_items')
@@ -112,10 +124,10 @@ export async function distributeToStore(
         const storeId = await getStoreId(storeCode);
         if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại hoặc đã ngừng hoạt động' };
 
-        const { data: products } = await supabase.from('products').select('id');
+        const { data: products } = await supabase.from('products').select('id').eq('is_active', true);
         if (!products?.length) return { success: false, message: 'Không có sản phẩm trong danh mục' };
 
-        const today = getToday();
+        const today = await getInventoryDate(shift);
         const userId = await getCurrentUserId();
 
         const inventoryItems = products.map((p: any) => ({
@@ -181,7 +193,7 @@ export async function redistributeToStore(
         if (distResult.success) {
             const storeId = await getStoreId(storeCode);
             if (storeId) {
-                await logDistribution(storeId, shift, getToday(), 'REDISTRIBUTE', distResult.itemCount || 0,
+                await logDistribution(storeId, shift, await getInventoryDate(shift), 'REDISTRIBUTE', distResult.itemCount || 0,
                     `Force=${force}, had ${status.checkedItems} checked items`);
             }
         }
@@ -207,7 +219,7 @@ export async function resetDistribution(
         const storeId = await getStoreId(storeCode);
         if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại' };
 
-        const today = getToday();
+        const today = await getInventoryDate(shift);
 
         const { data: report } = await supabase
             .from('inventory_reports')
@@ -274,7 +286,7 @@ export async function addProductsToDistribution(
         const storeId = await getStoreId(storeCode);
         if (!storeId) return { success: false, message: 'Cửa hàng không tồn tại' };
 
-        const today = getToday();
+        const today = await getInventoryDate(shift);
         const userId = await getCurrentUserId();
 
         const items = productIds.map(pid => ({

@@ -36,6 +36,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; ico
     MATCHED: { label: 'Khớp', color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle' },
     MISSING: { label: 'Thiếu', color: '#dc2626', bg: '#fef2f2', icon: 'remove_circle' },
     OVER: { label: 'Thừa', color: '#4f46e5', bg: '#eef2ff', icon: 'add_circle' },
+    PENDING: { label: 'Chưa kiểm', color: '#94a3b8', bg: '#f8fafc', icon: 'radio_button_unchecked' },
     UNCHECKED: { label: 'Chưa kiểm', color: '#94a3b8', bg: '#f8fafc', icon: 'radio_button_unchecked' },
 };
 
@@ -105,7 +106,13 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
 
     /* ── Filter & search ── */
     const filteredItems = items.filter(item => {
-        if (filter !== 'ALL' && item.status !== filter) return false;
+        if (filter !== 'ALL') {
+            if (filter === 'UNCHECKED') {
+                if (item.status !== 'UNCHECKED' && item.status !== 'PENDING') return false;
+            } else if (item.status !== filter) {
+                return false;
+            }
+        }
         if (search) {
             const q = search.toLowerCase();
             return item.product_name.toLowerCase().includes(q) || item.barcode.includes(q);
@@ -119,7 +126,7 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         MATCHED: items.filter(i => i.status === 'MATCHED').length,
         MISSING: items.filter(i => i.status === 'MISSING').length,
         OVER: items.filter(i => i.status === 'OVER').length,
-        UNCHECKED: items.filter(i => i.status === 'UNCHECKED').length,
+        UNCHECKED: items.filter(i => i.status === 'UNCHECKED' || i.status === 'PENDING').length,
     };
 
     const reportSt = reportStatus ? REPORT_STATUS[reportStatus] : null;

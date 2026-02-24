@@ -48,7 +48,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
     const [stores, setStores] = useState<StoreConfig[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'redistribute' | 'reset' | 'newSession'; message: string } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'redistribute' | 'redistributeAll' | 'reset' | 'resetAll' | 'newSession'; message: string } | null>(null);
     const [distStatus, setDistStatus] = useState<DistributionStatus | null>(null);
     const [loadingStatus, setLoadingStatus] = useState(false);
     const filteredProducts = useMemo(() => {
@@ -107,11 +107,15 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     };
 
     const handleRedistribute = async () => {
-        if (selectedStore === 'ALL') return toast.error('Chọn một cửa hàng cụ thể để phân phối lại');
-        // First try without force to get status
+        if (selectedStore === 'ALL') {
+            setConfirmAction({
+                type: 'redistributeAll',
+                message: `Cảnh báo: Phân phối lại cho TẤT CẢ các cửa hàng Ca ${selectedShift} sẽ XÓA TOÀN BỘ dữ liệu cũ đã kiểm trong ca. Bạn chắc chắn chứ?`
+            });
+            return;
+        }
         const r = await redistributeToStore(selectedStore, selectedShift, false);
         if (!r.success) {
-            // Has checked items → ask user to confirm force
             setConfirmAction({ type: 'redistribute', message: r.message || 'Xác nhận phân phối lại?' });
         } else {
             toast.success(r.message || 'Đã phân phối lại');
@@ -120,7 +124,13 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     };
 
     const handleResetDist = () => {
-        if (selectedStore === 'ALL') return toast.error('Chọn một cửa hàng cụ thể để reset');
+        if (selectedStore === 'ALL') {
+            setConfirmAction({
+                type: 'resetAll',
+                message: `Cảnh báo: Reset TOÀN BỘ phân phối cho các cửa hàng Ca ${selectedShift}? Dữ liệu đã nhập sẽ bị mất.`
+            });
+            return;
+        }
         setConfirmAction({
             type: 'reset',
             message: `Xóa toàn bộ phân phối cho ${selectedStore} Ca ${selectedShift} hôm nay? Dữ liệu đã nhập sẽ bị mất.`
@@ -165,6 +175,20 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         finally { setProcessing(null); loadDistStatus(); }
     };
 
+    const executeRedistributeAll = async () => {
+        setConfirmAction(null);
+        setProcessing(ProcessingState.DISTRIBUTE);
+        try {
+            const results = await Promise.allSettled(
+                stores.map(s => redistributeToStore(s.code, selectedShift, true))
+            );
+            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+            if (failed.length === 0) toast.success(`Đã phân phối lại cho toàn bộ cửa hàng (Ca ${selectedShift})`);
+            else toast.warning(`Đã phân phối lại nhưng ${failed.length}/${stores.length} cửa hàng lỗi`);
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(null); loadDistStatus(); }
+    };
+
     const executeReset = async () => {
         setConfirmAction(null);
         setProcessing(ProcessingState.DISTRIBUTE);
@@ -175,20 +199,46 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         finally { setProcessing(null); loadDistStatus(); }
     };
 
+    const executeResetAll = async () => {
+        setConfirmAction(null);
+        setProcessing(ProcessingState.DISTRIBUTE);
+        try {
+            const results = await Promise.allSettled(
+                stores.map(s => resetDistribution(s.code, selectedShift, true))
+            );
+            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+            if (failed.length === 0) toast.success(`Đã reset toàn bộ cho cửa hàng (Ca ${selectedShift})`);
+            else toast.warning(`Đã reset nhưng ${failed.length}/${stores.length} cửa hàng lỗi`);
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(null); loadDistStatus(); }
+    };
+
     const handleNewSession = () => {
         setConfirmAction({ type: 'newSession', message: 'Xóa danh sách hiện tại để nhập danh sách mới?' });
     };
 
-    const executeNewSession = () => {
+    const executeNewSession = async () => {
         setConfirmAction(null);
-        setProducts([]);
-        setSearchQuery('');
-        toast.info('Đã xóa danh sách');
+        setProcessing(ProcessingState.DISTRIBUTE);
+        try {
+            const r = await InventoryService.clearActiveMasterItems('ADMIN');
+            if (r.success) {
+                setProducts([]);
+                setSearchQuery('');
+                toast.success('Đã xóa toàn bộ danh sách hiện tại');
+                loadMasterProducts();
+            } else {
+                toast.error(r.error || 'Lỗi khi xóa danh sách');
+            }
+        } catch {
+            toast.error('Lỗi hệ thống');
+        } finally {
+            setProcessing(null);
+        }
     };
 
     const openAddProduct = () => { setEditingProduct(null); setProductForm({ barcode: '', name: '', sp: '', category: '' }); setShowProductModal(true); };
     const openEditProduct = (p: MasterItem) => { setEditingProduct(p); setProductForm({ barcode: p.barcode || '', name: p.name || '', sp: p.sp || '', category: p.category || '' }); setShowProductModal(true); };
-
     // FIX #10: Add barcode format validation
     const saveProduct = async () => {
         const trimmedBarcode = productForm.barcode.trim();
@@ -459,9 +509,20 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="dh-side-footer">
+                    <div className="dh-side-footer" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {selectedStore === 'ALL' && (
+                            <div className="dh-side-actions">
+                                <button onClick={handleRedistribute} disabled={!!processing || !products.length} className="dh-btn-redistrib" style={{ flex: 1, padding: '10px 0', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }} title="Xóa toàn bộ dữ liệu & phân phối lại cho TẤT CẢ">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>sync_alt</span>
+                                    Phân phối lại tất cả
+                                </button>
+                                <button onClick={handleResetDist} disabled={!!processing} className="dh-btn-reset-dist" style={{ width: '40px', padding: '10px 0' }} title="Xóa sạch toàn bộ phân phối">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_sweep</span>
+                                </button>
+                            </div>
+                        )}
                         <div className="dh-side-actions">
-                            <button onClick={handleNewSession} className="dh-btn-reset">
+                            <button onClick={handleNewSession} className="dh-btn-reset" title="Xóa danh sách Excel hiện tại">
                                 <span className="material-symbols-outlined" style={{ fontSize: 17 }}>refresh</span> Reset
                             </button>
                             <button onClick={handleDistribute} disabled={!!processing || !products.length} className="dh-btn-dist">
@@ -524,21 +585,27 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                 title={
                     confirmAction?.type === 'distribute' ? 'Phân phối sản phẩm'
                         : confirmAction?.type === 'redistribute' ? 'Phân phối lại'
-                            : confirmAction?.type === 'reset' ? 'Reset phân phối'
-                                : 'Làm mới phiên'
+                            : confirmAction?.type === 'redistributeAll' ? 'Phân phối lại TẤT CẢ'
+                                : confirmAction?.type === 'reset' ? 'Reset phân phối'
+                                    : confirmAction?.type === 'resetAll' ? 'Reset TẤT CẢ'
+                                        : 'Làm mới phiên'
                 }
                 message={confirmAction?.message || ''}
                 variant={confirmAction?.type === 'distribute' ? 'info' : 'warning'}
                 confirmText={
                     confirmAction?.type === 'distribute' ? 'Phân phối'
                         : confirmAction?.type === 'redistribute' ? 'Xác nhận phân phối lại'
-                            : confirmAction?.type === 'reset' ? 'Xác nhận reset'
-                                : 'Xác nhận'
+                            : confirmAction?.type === 'redistributeAll' ? 'Xác nhận phân phối lại'
+                                : confirmAction?.type === 'reset' ? 'Xác nhận reset'
+                                    : confirmAction?.type === 'resetAll' ? 'Xác nhận reset'
+                                        : 'Xác nhận'
                 }
                 onConfirm={() => {
                     if (confirmAction?.type === 'distribute') executeDistribute();
                     else if (confirmAction?.type === 'redistribute') executeRedistribute();
+                    else if (confirmAction?.type === 'redistributeAll') executeRedistributeAll();
                     else if (confirmAction?.type === 'reset') executeReset();
+                    else if (confirmAction?.type === 'resetAll') executeResetAll();
                     else executeNewSession();
                 }}
                 onCancel={() => setConfirmAction(null)}
