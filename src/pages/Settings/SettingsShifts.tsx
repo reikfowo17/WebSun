@@ -57,7 +57,7 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
 
     const handleAddShift = () => {
         if (editingShiftIndex !== null) return;
-        const newShift: ShiftConfig = { id: shifts.length + 1, name: '', time: '', icon: 'schedule', color: 'from-gray-400 to-gray-500' };
+        const newShift: ShiftConfig = { id: shifts.length > 0 ? Math.max(...shifts.map(s => s.id)) + 1 : 1, name: '', time: '', icon: 'schedule', color: 'from-gray-400 to-gray-500', type: 'MAIN', max_slots: 0 };
         setShifts([...shifts, newShift]);
         setEditingShiftIndex(shifts.length);
         setDraftShift(newShift);
@@ -69,7 +69,7 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
         setDraftShift(shifts[index]);
     };
 
-    const handleUpdateDraftShift = (field: keyof ShiftConfig, value: string) => {
+    const handleUpdateDraftShift = (field: keyof ShiftConfig, value: string | number) => {
         if (draftShift) {
             setDraftShift({ ...draftShift, [field]: value });
         }
@@ -204,15 +204,19 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
                 <table className="stg-table stg-table-fixed">
                     <colgroup>
                         <col style={{ width: '8%' }} />
-                        <col style={{ width: '42%' }} />
-                        <col style={{ width: '38%' }} />
-                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '32%' }} />
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '10%' }} />
                     </colgroup>
                     <thead>
                         <tr>
                             <th style={{ paddingLeft: 36 }}>#</th>
-                            <th>TÊN CA LÀM VIỆC</th>
+                            <th>TÊN CA LÀM</th>
                             <th>KHUNG GIỜ</th>
+                            <th>LOẠI CA</th>
+                            <th>SLOT TỐI ĐA</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -285,6 +289,66 @@ export const SettingsShifts: React.FC<SettingsShiftsProps> = ({ toast, initialSh
                                         ) : (
                                             <span className="stg-input-mono" style={{ color: 'var(--stg-text-secondary)', fontSize: 13 }}>
                                                 {shift.time || <span style={{ color: 'var(--stg-text-muted)', fontStyle: 'italic' }}>Chưa có giờ</span>}
+                                            </span>
+                                        )}
+                                    </td>
+
+                                    {/* ─ Type & Parent ─ */}
+                                    <td>
+                                        {isEditing ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <select
+                                                    value={draftShift?.type || 'MAIN'}
+                                                    onChange={(e) => handleUpdateDraftShift('type', e.target.value)}
+                                                    className="stg-input stg-input-mono"
+                                                    style={{ width: '100%', padding: '6px' }}
+                                                >
+                                                    <option value="MAIN">Ca Chính</option>
+                                                    <option value="SUPPORT">Ca Hỗ Trợ</option>
+                                                </select>
+                                                {draftShift?.type === 'SUPPORT' && (
+                                                    <select
+                                                        value={draftShift?.parent_id || ''}
+                                                        onChange={(e) => handleUpdateDraftShift('parent_id', Number(e.target.value))}
+                                                        className="stg-input stg-input-mono"
+                                                        style={{ width: '100%', padding: '6px' }}
+                                                    >
+                                                        <option value="">Chọn ca gốc...</option>
+                                                        {shifts.filter(s => (s.type || 'MAIN') === 'MAIN').map(s => (
+                                                            <option key={s.id} value={s.id}>{s.name || `Ca ${s.id}`}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span className="stg-badge" style={{ alignSelf: 'flex-start', fontSize: 11, padding: '2px 6px', background: (shift.type || 'MAIN') === 'MAIN' ? 'var(--stg-primary-light)' : 'var(--stg-surface-hover)' }}>
+                                                    {(shift.type || 'MAIN') === 'MAIN' ? 'Chính' : 'Hỗ trợ'}
+                                                </span>
+                                                {shift.type === 'SUPPORT' && shift.parent_id && (
+                                                    <span style={{ fontSize: 11, color: 'var(--stg-text-muted)', marginTop: 4 }}>
+                                                        ↳ {shifts.find(s => s.id === shift.parent_id)?.name || `Ca ${shift.parent_id}`}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </td>
+
+                                    {/* ─ Max Slots ─ */}
+                                    <td>
+                                        {isEditing ? (
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={draftShift?.max_slots || ''}
+                                                onChange={(e) => handleUpdateDraftShift('max_slots', parseInt(e.target.value) || 0)}
+                                                className="stg-input"
+                                                placeholder="VD: 3"
+                                                aria-label="Số slot"
+                                            />
+                                        ) : (
+                                            <span style={{ fontWeight: 600, color: 'var(--stg-text)' }}>
+                                                {shift.max_slots ? `${shift.max_slots} người` : <span style={{ color: 'var(--stg-text-muted)', fontWeight: 400 }}>Không giới hạn</span>}
                                             </span>
                                         )}
                                     </td>

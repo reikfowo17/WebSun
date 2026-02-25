@@ -6,6 +6,9 @@ export interface ShiftConfig {
     time: string;
     icon: string;
     color: string;
+    type?: 'MAIN' | 'SUPPORT';
+    parent_id?: number;
+    max_slots?: number;
 }
 
 export interface StoreConfig {

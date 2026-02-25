@@ -26,6 +26,7 @@ const InventoryHQ = React.lazy(() => import("./pages/InventoryHQ"));
 const ExpiryHQ = React.lazy(() => import("./pages/ExpiryHQ"));
 const Profile = React.lazy(() => import("./pages/Profile"));
 const Settings = React.lazy(() => import("./pages/Settings/Settings"));
+const Schedule = React.lazy(() => import("./pages/Schedule"));
 
 const pageVariants = {
   initial: { opacity: 0, x: 20 },
@@ -168,6 +169,14 @@ const AppRoutes: React.FC = () => {
               </AnimatedPage>
             }
           />
+          <Route
+            path="/schedule"
+            element={
+              <AnimatedPage>
+                <ScheduleWrapper />
+              </AnimatedPage>
+            }
+          />
         </Route>
 
         {/* Catch all */}
@@ -220,12 +229,17 @@ const ProfileWrapper = () => {
 const SettingsWrapper = () => {
   const { user } = useUser();
   const toast = useToast();
-  // Assume admin checking inside or we can check here
   return user && user.role === "ADMIN" ? (
     <Settings toast={toast} />
   ) : (
     <Navigate to="/" replace />
   );
+};
+
+const ScheduleWrapper = () => {
+  const { user } = useUser();
+  const toast = useToast();
+  return user ? <Schedule user={user} toast={toast} /> : null;
 };
 
 const App: React.FC = () => {

@@ -80,15 +80,17 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   // ─── Navigation Groups ───
   const mainItems: NavItem[] = isAdmin
     ? [
-        { path: "/", label: "Bảng Điều Khiển", icon: "dashboard" },
-        { path: "/hq", label: "Quản Lý Tồn Kho", icon: "inventory_2" },
-        { path: "/expiry-hq", label: "Quản Lý Hạn Dùng", icon: "event_busy" },
-      ]
+      { path: "/", label: "Bảng Điều Khiển", icon: "dashboard" },
+      { path: "/hq", label: "Quản Lý Tồn Kho", icon: "inventory_2" },
+      { path: "/expiry-hq", label: "Quản Lý Hạn Dùng", icon: "event_busy" },
+      { path: "/schedule", label: "Lịch Làm Việc", icon: "calendar_month" },
+    ]
     : [
-        { path: "/", label: "Trang chủ", icon: "grid_view" },
-        { path: "/inventory", label: "Kiểm Kho", icon: "inventory_2" },
-        { path: "/expiry", label: "Kiểm Date", icon: "history_toggle_off" },
-      ];
+      { path: "/", label: "Trang chủ", icon: "grid_view" },
+      { path: "/inventory", label: "Kiểm Kho", icon: "inventory_2" },
+      { path: "/expiry", label: "Kiểm Date", icon: "history_toggle_off" },
+      { path: "/schedule", label: "Lịch Làm Việc", icon: "calendar_month" },
+    ];
 
   const bottomItems: NavItem[] = isAdmin
     ? [{ path: "/settings", label: "Cấu Hình Hệ Thống", icon: "settings" }]
@@ -109,10 +111,9 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         title={!isExpanded ? item.label : undefined}
         aria-label={item.label}
         className={`w-full flex items-center p-2 rounded-xl transition-all duration-200 group relative
-          ${
-            active
-              ? "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-              : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
+          ${active
+            ? "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
           }
         `}
       >
@@ -141,11 +142,10 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       style={{ width: sidebarMode === "expanded" ? 260 : 72 }}
     >
       <div
-        className={`fixed left-0 top-0 h-full bg-white dark:bg-[#1a1a1a] flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-50 border-r border-gray-200 dark:border-gray-800/60 ${
-          isExpanded
+        className={`fixed left-0 top-0 h-full bg-white dark:bg-[#1a1a1a] flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-50 border-r border-gray-200 dark:border-gray-800/60 ${isExpanded
             ? `w-[260px] ${sidebarMode === "hover" ? "shadow-[4px_0_24px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)]" : ""}`
             : "w-[72px]"
-        }`}
+          }`}
         style={{ willChange: "width" }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
