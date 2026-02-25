@@ -166,9 +166,16 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                 const results = await Promise.allSettled(
                     stores.map(s => InventoryService.distributeToStore(s.code, selectedShift))
                 );
+                const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.success) as PromiseFulfilledResult<any>[];
                 const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+                const totalNewItems = succeeded.reduce((sum, r) => sum + (r.value.itemCount || 0), 0);
+
                 if (failed.length === 0) {
-                    toast.success(`Đã phân phối cho tất cả ${stores.length} cửa hàng (Ca ${selectedShift})`);
+                    if (totalNewItems === 0) {
+                        toast.info(`Tất cả ${stores.length} cửa hàng đã được phân phối Ca ${selectedShift} trước đó. Không có SP mới.`);
+                    } else {
+                        toast.success(`Đã phân phối ${totalNewItems} SP mới cho ${stores.length} cửa hàng (Ca ${selectedShift})`);
+                    }
                 } else if (failed.length < stores.length) {
                     toast.warning(`Phân phối xong nhưng ${failed.length}/${stores.length} cửa hàng gặp lỗi`);
                 } else {
@@ -176,7 +183,15 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                 }
             } else {
                 const r = await InventoryService.distributeToStore(selectedStore, selectedShift);
-                r.success ? toast.success(r.message || 'Đã phân phối thành công!') : toast.error(r.message || 'Lỗi phân phối');
+                if (r.success) {
+                    if (r.itemCount === 0) {
+                        toast.info(r.message || 'Ca này đã được phân phối. Không có SP mới.');
+                    } else {
+                        toast.success(r.message || 'Đã phân phối thành công!');
+                    }
+                } else {
+                    toast.error(r.message || 'Lỗi phân phối');
+                }
             }
         } catch {
             toast.error('Lỗi hệ thống');
@@ -476,7 +491,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                             {(allStoresStatus?.totalItems || 0) > 0 && (
                                                 <div className="dh-status-row">
                                                     <span>Tổng items</span>
-                                                    <strong>{allStoresStatus!.checkedItems}/{allStoresStatus!.totalItems}</strong>
+                                                    <strong>{allStoresStatus!.totalItems}</strong>
                                                 </div>
                                             )}
                                         </div>

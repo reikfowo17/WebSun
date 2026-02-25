@@ -159,8 +159,25 @@ export async function distributeToStore(
 
         const today = await getInventoryDate(shift);
         const userId = await getCurrentUserId();
+        const { data: existing } = await supabase
+            .from('inventory_items')
+            .select('id, product_id')
+            .eq('store_id', storeId)
+            .eq('shift', shift)
+            .eq('check_date', today);
 
-        const inventoryItems = products.map((p: any) => ({
+        const existingProductIds = new Set((existing || []).map((e: any) => e.product_id));
+        const newProducts = products.filter((p: any) => !existingProductIds.has(p.id));
+
+        if (newProducts.length === 0 && existingProductIds.size > 0) {
+            return {
+                success: true,
+                itemCount: 0,
+                message: `Ca ${shift} đã được phân phối (${existingProductIds.size} SP). Không có sản phẩm mới để thêm.`,
+            };
+        }
+
+        const itemsToInsert = newProducts.map((p: any) => ({
             store_id: storeId,
             product_id: p.id,
             shift,
@@ -174,22 +191,22 @@ export async function distributeToStore(
             distributed_at: new Date().toISOString(),
         }));
 
-        const { error } = await supabase
-            .from('inventory_items')
-            .upsert(inventoryItems, {
-                onConflict: 'store_id,product_id,shift,check_date',
-                ignoreDuplicates: true,
-            });
+        if (itemsToInsert.length > 0) {
+            const { error } = await supabase
+                .from('inventory_items')
+                .insert(itemsToInsert);
 
-        if (error) throw error;
+            if (error) throw error;
+        }
 
-        await logDistribution(storeId, shift, today, 'DISTRIBUTE', products.length);
+        await logDistribution(storeId, shift, today, 'DISTRIBUTE', newProducts.length);
 
-        return {
-            success: true,
-            itemCount: products.length,
-            message: `Đã phân phối ${products.length} sản phẩm cho ${storeCode} ca ${shift}`,
-        };
+        const skipped = existingProductIds.size;
+        const msg = skipped > 0
+            ? `Đã phân phối ${newProducts.length} SP mới cho ${storeCode} ca ${shift} (bỏ qua ${skipped} SP đã có)`
+            : `Đã phân phối ${newProducts.length} sản phẩm cho ${storeCode} ca ${shift}`;
+
+        return { success: true, itemCount: newProducts.length, message: msg };
     } catch (e: any) {
         console.error('[Inventory] Distribute error:', e);
         return { success: false, message: 'Lỗi: ' + e.message };
@@ -365,7 +382,27 @@ export async function addProductsToDistribution(
         const today = await getInventoryDate(shift);
         const userId = await getCurrentUserId();
 
-        const items = productIds.map(pid => ({
+        const { data: existing } = await supabase
+            .from('inventory_items')
+            .select('product_id')
+            .eq('store_id', storeId)
+            .eq('shift', shift)
+            .eq('check_date', today)
+            .in('product_id', productIds);
+
+        const existingIds = new Set((existing || []).map((e: any) => e.product_id));
+        const newProductIds = productIds.filter(pid => !existingIds.has(pid));
+        const skippedCount = existingIds.size;
+
+        if (newProductIds.length === 0) {
+            return {
+                success: true,
+                itemCount: 0,
+                message: `Tất cả ${productIds.length} sản phẩm đã có trong ca ${shift}. Không có gì để thêm.`,
+            };
+        }
+
+        const items = newProductIds.map(pid => ({
             store_id: storeId,
             product_id: pid,
             shift,
@@ -379,20 +416,17 @@ export async function addProductsToDistribution(
 
         const { error } = await supabase
             .from('inventory_items')
-            .upsert(items, {
-                onConflict: 'store_id,product_id,shift,check_date',
-                ignoreDuplicates: true,
-            });
+            .insert(items);
 
         if (error) throw error;
 
-        await logDistribution(storeId, shift, today, 'ADD_PRODUCTS', productIds.length);
+        await logDistribution(storeId, shift, today, 'ADD_PRODUCTS', newProductIds.length);
 
-        return {
-            success: true,
-            itemCount: productIds.length,
-            message: `Đã thêm ${productIds.length} sản phẩm`,
-        };
+        const msg = skippedCount > 0
+            ? `Đã thêm ${newProductIds.length} SP mới (bỏ qua ${skippedCount} SP đã tồn tại)`
+            : `Đã thêm ${newProductIds.length} sản phẩm`;
+
+        return { success: true, itemCount: newProductIds.length, message: msg };
     } catch (e: any) {
         console.error('[Inventory] Add products error:', e);
         return { success: false, message: 'Lỗi: ' + e.message };

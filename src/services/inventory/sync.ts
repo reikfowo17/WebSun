@@ -48,18 +48,33 @@ export async function syncKiotVietStock(storeCode: string, shift: number): Promi
         }
 
         const now = new Date().toISOString();
-        let syncedCount = 0;
-
+        const updates: { id: string; system_stock: number }[] = [];
         for (const item of items) {
             const barcode = (item as any).products?.barcode;
             if (barcode && stockMap[barcode] !== undefined) {
-                await supabase
-                    .from('inventory_items')
-                    .update({ system_stock: stockMap[barcode], snapshot_at: now })
-                    .eq('id', item.id);
-                syncedCount++;
+                updates.push({ id: item.id, system_stock: stockMap[barcode] });
             }
         }
+
+        if (updates.length > 0) {
+            const ids = updates.map(u => u.id);
+            const stockGroups = new Map<number, string[]>();
+            for (const u of updates) {
+                const existing = stockGroups.get(u.system_stock) || [];
+                existing.push(u.id);
+                stockGroups.set(u.system_stock, existing);
+            }
+
+            const batchPromises = Array.from(stockGroups.entries()).map(([stock, itemIds]) =>
+                supabase
+                    .from('inventory_items')
+                    .update({ system_stock: stock, snapshot_at: now })
+                    .in('id', itemIds)
+            );
+            await Promise.all(batchPromises);
+        }
+
+        const syncedCount = updates.length;
 
         return {
             success: true,

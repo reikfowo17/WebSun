@@ -3,19 +3,17 @@ import { REPORT_STATUS, DIFF_REASON_OPTIONS, ReportStatus, DiffReason, ReportSum
 export async function getMonitoringStats(date: string): Promise<{ success: boolean; data: any[] }> {
     if (isSupabaseConfigured()) {
         try {
-            const { data: stores } = await supabase.from('stores').select('id, code, name');
-            if (!stores) return { success: false, data: [] };
-
-            const { data: items } = await supabase
-                .from('inventory_items')
-                .select('store_id, status, diff, check_date, shift, actual_stock')
+            const { data: overview, error } = await supabase
+                .from('inventory_overview_dashboard')
+                .select('*')
                 .eq('check_date', date);
 
-            const stats = stores.map(store => {
-                const storeItems = items?.filter((i: any) => i.store_id === store.id) || [];
-                const total = storeItems.length;
-                const checked = storeItems.filter((i: any) => i.actual_stock !== null).length;
-                const issues = storeItems.filter((i: any) => i.diff !== 0).length;
+            if (error) throw error;
+
+            const stats = (overview || []).map((row: any) => {
+                const total = row.total_items || 0;
+                const checked = row.checked_items || 0;
+                const issues = (row.missing_items || 0) + (row.over_items || 0);
 
                 let status = 'PENDING';
                 if (total > 0) {
@@ -24,17 +22,15 @@ export async function getMonitoringStats(date: string): Promise<{ success: boole
                 }
                 if (issues > 0 && status === 'COMPLETED') status = 'ISSUE';
 
-                const currentShift = storeItems.length > 0 ? Math.max(...storeItems.map((i: any) => i.shift || 1)) : 1;
-
                 return {
-                    id: store.code,
-                    name: store.name,
-                    status: status,
+                    id: row.store_code,
+                    name: row.store_name,
+                    status,
                     progress: checked,
-                    total: total,
-                    issues: issues,
-                    shift: currentShift,
-                    staff: '--'
+                    total,
+                    issues,
+                    shift: row.shift || 1,
+                    staff: row.employee_name || '--'
                 };
             });
 

@@ -40,7 +40,7 @@ export async function getItems(store: string, shift: number): Promise<{ success:
 
             const products: InventoryProduct[] = (data || []).map((item: any) => ({
                 id: item.id,
-                productName: item.products?.name || '',
+                productName: item.products?.name || '[Đã xóa]',
                 sp: item.products?.sp || '',
                 barcode: item.products?.barcode || '',
                 systemStock: item.system_stock || 0,
@@ -104,25 +104,11 @@ export async function updateItem(id: string, field: string, value: any, userId?:
             if (field === 'actual_stock' && value !== null && value !== '') {
                 const numVal = Number(value);
                 updateData[field] = numVal;
-
-                // Fetch system_stock to compute status for immediate UI feedback
-                // Note: diff is a generated column in DB (COALESCE(actual_stock,0) - system_stock)
-                const { data: itemData } = await supabase
-                    .from('inventory_items')
-                    .select('system_stock')
-                    .eq('id', id)
-                    .single();
-
-                const item = itemData as any;
-                if (item) {
-                    const diff = numVal - (item.system_stock || 0);
-                    updateData.status = diff === 0 ? 'MATCHED' : (diff < 0 ? 'MISSING' : 'OVER');
-                    updateData.checked_by = userId;
-                    updateData.checked_at = new Date().toISOString();
-                }
+                updateData.checked_by = userId;
+                updateData.checked_at = new Date().toISOString();
             } else if (field === 'actual_stock' && (value === null || value === '')) {
                 updateData[field] = null;
-                updateData.status = 'PENDING';
+                
             }
 
             const { error } = await supabase
@@ -578,7 +564,7 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
 
         const items = (data || []).map((item: any) => ({
             id: item.id,
-            product_name: item.products?.name || 'N/A',
+            product_name: item.products?.name || '[Đã xóa]',
             barcode: item.products?.barcode || '',
             category: item.products?.category || '',
             system_stock: item.system_stock ?? 0,

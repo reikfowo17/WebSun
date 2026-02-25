@@ -113,9 +113,12 @@ export async function deleteMasterItem(id: string, userRole?: string): Promise<{
 
     if (isSupabaseConfigured()) {
         try {
+            // Soft delete: set is_active = false instead of hard delete
+            // This preserves inventory_items, inventory_history, expiry_items, recovery_items
+            // that reference this product (prevents CASCADE deletion)
             const { error } = await supabase
                 .from('products')
-                .delete()
+                .update({ is_active: false })
                 .eq('id', id);
 
             if (error) throw error;
