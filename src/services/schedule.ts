@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import type { ShiftConfig } from './system';
 
 export interface ScheduleRegistration {
     id: string;
@@ -41,6 +42,11 @@ type ServiceResult<T = void> = {
     data?: T;
 };
 
+/** Format a Date to YYYY-MM-DD using LOCAL timezone (avoids UTC shift at night in GMT+7) */
+function formatLocalDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function getWeekRange(baseDate: Date): { start: string; end: string } {
     const d = new Date(baseDate);
     const day = d.getDay();
@@ -50,8 +56,8 @@ function getWeekRange(baseDate: Date): { start: string; end: string } {
     const sun = new Date(mon);
     sun.setDate(mon.getDate() + 6);
     return {
-        start: mon.toISOString().split('T')[0],
-        end: sun.toISOString().split('T')[0],
+        start: formatLocalDate(mon),
+        end: formatLocalDate(sun),
     };
 }
 
@@ -60,16 +66,16 @@ export function getWeekDates(baseDate: Date): string[] {
     const dates: string[] = [];
     const d = new Date(start + 'T00:00:00');
     for (let i = 0; i < 7; i++) {
-        dates.push(d.toISOString().split('T')[0]);
+        dates.push(formatLocalDate(d));
         d.setDate(d.getDate() + 1);
     }
     return dates;
 }
 
 async function getCurrentUserId(): Promise<string> {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw new Error('Not authenticated');
-    return data.user.id;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) throw new Error('Not authenticated');
+    return session.user.id;
 }
 
 export const ScheduleService = {
@@ -100,10 +106,12 @@ export const ScheduleService = {
     async cancelRegistration(regId: string): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
+            const userId = await getCurrentUserId();
             const { error } = await supabase
                 .from('schedule_registrations')
                 .delete()
-                .eq('id', regId);
+                .eq('id', regId)
+                .eq('user_id', userId);
             if (error) throw error;
             return { success: true, message: 'Đã hủy đăng ký' };
         } catch (err: unknown) {
@@ -215,7 +223,6 @@ export const ScheduleService = {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
             const userId = await getCurrentUserId();
-            const { start: currStart, end: currEnd } = getWeekRange(weekDate);
 
             const prevWeek = new Date(weekDate);
             prevWeek.setDate(prevWeek.getDate() - 7);
@@ -235,16 +242,21 @@ export const ScheduleService = {
             const currentWeekDates = getWeekDates(weekDate);
             const prevWeekDates = getWeekDates(prevWeek);
 
-            const toInsert = prevRegs.map(r => {
-                const dayIndex = prevWeekDates.indexOf(r.work_date);
-                return {
-                    user_id: userId,
-                    store_id: storeId,
-                    shift: r.shift,
-                    work_date: currentWeekDates[dayIndex],
-                    note: r.note
-                };
-            });
+            const toInsert = prevRegs
+                .map(r => {
+                    const dayIndex = prevWeekDates.indexOf(r.work_date);
+                    if (dayIndex === -1) return null;
+                    return {
+                        user_id: userId,
+                        store_id: storeId,
+                        shift: r.shift,
+                        work_date: currentWeekDates[dayIndex],
+                        note: r.note
+                    };
+                })
+                .filter((r): r is NonNullable<typeof r> => r !== null);
+
+            if (toInsert.length === 0) return { success: false, message: 'Không thể map ngày tuần trước' };
 
             const { error: insertErr } = await supabase
                 .from('schedule_registrations')
@@ -280,17 +292,22 @@ export const ScheduleService = {
             const currentWeekDates = getWeekDates(weekDate);
             const prevWeekDates = getWeekDates(prevWeek);
 
-            const toInsert = prevAsgns.map(a => {
-                const dayIndex = prevWeekDates.indexOf(a.work_date);
-                return {
-                    user_id: a.user_id,
-                    store_id: storeId,
-                    shift: a.shift,
-                    work_date: currentWeekDates[dayIndex],
-                    assigned_by: adminId,
-                    updated_at: new Date().toISOString()
-                };
-            });
+            const toInsert = prevAsgns
+                .map(a => {
+                    const dayIndex = prevWeekDates.indexOf(a.work_date);
+                    if (dayIndex === -1) return null;
+                    return {
+                        user_id: a.user_id,
+                        store_id: storeId,
+                        shift: a.shift,
+                        work_date: currentWeekDates[dayIndex],
+                        assigned_by: adminId,
+                        updated_at: new Date().toISOString()
+                    };
+                })
+                .filter((a): a is NonNullable<typeof a> => a !== null);
+
+            if (toInsert.length === 0) return { success: false, message: 'Không thể map ngày tuần trước' };
 
             const { error: insertErr } = await supabase
                 .from('schedule_assignments')
@@ -305,7 +322,7 @@ export const ScheduleService = {
         }
     },
 
-    async autoAssignShifts(weekDate: Date, storeId: string): Promise<ServiceResult> {
+    async autoAssignShifts(weekDate: Date, storeId: string, shiftConfigs?: ShiftConfig[]): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
             const adminId = await getCurrentUserId();
@@ -322,6 +339,21 @@ export const ScheduleService = {
             if (asgnErr) throw asgnErr;
             const assignedSet = new Set((existingAsgns || []).map(a => `${a.user_id}-${a.work_date}-${a.shift}`));
 
+            // Build slot count map for max_slots enforcement
+            const slotCountMap = new Map<string, number>();
+            (existingAsgns || []).forEach(a => {
+                const key = `${a.work_date}-${a.shift}`;
+                slotCountMap.set(key, (slotCountMap.get(key) || 0) + 1);
+            });
+
+            // Build max_slots lookup from shift configs
+            const maxSlotsMap = new Map<number, number>();
+            if (shiftConfigs) {
+                shiftConfigs.forEach(sc => {
+                    if (sc.max_slots && sc.max_slots > 0) maxSlotsMap.set(sc.id, sc.max_slots);
+                });
+            }
+
             // Fetch all registrations
             const { data: regs, error: regErr } = await supabase
                 .from('schedule_registrations')
@@ -333,25 +365,45 @@ export const ScheduleService = {
             if (regErr) throw regErr;
             if (!regs || regs.length === 0) return { success: false, message: 'Không có đăng ký nào để xếp tự động' };
 
-            const toInsert = regs
-                .filter(r => !assignedSet.has(`${r.user_id}-${r.work_date}-${r.shift}`))
-                .map(r => ({
+            const toInsert: { user_id: string; store_id: string; shift: number; work_date: string; assigned_by: string; updated_at: string }[] = [];
+            let skippedByMax = 0;
+
+            for (const r of regs) {
+                if (assignedSet.has(`${r.user_id}-${r.work_date}-${r.shift}`)) continue;
+
+                // Check max_slots limit
+                const slotKey = `${r.work_date}-${r.shift}`;
+                const currentCount = slotCountMap.get(slotKey) || 0;
+                const maxSlots = maxSlotsMap.get(r.shift);
+                if (maxSlots && currentCount >= maxSlots) {
+                    skippedByMax++;
+                    continue;
+                }
+
+                toInsert.push({
                     user_id: r.user_id,
                     store_id: storeId,
                     shift: r.shift,
                     work_date: r.work_date,
                     assigned_by: adminId,
                     updated_at: new Date().toISOString()
-                }));
+                });
+                // Increment count for next iteration
+                slotCountMap.set(slotKey, currentCount + 1);
+                assignedSet.add(`${r.user_id}-${r.work_date}-${r.shift}`);
+            }
 
-            if (toInsert.length === 0) return { success: true, message: 'Tất cả các ca đăng ký đã được xếp rồi' };
+            if (toInsert.length === 0) {
+                return { success: true, message: skippedByMax > 0 ? `Tất cả slot đã đầy (${skippedByMax} đăng ký vượt giới hạn)` : 'Tất cả các ca đăng ký đã được xếp rồi' };
+            }
 
             const { error: insertErr } = await supabase
                 .from('schedule_assignments')
                 .upsert(toInsert, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true });
 
             if (insertErr) throw insertErr;
-            return { success: true, message: `Đã tự động duyệt ${toInsert.length} đăng ký vào lịch` };
+            const extra = skippedByMax > 0 ? ` (bỏ qua ${skippedByMax} do vượt slot)` : '';
+            return { success: true, message: `Đã tự động duyệt ${toInsert.length} đăng ký vào lịch${extra}` };
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error('[Schedule] autoAssignShifts error:', err);
@@ -440,9 +492,23 @@ export const ScheduleService = {
         }
     },
 
-    async getAllEmployees(): Promise<{ id: string; name: string; employee_id: string; avatar_url?: string }[]> {
+    async getAllEmployees(storeId?: string): Promise<{ id: string; name: string; employee_id: string; avatar_url?: string }[]> {
         if (!isSupabaseConfigured()) return [];
         try {
+            if (storeId) {
+                // Filter employees who belong to this store via user_stores table
+                const { data, error } = await supabase
+                    .from('user_stores')
+                    .select('users:user_id(id, name, employee_id, avatar_url)')
+                    .eq('store_id', storeId);
+                if (error) throw error;
+                const employees = (data || [])
+                    .map((row: any) => row.users)
+                    .filter(Boolean)
+                    .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+                return employees;
+            }
+            // Fallback: return all users if no storeId
             const { data, error } = await supabase
                 .from('users')
                 .select('id, name, employee_id, avatar_url')

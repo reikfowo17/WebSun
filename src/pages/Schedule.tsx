@@ -70,7 +70,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
     }, [weekOffset]);
 
     const weekDates = useMemo(() => getWeekDates(baseDate), [baseDate]);
-    const today = todayStr();
+    const today = useMemo(() => todayStr(), []);
     const weekLabel = useMemo(() => `${formatDateShort(weekDates[0])} — ${formatDateShort(weekDates[6])}`, [weekDates]);
 
     // Organized shifts: main + their children
@@ -101,8 +101,8 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
     }, []);
 
     useEffect(() => {
-        if (isAdmin) ScheduleService.getAllEmployees().then(setEmployees);
-    }, [isAdmin]);
+        if (isAdmin && selectedStore) ScheduleService.getAllEmployees(selectedStore).then(setEmployees);
+    }, [isAdmin, selectedStore]);
 
     const loadData = useCallback(async () => {
         if (!selectedStore) return;
@@ -141,7 +141,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                 const r = await ScheduleService.registerAvailability(selectedStore, date, shift);
                 r.success ? toast.success('Đã đăng ký') : toast.error(r.message || 'Lỗi');
             }
-            loadData();
+            await loadData();
         } catch {
             toast.error('Lỗi hệ thống');
         } finally {
@@ -158,7 +158,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
             const r = await ScheduleService.assignShift(userId, selectedStore, d, s);
             r.success ? toast.success('Đã xếp lịch') : toast.error(r.message || 'Lỗi');
             if (assignPopup) setAssignPopup(null);
-            loadData();
+            await loadData();
         } catch {
             toast.error('Lỗi hệ thống');
         } finally {
@@ -172,7 +172,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
         try {
             const r = await ScheduleService.removeAssignment(aId);
             r.success ? toast.success('Đã xóa') : toast.error(r.message || 'Lỗi');
-            loadData();
+            await loadData();
         } catch {
             toast.error('Lỗi hệ thống');
         } finally {
@@ -185,7 +185,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
         try {
             const r = await ScheduleService.copyPreviousWeekRegistrations(baseDate, selectedStore);
             r.success ? toast.success(r.message!) : toast.warning(r.message!);
-            loadData();
+            await loadData();
         } catch {
             toast.error('Lỗi hệ thống');
         } finally {
@@ -198,7 +198,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
         try {
             const r = await ScheduleService.copyPreviousWeekAssignments(baseDate, selectedStore);
             r.success ? toast.success(r.message!) : toast.warning(r.message!);
-            loadData();
+            await loadData();
         } catch {
             toast.error('Lỗi hệ thống');
         } finally {
@@ -209,9 +209,9 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
     const handleAutoAssign = async () => {
         setProcessing('auto-assign');
         try {
-            const r = await ScheduleService.autoAssignShifts(baseDate, selectedStore);
+            const r = await ScheduleService.autoAssignShifts(baseDate, selectedStore, shifts);
             r.success ? toast.success(r.message!) : toast.warning(r.message!);
-            loadData();
+            await loadData();
         } catch {
             toast.error('Lỗi hệ thống');
         } finally {
@@ -219,18 +219,47 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
         }
     };
 
-    // Helpers
-    const getRegsForSlot = (date: string, shift: number) => registrations.filter(r => r.work_date === date && r.shift === shift);
-    const getAsgnsForSlot = (date: string, shift: number) => assignments.filter(a => a.work_date === date && a.shift === shift);
-    const isRegistered = (date: string, shift: number) => registrations.some(r => r.work_date === date && r.shift === shift);
-    const isAssignedSlot = (date: string, shift: number) => assignments.some(a => a.work_date === date && a.shift === shift);
+    // Helpers — O(1) slot lookup via Map
+    const slotLookup = useMemo(() => {
+        const regMap = new Map<string, ScheduleRegistration[]>();
+        const asgnMap = new Map<string, ScheduleAssignment[]>();
+        registrations.forEach(r => {
+            const key = `${r.work_date}-${r.shift}`;
+            const arr = regMap.get(key);
+            if (arr) arr.push(r); else regMap.set(key, [r]);
+        });
+        assignments.forEach(a => {
+            const key = `${a.work_date}-${a.shift}`;
+            const arr = asgnMap.get(key);
+            if (arr) arr.push(a); else asgnMap.set(key, [a]);
+        });
+        return { regMap, asgnMap };
+    }, [registrations, assignments]);
+
+    const getRegsForSlot = (date: string, shift: number) => slotLookup.regMap.get(`${date}-${shift}`) || [];
+    const getAsgnsForSlot = (date: string, shift: number) => slotLookup.asgnMap.get(`${date}-${shift}`) || [];
+    const isRegistered = (date: string, shift: number) => (slotLookup.regMap.get(`${date}-${shift}`) || []).length > 0;
+    const isAssignedSlot = (date: string, shift: number) => (slotLookup.asgnMap.get(`${date}-${shift}`) || []).length > 0;
+
+    // Parse shift time string '06:00 - 14:00' into hours (e.g. 8)
+    const getShiftHours = (timeStr: string): number => {
+        const match = timeStr.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+        if (!match) return 8;
+        const startH = parseInt(match[1]) + parseInt(match[2]) / 60;
+        const endH = parseInt(match[3]) + parseInt(match[4]) / 60;
+        const diff = endH > startH ? endH - startH : (24 - startH + endH);
+        return Math.round(diff * 10) / 10;
+    };
 
     // Stats
     const totalSlots = allShiftIds.length * 7;
     const filledSlots = new Set(assignments.map(a => `${a.work_date}-${a.shift}`)).size;
     const fillRate = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
     const emptySlots = totalSlots - filledSlots;
-    const totalHours = assignments.length * 8;
+    const totalHours = assignments.reduce((sum, a) => {
+        const sc = shifts.find(s => s.id === a.shift);
+        return sum + (sc ? getShiftHours(sc.time) : 8);
+    }, 0);
     const regCount = new Set(registrations.map(r => `${r.work_date}-${r.shift}`)).size;
 
     // ═══════════════════════════════════════════════
@@ -446,7 +475,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                     empTab === 'REGISTER' && (
                                         <button onClick={handleCopyRegs} disabled={!!processing} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/10 hover:bg-indigo-100 dark:hover:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-sm font-bold rounded-xl transition-colors disabled:opacity-50" title="Sao chép ca rảnh tuần trước">
                                             {processing === 'copy-regs' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">content_copy</span>}
-                                            <span className="hidden sm:inline">Copy Lịch Rảnh Trái</span>
+                                            <span className="hidden sm:inline">Copy Tuần Trước</span>
                                         </button>
                                     )
                                 )}
@@ -588,7 +617,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                 </div>
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Giờ công tuần này</p>
-                                    <p className="text-xl font-extrabold text-gray-900 dark:text-white">{assignments.length * 8} giờ</p>
+                                    <p className="text-xl font-extrabold text-gray-900 dark:text-white">{Math.round(totalHours)} giờ</p>
                                 </div>
                             </div>
                         </div>
@@ -646,7 +675,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                             Đã đăng ký ({availRegs.length})
                                         </p>
                                         {availRegs.map(r => (
-                                            <div key={r.id} onClick={() => handleAssign(r.user_id)} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors mb-1.5">
+                                            <div key={r.id} onClick={() => handleAssign(r.user_id, assignPopup!.date, assignPopup!.shift)} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors mb-1.5">
                                                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0">{(r.user_name || '?')[0]}</div>
                                                 <span className="text-sm font-medium text-gray-900 dark:text-white flex-1">{r.user_name}</span>
                                                 <span className="material-symbols-outlined text-emerald-500 text-lg">add_circle</span>
@@ -664,7 +693,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                     .map(emp => {
                                         const hasReg = getRegsForSlot(assignPopup.date, assignPopup.shift).some(r => r.user_id === emp.id);
                                         return (
-                                            <div key={emp.id} onClick={() => handleAssign(emp.id)} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors mb-1">
+                                            <div key={emp.id} onClick={() => handleAssign(emp.id, assignPopup!.date, assignPopup!.shift)} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors mb-1">
                                                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0">{(emp.name || '?')[0]}</div>
                                                 <span className="text-sm font-medium text-gray-900 dark:text-white flex-1">{emp.name}</span>
                                                 {hasReg && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded-md">Đã ĐK</span>}
