@@ -29,7 +29,7 @@ const STATUS_CFG: Record<string, { label: string; bg: string; text: string; dot:
     REJECTED: { label: 'Từ chối', bg: '#fef2f2', text: '#991b1b', dot: '#ef4444', icon: 'cancel' },
 };
 
-const SHIFT_LABELS: Record<number, string> = { 1: 'Ca 1', 2: 'Ca 2', 3: 'Ca 3' };
+const getShiftLabel = (shift: number) => `Ca ${shift}`;
 
 const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) => {
     const [reports, setReports] = useState<ReportSummary[]>([]);
@@ -584,7 +584,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
 
                                                     {/* Shift */}
                                                     <td className="rv2-td">
-                                                        <span className="rv2-shift-pill">{SHIFT_LABELS[report.shift] || `Ca ${report.shift}`}</span>
+                                                        <span className="rv2-shift-pill">{getShiftLabel(report.shift)}</span>
                                                     </td>
 
                                                     {/* Date */}

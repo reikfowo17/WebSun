@@ -449,17 +449,19 @@ export const ScheduleService = {
         }
     },
 
-    async getMyAssignments(weekDate: Date): Promise<ScheduleAssignment[]> {
+    async getMyAssignments(weekDate: Date, storeId?: string): Promise<ScheduleAssignment[]> {
         if (!isSupabaseConfigured()) return [];
         try {
             const userId = await getCurrentUserId();
             const { start, end } = getWeekRange(weekDate);
-            const { data, error } = await supabase
+            let query = supabase
                 .from('schedule_overview')
                 .select('*')
                 .eq('user_id', userId)
                 .gte('work_date', start)
                 .lte('work_date', end);
+            if (storeId) query = query.eq('store_id', storeId);
+            const { data, error } = await query;
             if (error) throw error;
             return data || [];
         } catch (err) {

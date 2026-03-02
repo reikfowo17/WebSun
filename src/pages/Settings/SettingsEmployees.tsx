@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { SystemService, EmployeeConfig, UserStoreAssignment, StoreConfig } from '../../services/system';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsEmployeesProps {
     toast: any;
@@ -16,6 +17,7 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
     const [addingStoreForUser, setAddingStoreForUser] = useState<string | null>(null);
     const [selectedStoreId, setSelectedStoreId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
     const loadAssignments = useCallback(async (userId: string) => {
         setLoadingStores(true);
@@ -65,21 +67,27 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
     };
 
     const handleRemoveStore = async (userId: string, assignmentId: string, storeName: string) => {
-        if (!window.confirm(`Xóa chi nhánh "${storeName}" khỏi nhân viên này?`)) return;
-        setSaving(true);
-        try {
-            const res = await SystemService.removeEmployeeStore(assignmentId);
-            if (res.success) {
-                toast.success('Đã xóa chi nhánh');
-                await loadAssignments(userId);
-            } else {
-                toast.error(res.message || 'Xóa thất bại');
-            }
-        } catch (e: unknown) {
-            toast.error('Lỗi: ' + (e instanceof Error ? e.message : String(e)));
-        } finally {
-            setSaving(false);
-        }
+        setConfirmDialog({
+            title: 'Xóa chi nhánh',
+            message: `Xóa chi nhánh "${storeName}" khỏi nhân viên này?`,
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                setSaving(true);
+                try {
+                    const res = await SystemService.removeEmployeeStore(assignmentId);
+                    if (res.success) {
+                        toast.success('Đã xóa chi nhánh');
+                        await loadAssignments(userId);
+                    } else {
+                        toast.error(res.message || 'Xóa thất bại');
+                    }
+                } catch (e: unknown) {
+                    toast.error('Lỗi: ' + (e instanceof Error ? e.message : String(e)));
+                } finally {
+                    setSaving(false);
+                }
+            },
+        });
     };
 
     const handleSetPrimary = async (userId: string, assignmentId: string) => {
@@ -302,6 +310,15 @@ export const SettingsEmployees: React.FC<SettingsEmployeesProps> = ({ toast, ini
                     </div>
                 )}
             </div>
+
+            {confirmDialog && (
+                <ConfirmDialog
+                    title={confirmDialog.title}
+                    message={confirmDialog.message}
+                    onConfirm={confirmDialog.onConfirm}
+                    onCancel={() => setConfirmDialog(null)}
+                />
+            )}
         </div>
     );
 };

@@ -22,8 +22,11 @@ const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
   });
 
   useEffect(() => {
+    document.documentElement.classList.add("theme-transition");
     document.documentElement.classList.toggle("dark", isDark);
     localStorage.setItem("sunmart_theme", isDark ? "dark" : "light");
+    const tid = setTimeout(() => document.documentElement.classList.remove("theme-transition"), 350);
+    return () => clearTimeout(tid);
   }, [isDark]);
 
   // ─── User Dropdown ───

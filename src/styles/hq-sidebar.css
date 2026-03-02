@@ -12,6 +12,29 @@
     --hq-danger: #DC2626;
     --hq-success: #059669;
     --hq-transition: 150ms ease;
+    --hq-page-bg: #FAFAF8;
+    --hq-content-bg: #FAFAF8;
+    --hq-skeleton-from: #E5E7EB;
+    --hq-skeleton-mid: #F3F4F6;
+}
+
+/* ─── Dark Mode Variables ─── */
+.dark {
+    --hq-sidebar-bg: #1a1a1a;
+    --hq-primary: #FACC15;
+    --hq-primary-hover: #EAB308;
+    --hq-primary-light: rgba(250, 204, 21, 0.1);
+    --hq-text: #E5E7EB;
+    --hq-text-secondary: #9CA3AF;
+    --hq-text-muted: #6B7280;
+    --hq-border: #2a2a2a;
+    --hq-border-light: #1f1f1f;
+    --hq-danger: #F87171;
+    --hq-success: #34D399;
+    --hq-page-bg: #0e0e0e;
+    --hq-content-bg: #0e0e0e;
+    --hq-skeleton-from: #2a2a2a;
+    --hq-skeleton-mid: #333333;
 }
 
 /* ─── Page Layout ─── */
@@ -20,7 +43,7 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    background: #FAFAF8;
+    background: var(--hq-page-bg);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: var(--hq-text);
 }
@@ -41,7 +64,7 @@
     overflow: hidden;
 }
 
-/* ─ Page Title (like Supabase's "Authentication") ─ */
+/* ─ Page Title ─ */
 .hq-sidebar-title {
     font-size: 18px;
     font-weight: 700;
@@ -69,7 +92,7 @@
     border-top: 1px solid var(--hq-border-light);
 }
 
-/* ─ Group Label (like Supabase's green "MANAGE", "CONFIGURATION") ─ */
+/* ─ Group Label ─ */
 .hq-sidebar-group-label {
     font-size: 12px;
     font-weight: 700;
@@ -134,15 +157,29 @@
     color: #92400E;
 }
 
+.dark .hq-sidebar-badge.amber {
+    background: rgba(250, 204, 21, 0.1);
+    color: #FBBF24;
+}
+
 .hq-sidebar-badge.danger {
     background: #FEF2F2;
     color: var(--hq-danger);
     border: 1px solid #FECACA;
 }
 
+.dark .hq-sidebar-badge.danger {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.2);
+}
+
 .hq-sidebar-badge.emerald {
     background: #ECFDF5;
     color: var(--hq-success);
+}
+
+.dark .hq-sidebar-badge.emerald {
+    background: rgba(52, 211, 153, 0.1);
 }
 
 .hq-sidebar-badge.muted {
@@ -202,6 +239,7 @@
     overflow-y: auto;
     min-width: 0;
     box-sizing: border-box;
+    background: var(--hq-content-bg);
 }
 
 /* ─ Section Animation ─ */
@@ -234,14 +272,14 @@
     padding: 14px 20px;
     gap: 10px;
     border-bottom: 1px solid var(--hq-border);
-    background: #FFFFFF;
+    background: var(--hq-sidebar-bg);
     border-radius: 14px 14px 0 0;
 }
 
 .hq-sk-pill {
     height: 24px;
     width: 80px;
-    background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+    background: linear-gradient(90deg, var(--hq-skeleton-from) 25%, var(--hq-skeleton-mid) 50%, var(--hq-skeleton-from) 75%);
     background-size: 200% 100%;
     animation: hq-shimmer 1.5s ease-in-out infinite;
     border-radius: 20px;
@@ -250,7 +288,7 @@
 .hq-sk-btn {
     width: 64px;
     height: 32px;
-    background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+    background: linear-gradient(90deg, var(--hq-skeleton-from) 25%, var(--hq-skeleton-mid) 50%, var(--hq-skeleton-from) 75%);
     background-size: 200% 100%;
     animation: hq-shimmer 1.5s ease-in-out infinite;
     border-radius: 6px;
@@ -258,7 +296,7 @@
 
 .hq-sk-table-head {
     height: 42px;
-    background: #FAFAF8;
+    background: var(--hq-page-bg);
     border-bottom: 1px solid var(--hq-border);
 }
 
@@ -283,7 +321,7 @@
     width: 32px;
     height: 32px;
     border-radius: 6px;
-    background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+    background: linear-gradient(90deg, var(--hq-skeleton-from) 25%, var(--hq-skeleton-mid) 50%, var(--hq-skeleton-from) 75%);
     background-size: 200% 100%;
     animation: hq-shimmer 1.5s ease-in-out infinite;
     flex-shrink: 0;
@@ -291,7 +329,7 @@
 
 .hq-sk-line {
     height: 14px;
-    background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+    background: linear-gradient(90deg, var(--hq-skeleton-from) 25%, var(--hq-skeleton-mid) 50%, var(--hq-skeleton-from) 75%);
     background-size: 200% 100%;
     animation: hq-shimmer 1.5s ease-in-out infinite;
     border-radius: 4px;
@@ -299,14 +337,14 @@
 
 .hq-sk-card {
     height: 64px;
-    background: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
+    background: linear-gradient(90deg, var(--hq-skeleton-from) 25%, var(--hq-skeleton-mid) 50%, var(--hq-skeleton-from) 75%);
     background-size: 200% 100%;
     animation: hq-shimmer 1.5s ease-in-out infinite;
     border-radius: 10px;
 }
 
 .hq-sk-wrap {
-    background: #FFFFFF;
+    background: var(--hq-sidebar-bg);
     border: 1px solid var(--hq-border);
     border-radius: 14px;
     overflow: hidden;
@@ -333,7 +371,7 @@
     padding: 10px 12px;
     border-radius: 8px;
     border: 1px solid var(--hq-border);
-    background: #FAFAF8;
+    background: var(--hq-page-bg);
     cursor: pointer;
     transition: all var(--hq-transition);
     position: relative;

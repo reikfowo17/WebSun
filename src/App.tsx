@@ -26,7 +26,7 @@ const InventoryHQ = React.lazy(() => import("./pages/InventoryHQ"));
 const ExpiryHQ = React.lazy(() => import("./pages/ExpiryHQ"));
 const Profile = React.lazy(() => import("./pages/Profile"));
 const Settings = React.lazy(() => import("./pages/Settings/Settings"));
-const Schedule = React.lazy(() => import("./pages/Schedule"));
+const Schedule = React.lazy(() => import("./pages/Schedule/Schedule"));
 
 const pageVariants = {
   initial: { opacity: 0, x: 20 },

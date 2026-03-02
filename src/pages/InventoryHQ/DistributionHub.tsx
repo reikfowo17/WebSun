@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InventoryService } from '../../services';
 import type { MasterItem } from '../../services';
-import { SystemService, StoreConfig } from '../../services/system';
+import { SystemService, StoreConfig, ShiftConfig } from '../../services/system';
 import { getDistributionStatus, redistributeToStore, resetDistribution } from '../../services/inventory/stores';
 import type { DistributionStatus } from '../../services/inventory/stores';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -47,6 +47,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     const [productForm, setProductForm] = useState({ barcode: '', name: '', sp: '', category: '' });
     const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
     const [stores, setStores] = useState<StoreConfig[]>([]);
+    const [shifts, setShifts] = useState<ShiftConfig[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'distribute' | 'redistribute' | 'redistributeAll' | 'reset' | 'resetAll' | 'newSession'; message: string } | null>(null);
     const [distStatus, setDistStatus] = useState<DistributionStatus | null>(null);
@@ -115,6 +116,11 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
     useEffect(() => {
         loadMasterProducts();
         SystemService.getStores().then(setStores);
+        SystemService.getShifts().then(list => {
+            setShifts(list);
+            const mainShifts = list.filter(s => s.type !== 'SUPPORT');
+            if (mainShifts.length > 0) setSelectedShift(mainShifts[0].id);
+        });
     }, []);
 
     useEffect(() => { loadDistStatus(); }, [loadDistStatus]);
@@ -446,16 +452,16 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                         <div className="dh-field">
                             <label className="dh-label">Ca làm việc</label>
                             <div className="dh-shift-grid">
-                                {[1, 2, 3].map(s => (
-                                    <button key={s} onClick={() => setSelectedShift(s)} className={`dh-shift ${selectedShift === s ? 'active' : ''}`}>
-                                        <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{s === 1 ? 'wb_sunny' : s === 2 ? 'wb_twilight' : 'dark_mode'}</span>
-                                        Ca {s}
+                                {shifts.filter(sh => sh.type !== 'SUPPORT').map(sh => (
+                                    <button key={sh.id} onClick={() => setSelectedShift(sh.id)} className={`dh-shift ${selectedShift === sh.id ? 'active' : ''}`}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{sh.icon || 'schedule'}</span>
+                                        {sh.name}
                                     </button>
                                 ))}
                             </div>
                             <div className="dh-info-callout">
                                 <span className="material-symbols-outlined" style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>info</span>
-                                <p>Phân phối sẽ tạo danh sách kiểm tồn cho ca hiện tại ({selectedShift === 1 ? '06:00 - 14:00' : selectedShift === 2 ? '14:00 - 22:00' : '22:00 - 06:00'}).</p>
+                                <p>Phân phối sẽ tạo danh sách kiểm tồn cho ca hiện tại ({shifts.find(sh => sh.id === selectedShift)?.time || `Ca ${selectedShift}`}).</p>
                             </div>
                         </div>
 

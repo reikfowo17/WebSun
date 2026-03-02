@@ -782,3 +782,269 @@
         animation: none !important;
     }
 }
+
+
+/* ═══════════════════════════════════════
+   DARK MODE
+   ═══════════════════════════════════════ */
+.dark .stg-toolbar {
+    background: #1a1a1a;
+    border-bottom-color: #2a2a2a;
+}
+
+.dark .stg-btn-outline {
+    background: #1f1f1f;
+    border-color: #2a2a2a;
+    color: #E5E7EB;
+}
+
+.dark .stg-btn-outline:hover {
+    background: #2a2a2a;
+    border-color: #4B5563;
+}
+
+.dark .stg-btn-outline.stg-emerald:hover {
+    background: rgba(52, 211, 153, 0.1);
+    border-color: #34D399;
+    color: #34D399;
+}
+
+.dark .stg-btn-icon {
+    color: #6B7280;
+}
+
+.dark .stg-btn-icon:hover {
+    background: #2a2a2a;
+    color: #D1D5DB;
+}
+
+.dark .stg-btn-danger:hover {
+    background: rgba(248, 113, 113, 0.1) !important;
+    color: #F87171 !important;
+    border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+.dark .stg-btn-save {
+    background: rgba(52, 211, 153, 0.1);
+    border-color: rgba(52, 211, 153, 0.2);
+    color: #34D399;
+}
+
+.dark .stg-btn-save:hover {
+    background: #059669 !important;
+    color: #FFFFFF !important;
+}
+
+.dark .stg-badge {
+    background: rgba(250, 204, 21, 0.1);
+    color: #FBBF24;
+    border-color: rgba(250, 204, 21, 0.2);
+}
+
+/* Table */
+.dark .stg-table-wrap {
+    background: #1a1a1a;
+    border-color: #2a2a2a;
+    box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.3);
+}
+
+.dark .stg-table thead {
+    background: #0e0e0e;
+}
+
+.dark .stg-table th {
+    color: #6B7280;
+    border-bottom-color: #2a2a2a;
+}
+
+.dark .stg-table td {
+    border-bottom-color: #1f1f1f;
+    color: #E5E7EB;
+}
+
+.dark .stg-table-row:hover {
+    background: rgba(250, 204, 21, 0.03);
+}
+
+/* Inputs */
+.dark .stg-input {
+    background: #1f1f1f;
+    border-color: #2a2a2a;
+    color: #E5E7EB;
+}
+
+.dark .stg-input:focus {
+    background: #1a1a1a;
+    border-color: #FACC15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.1);
+}
+
+.dark .stg-input::placeholder {
+    color: #4B5563;
+}
+
+/* Shift icon */
+.dark .stg-shift-inline-icon {
+    background: rgba(250, 204, 21, 0.1);
+    color: #FBBF24;
+}
+
+/* Row number */
+.dark .stg-row-num {
+    background: #1f1f1f;
+    color: #9CA3AF;
+}
+
+.dark .stg-row-new {
+    background: rgba(250, 204, 21, 0.03);
+}
+
+.dark .stg-row-new td {
+    border-bottom-color: rgba(250, 204, 21, 0.1);
+}
+
+/* Toggle */
+.dark .stg-toggle-btn.inactive {
+    background: #4B5563;
+}
+
+/* Drag handle */
+.dark .stg-drag-handle {
+    color: #4B5563;
+}
+
+.dark .stg-drag-handle:hover {
+    color: #FBBF24;
+}
+
+/* Empty */
+.dark .stg-empty .material-symbols-outlined {
+    color: #4B5563;
+}
+
+.dark .stg-empty p {
+    color: #6B7280;
+}
+
+/* Info banner */
+.dark .stg-info-banner {
+    background: rgba(250, 204, 21, 0.06);
+    border-color: rgba(250, 204, 21, 0.15);
+    color: #E5E7EB;
+}
+
+.dark .stg-info-banner .material-symbols-outlined {
+    color: #FBBF24;
+}
+
+/* Employee row */
+.dark .stg-emp-row {
+    background: #1a1a1a;
+    border-bottom-color: #1f1f1f;
+}
+
+.dark .stg-emp-row:hover {
+    background: rgba(250, 204, 21, 0.03);
+}
+
+.dark .stg-emp-row.expanded {
+    background: #0e0e0e;
+}
+
+.dark .stg-emp-name {
+    color: #E5E7EB;
+}
+
+.dark .stg-emp-meta {
+    color: #6B7280;
+}
+
+/* Role badge */
+.dark .stg-role-badge.admin {
+    background: rgba(250, 204, 21, 0.1);
+    color: #FBBF24;
+    border-color: rgba(250, 204, 21, 0.2);
+}
+
+.dark .stg-role-badge.staff {
+    background: rgba(96, 165, 250, 0.1);
+    color: #60A5FA;
+    border-color: rgba(96, 165, 250, 0.2);
+}
+
+/* Store chip */
+.dark .stg-store-chip {
+    background: #1f1f1f;
+    border-color: #2a2a2a;
+}
+
+.dark .stg-store-chip:hover {
+    border-color: #4B5563;
+}
+
+.dark .stg-store-chip.primary {
+    background: rgba(52, 211, 153, 0.06);
+    border-color: rgba(52, 211, 153, 0.2);
+}
+
+.dark .stg-store-chip .stg-chip-code {
+    color: #E5E7EB;
+}
+
+.dark .stg-store-chip .stg-chip-name {
+    color: #9CA3AF;
+}
+
+/* Expand panel */
+.dark .stg-expand-panel {
+    background: #0e0e0e;
+    border-bottom-color: #1f1f1f;
+}
+
+.dark .stg-expand-label {
+    color: #6B7280;
+}
+
+/* Search */
+.dark .stg-search-input {
+    background: #1f1f1f;
+    border-color: #2a2a2a;
+    color: #E5E7EB;
+}
+
+.dark .stg-search-input:focus {
+    background: #1a1a1a;
+    border-color: #FACC15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.1);
+}
+
+.dark .stg-search-input::placeholder {
+    color: #4B5563;
+}
+
+/* Store icon */
+.dark .stg-store-icon {
+    background: rgba(250, 204, 21, 0.1);
+    color: #FBBF24;
+}
+
+/* Status */
+.dark .stg-status-label.active {
+    color: #34D399;
+}
+
+.dark .stg-status-label.inactive {
+    color: #6B7280;
+}
+
+/* Add store form */
+.dark .stg-add-store-form select {
+    background: #1f1f1f;
+    border-color: #2a2a2a;
+    color: #E5E7EB;
+}
+
+.dark .stg-add-store-form select:focus {
+    border-color: #FACC15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.1);
+}

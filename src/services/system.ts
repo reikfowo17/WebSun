@@ -9,6 +9,7 @@ export interface ShiftConfig {
     type?: 'MAIN' | 'SUPPORT';
     parent_id?: number;
     max_slots?: number;
+    is_active?: boolean;
 }
 
 export interface StoreConfig {
@@ -16,6 +17,7 @@ export interface StoreConfig {
     code: string;
     name: string;
     is_active?: boolean;
+    sort_order?: number;
 }
 
 export const SystemService = {
@@ -66,7 +68,8 @@ export const SystemService = {
         try {
             const { data, error } = await supabase
                 .from('stores')
-                .select('id, code, name, is_active')
+                .select('id, code, name, is_active, sort_order')
+                .order('sort_order')
                 .order('code');
             if (error) throw error;
             return data || [];
@@ -81,9 +84,9 @@ export const SystemService = {
         try {
             let res;
             if (store.id) {
-                res = await supabase.from('stores').update({ code: store.code, name: store.name, is_active: store.is_active }).eq('id', store.id).select();
+                res = await supabase.from('stores').update({ code: store.code, name: store.name, is_active: store.is_active, sort_order: store.sort_order }).eq('id', store.id).select();
             } else {
-                res = await supabase.from('stores').insert({ code: store.code, name: store.name, is_active: store.is_active ?? true }).select();
+                res = await supabase.from('stores').insert({ code: store.code, name: store.name, is_active: store.is_active ?? true, sort_order: store.sort_order ?? 0 }).select();
             }
             if (res.error) throw res.error;
             return { success: true, data: res.data?.[0] };
@@ -103,6 +106,23 @@ export const SystemService = {
         } catch (err: unknown) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             console.error('[System] Error deleting store:', err);
+            return { success: false, message: errorMsg };
+        }
+    },
+
+    async reorderStores(stores: { id: string; sort_order: number }[]): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const updates = stores.map(s =>
+                supabase.from('stores').update({ sort_order: s.sort_order }).eq('id', s.id)
+            );
+            const results = await Promise.all(updates);
+            const failed = results.find(r => r.error);
+            if (failed?.error) throw failed.error;
+            return { success: true };
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error('[System] Error reordering stores:', err);
             return { success: false, message: errorMsg };
         }
     },
