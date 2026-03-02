@@ -213,6 +213,150 @@ export const SystemService = {
             return { success: false, message: errorMsg };
         }
     },
+
+    /* ──────────── EXPIRY CONFIGS ──────────── */
+
+    async getExpiryConfigs(): Promise<ExpiryConfigItem[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const { data, error } = await supabase
+                .from('expiry_configs')
+                .select('*')
+                .order('type');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('[System] Error fetching expiry configs:', error);
+            return [];
+        }
+    },
+
+    async saveExpiryConfig(config: Partial<ExpiryConfigItem>): Promise<{ success: boolean; data?: ExpiryConfigItem; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            let res;
+            if (config.id) {
+                res = await supabase.from('expiry_configs').update({
+                    type: config.type, near_expiry_days: config.near_expiry_days,
+                    production_threshold: config.production_threshold, enabled: config.enabled,
+                    stores: config.stores, updated_at: new Date().toISOString(),
+                }).eq('id', config.id).select();
+            } else {
+                res = await supabase.from('expiry_configs').insert({
+                    type: config.type, near_expiry_days: config.near_expiry_days ?? 0,
+                    production_threshold: config.production_threshold ?? 0,
+                    enabled: config.enabled ?? true, stores: config.stores ?? [],
+                }).select();
+            }
+            if (res.error) throw res.error;
+            return { success: true, data: res.data?.[0] };
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            return { success: false, message: errorMsg };
+        }
+    },
+
+    async deleteExpiryConfig(id: string): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const { error } = await supabase.from('expiry_configs').delete().eq('id', id);
+            if (error) throw error;
+            return { success: true };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
+        }
+    },
+
+    /* ──────────── PRODUCTS ──────────── */
+
+    async getProducts(): Promise<ProductConfig[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const { data, error } = await supabase
+                .from('products')
+                .select('id, barcode, name, sp, category, unit, unit_price, is_active, created_at')
+                .order('name');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('[System] Error fetching products:', error);
+            return [];
+        }
+    },
+
+    async saveProduct(product: Partial<ProductConfig>): Promise<{ success: boolean; data?: ProductConfig; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            let res;
+            if (product.id) {
+                res = await supabase.from('products').update({
+                    barcode: product.barcode, name: product.name, sp: product.sp,
+                    category: product.category, unit: product.unit, unit_price: product.unit_price,
+                    is_active: product.is_active, updated_at: new Date().toISOString(),
+                }).eq('id', product.id).select();
+            } else {
+                res = await supabase.from('products').insert({
+                    barcode: product.barcode, name: product.name, sp: product.sp,
+                    category: product.category, unit: product.unit ?? 'cái',
+                    unit_price: product.unit_price ?? 0, is_active: product.is_active ?? true,
+                }).select();
+            }
+            if (res.error) throw res.error;
+            return { success: true, data: res.data?.[0] };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
+        }
+    },
+
+    async toggleProductActive(id: string, isActive: boolean): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const { error } = await supabase.from('products').update({ is_active: isActive, updated_at: new Date().toISOString() }).eq('id', id);
+            if (error) throw error;
+            return { success: true };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
+        }
+    },
+
+    async deleteProduct(id: string): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const { error } = await supabase.from('products').delete().eq('id', id);
+            if (error) throw error;
+            return { success: true };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
+        }
+    },
+
+    /* ──────────── SYSTEM SETTINGS (generic key-value) ──────────── */
+
+    async getSetting<T = any>(key: string): Promise<T | null> {
+        if (!isSupabaseConfigured()) return null;
+        try {
+            const { data, error } = await supabase
+                .from('system_settings').select('value').eq('key', key).single();
+            if (error) { if (error.code === 'PGRST116') return null; throw error; }
+            return data.value as T;
+        } catch (error) {
+            console.error(`[System] Error fetching setting ${key}:`, error);
+            return null;
+        }
+    },
+
+    async saveSetting(key: string, value: any): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const { error } = await supabase
+                .from('system_settings')
+                .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+            if (error) throw error;
+            return { success: true };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
+        }
+    },
 };
 
 export interface EmployeeConfig {
@@ -232,4 +376,37 @@ export interface UserStoreAssignment {
     is_primary: boolean;
     created_at?: string;
     store?: { id: string; code: string; name: string };
+}
+
+export interface ExpiryConfigItem {
+    id: string;
+    type: string;
+    near_expiry_days: number;
+    production_threshold: number;
+    enabled: boolean;
+    stores: string[];
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface ProductConfig {
+    id: string;
+    barcode: string;
+    name: string;
+    sp?: string;
+    category?: string;
+    unit?: string;
+    unit_price?: number;
+    is_active?: boolean;
+    created_at?: string;
+}
+
+export interface NotificationSettings {
+    retention_days: number;
+    auto_cleanup: boolean;
+}
+
+export interface GeneralSettings {
+    system_name: string;
+    timezone: string;
 }

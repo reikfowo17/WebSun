@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SystemService, ShiftConfig, StoreConfig, EmployeeConfig } from '../../services/system';
+import { SystemService, ShiftConfig, StoreConfig, EmployeeConfig, ExpiryConfigItem, ProductConfig } from '../../services/system';
 import PortalHeader from '../../components/PortalHeader';
 import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
 import '../../styles/hq-sidebar.css';
@@ -7,23 +7,33 @@ import '../../styles/settings.css';
 import { SettingsShifts } from './SettingsShifts';
 import { SettingsStores } from './SettingsStores';
 import { SettingsEmployees } from './SettingsEmployees';
+import { SettingsExpiryConfig } from './SettingsExpiryConfig';
+import { SettingsProducts } from './SettingsProducts';
+import { SettingsNotifications } from './SettingsNotifications';
+import { SettingsGeneral } from './SettingsGeneral';
 
 interface SettingsTabProps {
     toast: any;
 }
 
-type SettingsSection = 'shifts' | 'stores' | 'employees';
+type SettingsSection = 'shifts' | 'stores' | 'employees' | 'expiry' | 'products' | 'notifications' | 'general';
 
-const SECTION_META: Record<SettingsSection, { label: string; desc: string }> = {
-    shifts: { label: 'Ca Làm Việc', desc: 'Khung giờ & quy trình' },
-    stores: { label: 'Cửa Hàng', desc: 'Danh sách cơ sở' },
-    employees: { label: 'Nhân Viên', desc: 'Phân quyền & chi nhánh' },
+const SECTION_META: Record<SettingsSection, { label: string; desc: string; icon: string }> = {
+    shifts: { label: 'Ca Làm Việc', desc: 'Khung giờ & quy trình', icon: 'schedule' },
+    stores: { label: 'Cửa Hàng', desc: 'Danh sách cơ sở', icon: 'storefront' },
+    products: { label: 'Sản Phẩm', desc: 'Danh mục & quản lý SP', icon: 'inventory_2' },
+    expiry: { label: 'Cấu hình HSD', desc: 'Kiểm soát hạn sử dụng', icon: 'event_available' },
+    employees: { label: 'Nhân Viên', desc: 'Phân quyền & chi nhánh', icon: 'badge' },
+    notifications: { label: 'Thông Báo', desc: 'Lưu trữ & dọn dẹp', icon: 'notifications' },
+    general: { label: 'Cài Đặt Chung', desc: 'Tên hệ thống, múi giờ', icon: 'tune' },
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const [shifts, setShifts] = useState<ShiftConfig[]>([]);
     const [stores, setStores] = useState<StoreConfig[]>([]);
     const [employees, setEmployees] = useState<EmployeeConfig[]>([]);
+    const [expiryConfigs, setExpiryConfigs] = useState<ExpiryConfigItem[]>([]);
+    const [products, setProducts] = useState<ProductConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeSection, setActiveSection] = useState<SettingsSection>('shifts');
 
@@ -34,14 +44,18 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [fetchedShifts, fetchedStores, fetchedEmployees] = await Promise.all([
+            const [fetchedShifts, fetchedStores, fetchedEmployees, fetchedExpiry, fetchedProducts] = await Promise.all([
                 SystemService.getShifts(),
                 SystemService.getStores(),
-                SystemService.getEmployees()
+                SystemService.getEmployees(),
+                SystemService.getExpiryConfigs(),
+                SystemService.getProducts(),
             ]);
             setShifts(fetchedShifts);
             setStores(fetchedStores);
             setEmployees(fetchedEmployees);
+            setExpiryConfigs(fetchedExpiry);
+            setProducts(fetchedProducts);
         } catch (e: unknown) {
             toast.error('Lỗi khi tải cấu hình: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
@@ -58,9 +72,23 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
             ]
         },
         {
+            label: 'KIỂM SOÁT',
+            items: [
+                { id: 'products', label: 'Sản Phẩm', badge: products.length },
+                { id: 'expiry', label: 'Cấu hình HSD', badge: expiryConfigs.length },
+            ]
+        },
+        {
             label: 'NHÂN SỰ',
             items: [
                 { id: 'employees', label: 'Nhân Viên', badge: employees.length },
+            ]
+        },
+        {
+            label: 'NÂNG CAO',
+            items: [
+                { id: 'notifications', label: 'Thông Báo' },
+                { id: 'general', label: 'Cài Đặt Chung' },
             ]
         }
     ];
@@ -102,6 +130,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
                 return <SettingsStores toast={toast} initialStores={stores} />;
             case 'employees':
                 return <SettingsEmployees toast={toast} initialEmployees={employees} allStores={stores} />;
+            case 'expiry':
+                return <SettingsExpiryConfig toast={toast} initialConfigs={expiryConfigs} allStores={stores} />;
+            case 'products':
+                return <SettingsProducts toast={toast} initialProducts={products} />;
+            case 'notifications':
+                return <SettingsNotifications toast={toast} />;
+            case 'general':
+                return <SettingsGeneral toast={toast} />;
             default:
                 return null;
         }
