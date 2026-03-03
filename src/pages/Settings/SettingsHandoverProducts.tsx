@@ -5,9 +5,10 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsHandoverProductsProps {
     toast: any;
+    storeId?: string;
 }
 
-export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> = ({ toast }) => {
+export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> = ({ toast, storeId }) => {
     const [products, setProducts] = useState<HandoverProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -23,7 +24,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
     const loadProducts = async () => {
         setLoading(true);
         try {
-            const data = await HandoverService.getProductTemplates();
+            const data = await HandoverService.getProductTemplates(storeId);
             setProducts(data);
         } catch (err: any) {
             toast.error('Lỗi tải SP giao ca: ' + err.message);
@@ -40,6 +41,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
             barcode: '',
             sort_order: products.length + 1,
             is_active: true,
+            store_id: storeId || null,
         });
     };
 

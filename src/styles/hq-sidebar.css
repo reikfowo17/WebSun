@@ -418,6 +418,50 @@
 }
 
 /* ═══════════════════════════════════════
+   STORE FILTER (sidebar footer)
+   ═══════════════════════════════════════ */
+.hq-store-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--hq-border);
+    background: var(--hq-page-bg);
+}
+
+.hq-store-filter-icon {
+    font-size: 18px;
+    color: var(--hq-text-muted);
+}
+
+.hq-store-filter-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.hq-store-filter-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--hq-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.hq-store-filter-select {
+    width: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--hq-text);
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 2px 0 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* ═══════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {

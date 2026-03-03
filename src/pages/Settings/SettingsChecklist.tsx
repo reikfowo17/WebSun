@@ -6,11 +6,12 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsChecklistProps {
     toast: any;
+    storeId?: string; // undefined = show global items only
 }
 
 const CATEGORIES: ChecklistCategory[] = ['HANDOVER', 'NOTE', 'START_SHIFT', 'MID_SHIFT', 'END_SHIFT'];
 
-export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast }) => {
+export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, storeId }) => {
     const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -27,7 +28,7 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast }) =
     const loadTemplates = async () => {
         setLoading(true);
         try {
-            const data = await ChecklistService.getTemplates();
+            const data = await ChecklistService.getTemplates(storeId);
             setTemplates(data);
         } catch (err: any) {
             toast.error('Lỗi tải checklist: ' + err.message);
@@ -53,6 +54,7 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast }) =
             shift_types: ['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[],
             day_of_week: null, // null = tất cả ngày
             is_active: true,
+            store_id: storeId || null, // gán store nếu đang filter cửa hàng
         });
     };
 

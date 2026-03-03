@@ -5,9 +5,10 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsAssetsProps {
     toast: any;
+    storeId?: string;
 }
 
-export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast }) => {
+export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }) => {
     const [assets, setAssets] = useState<ShiftAsset[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -23,7 +24,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast }) => {
     const loadAssets = async () => {
         setLoading(true);
         try {
-            const data = await AssetService.getAssets();
+            const data = await AssetService.getAssets(storeId);
             setAssets(data);
         } catch (err: any) {
             toast.error('Lỗi tải vật tư: ' + err.message);
@@ -46,6 +47,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast }) => {
             expected_total: 0,
             sort_order: assets.length + 1,
             is_active: true,
+            store_id: storeId || null,
         });
     };
 
