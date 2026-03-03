@@ -27,6 +27,9 @@ const ExpiryHQ = React.lazy(() => import("./pages/ExpiryHQ"));
 const Profile = React.lazy(() => import("./pages/Profile"));
 const Settings = React.lazy(() => import("./pages/Settings/Settings"));
 const Schedule = React.lazy(() => import("./pages/Schedule/Schedule"));
+const ShiftPage = React.lazy(() => import("./pages/Shift/ShiftPage"));
+const CashHQ = React.lazy(() => import("./pages/Shift/CashHQ"));
+const TaskHQ = React.lazy(() => import("./pages/Shift/TaskHQ"));
 
 const pageVariants = {
   initial: { opacity: 0, x: 20 },
@@ -177,6 +180,30 @@ const AppRoutes: React.FC = () => {
               </AnimatedPage>
             }
           />
+          <Route
+            path="/shift"
+            element={
+              <AnimatedPage>
+                <ShiftPageWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/cash-hq"
+            element={
+              <AnimatedPage>
+                <CashHQWrapper />
+              </AnimatedPage>
+            }
+          />
+          <Route
+            path="/task-hq"
+            element={
+              <AnimatedPage>
+                <TaskHQWrapper />
+              </AnimatedPage>
+            }
+          />
         </Route>
 
         {/* Catch all */}
@@ -240,6 +267,21 @@ const ScheduleWrapper = () => {
   const { user } = useUser();
   const toast = useToast();
   return user ? <Schedule user={user} toast={toast} /> : null;
+};
+
+const ShiftPageWrapper = () => {
+  const { user } = useUser();
+  return user ? <ShiftPage user={user} /> : null;
+};
+
+const CashHQWrapper = () => {
+  const { user } = useUser();
+  return user && user.role === "ADMIN" ? <CashHQ user={user} /> : <Navigate to="/" replace />;
+};
+
+const TaskHQWrapper = () => {
+  const { user } = useUser();
+  return user && user.role === "ADMIN" ? <TaskHQ user={user} /> : <Navigate to="/" replace />;
 };
 
 const App: React.FC = () => {

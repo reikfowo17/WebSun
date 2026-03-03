@@ -33,3 +33,6 @@ export type {
     MissingProduct,
     RecoveryScanResult
 } from './archive';
+
+// Shift Management
+export { ShiftService, CashService, ChecklistService, AssetService, HandoverService, QuickReportService } from './shift';

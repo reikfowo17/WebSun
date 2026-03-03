@@ -83,12 +83,15 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       { path: "/", label: "Bảng Điều Khiển", icon: "dashboard" },
       { path: "/hq", label: "Quản Lý Tồn Kho", icon: "inventory_2" },
       { path: "/expiry-hq", label: "Quản Lý Hạn Dùng", icon: "event_busy" },
+      { path: "/cash-hq", label: "Quản Lý Két", icon: "payments" },
+      { path: "/task-hq", label: "Nhiệm Vụ Trong Ca", icon: "checklist" },
       { path: "/schedule", label: "Lịch Làm Việc", icon: "calendar_month" },
     ]
     : [
       { path: "/", label: "Trang chủ", icon: "grid_view" },
       { path: "/inventory", label: "Kiểm Kho", icon: "inventory_2" },
       { path: "/expiry", label: "Kiểm Date", icon: "history_toggle_off" },
+      { path: "/shift", label: "Bàn Giao Ca", icon: "swap_horiz" },
       { path: "/schedule", label: "Lịch Làm Việc", icon: "calendar_month" },
     ];
 
@@ -143,8 +146,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     >
       <div
         className={`fixed left-0 top-0 h-full bg-white dark:bg-[#1a1a1a] flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-50 border-r border-gray-200 dark:border-gray-800/60 ${isExpanded
-            ? `w-[260px] ${sidebarMode === "hover" ? "shadow-[4px_0_24px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)]" : ""}`
-            : "w-[72px]"
+          ? `w-[260px] ${sidebarMode === "hover" ? "shadow-[4px_0_24px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)]" : ""}`
+          : "w-[72px]"
           }`}
         style={{ willChange: "width" }}
         onMouseEnter={handleMouseEnter}

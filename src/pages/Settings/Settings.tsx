@@ -24,7 +24,7 @@ const SECTION_META: Record<SettingsSection, { label: string; desc: string; icon:
     products: { label: 'Sản Phẩm', desc: 'Danh mục & quản lý SP', icon: 'inventory_2' },
     expiry: { label: 'Cấu hình HSD', desc: 'Kiểm soát hạn sử dụng', icon: 'event_available' },
     employees: { label: 'Nhân Viên', desc: 'Phân quyền & chi nhánh', icon: 'badge' },
-    notifications: { label: 'Thông Báo', desc: 'Lưu trữ & dọn dẹp', icon: 'notifications' },
+    notifications: { label: 'Thông Báo', desc: 'Cấu hình thông báo', icon: 'notifications' },
     general: { label: 'Cài Đặt Chung', desc: 'Tên hệ thống, múi giờ', icon: 'tune' },
 };
 
