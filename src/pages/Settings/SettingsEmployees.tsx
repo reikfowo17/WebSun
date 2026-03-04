@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, EmployeeConfig, UserStoreAssignment, StoreConfig } from '../../services/system';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsEmployeesProps {
-    toast: any;
+    toast: ToastContextType;
     initialEmployees: EmployeeConfig[];
     allStores: StoreConfig[];
 }

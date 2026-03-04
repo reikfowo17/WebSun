@@ -63,10 +63,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           if (userProfile && isMounted) {
             const { data: store } = userProfile.store_id
               ? await supabase
-                  .from("stores")
-                  .select("code, name")
-                  .eq("id", userProfile.store_id)
-                  .single()
+                .from("stores")
+                .select("code, name")
+                .eq("id", userProfile.store_id)
+                .single()
               : { data: null };
 
             const mappedUser: User = {
@@ -98,7 +98,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     if (isSupabaseConfigured()) {
       const { data } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          console.log("[UserContext] Auth state change:", event);
+          console.debug("[UserContext] Auth state change:", event);
 
           if (event === "SIGNED_OUT" || !session) {
             if (isMounted) setUser(null);

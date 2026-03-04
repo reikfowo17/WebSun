@@ -203,7 +203,7 @@ export async function getReportDetail(reportId: string): Promise<{ success: bool
         };
 
         return { success: true, report };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Get report detail error:', e);
         return { success: false };
     }

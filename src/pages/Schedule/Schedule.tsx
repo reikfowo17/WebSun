@@ -131,7 +131,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
     const storeName = s.stores.find(st => st.id === s.selectedStore)?.name || '';
 
     return (
-        <div className="h-full flex flex-col bg-gray-50 dark:bg-[#0a0a0a]">
+        <div className="h-full flex flex-col dark:bg-[#0a0a0a]" style={{ background: '#F8F7F4' }}>
             {/* ── Header: Clean + Week Nav ── */}
             <PortalHeader>
                 <div className="flex items-center gap-3">
@@ -139,12 +139,12 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
                     <div className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-                        <span className="material-symbols-outlined text-indigo-500">calendar_month</span>
+                        <span className="material-symbols-outlined text-amber-500">calendar_month</span>
                         {isAdmin ? 'Xếp Lịch' : 'Lịch Làm'}
                     </div>
                 </div>
                 {/* Week Navigator in header */}
-                <div className="flex items-center gap-2 bg-white dark:bg-[#1a1a1a] p-1 rounded-xl border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center gap-2 bg-white dark:bg-[#1a1a1a] p-1 rounded-xl" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.03)' }}>
                     <button onClick={() => s.setWeekOffset(w => w - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors" aria-label="Tuần trước">
                         <span className="material-symbols-outlined text-lg">chevron_left</span>
                     </button>
@@ -152,7 +152,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                     <button onClick={() => s.setWeekOffset(w => w + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors" aria-label="Tuần sau">
                         <span className="material-symbols-outlined text-lg">chevron_right</span>
                     </button>
-                    <button onClick={() => s.setWeekOffset(0)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${s.weekOffset === 0 ? 'bg-indigo-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}>
+                    <button onClick={() => s.setWeekOffset(0)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${s.weekOffset === 0 ? 'text-gray-900 shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`} style={s.weekOffset === 0 ? { background: 'linear-gradient(180deg, #FACC15, #F59E0B)' } : {}}>
                         Nay
                     </button>
                 </div>
@@ -171,9 +171,10 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                     key={store.id}
                                     onClick={() => s.setSelectedStore(store.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all shrink-0 ${active
-                                        ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20'
-                                        : 'bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600'
+                                        ? 'text-gray-900 shadow-md'
+                                        : 'bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:text-amber-600'
                                         }`}
+                                    style={active ? { background: 'linear-gradient(180deg, #FACC15, #F59E0B)', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' } : { border: '1px solid #EEEDE9' }}
                                 >
                                     {store.name}
                                 </button>
@@ -204,7 +205,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                     <span className="material-symbols-outlined text-base">event_busy</span>
                                     {s.emptySlots} trống
                                 </div>
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/10 text-indigo-700 dark:text-indigo-400 font-bold">
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold" style={{ background: '#FEF3C7', color: '#D97706' }}>
                                     <span className="material-symbols-outlined text-base">schedule</span>
                                     {Math.round(s.totalHours)}h
                                 </div>
@@ -214,7 +215,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                         {/* Action buttons */}
                         <div className="flex items-center gap-2">
                             {isAdmin ? (<>
-                                <button onClick={s.handleAutoAssign} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 shadow-sm">
+                                <button onClick={s.handleAutoAssign} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 text-gray-900 text-sm font-bold rounded-xl transition-colors disabled:opacity-50" style={{ background: 'linear-gradient(180deg, #FACC15, #F59E0B)', boxShadow: '0 2px 8px rgba(245,158,11,0.2)' }}>
                                     {s.processing === 'auto-assign' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">auto_awesome</span>}
                                     Tự Xếp
                                 </button>
@@ -223,7 +224,7 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                                     <span className="hidden sm:inline">Copy tuần</span>
                                 </button>
                             </>) : s.empTab === 'REGISTER' && (
-                                <button onClick={s.handleCopyRegs} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/10 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 text-sm font-bold rounded-xl transition-colors disabled:opacity-50">
+                                <button onClick={s.handleCopyRegs} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-xl transition-colors disabled:opacity-50" style={{ background: '#FEF3C7', color: '#D97706' }}>
                                     {s.processing === 'copy-regs' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">content_copy</span>}
                                     <span className="hidden sm:inline">Copy tuần</span>
                                 </button>
@@ -234,16 +235,16 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                     {/* ── Employee info pill ── */}
                     {!isAdmin && (
                         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${s.empTab === 'REGISTER'
-                            ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 dark:text-indigo-400'
+                            ? 'text-amber-700 dark:text-amber-400'
                             : 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400'
-                            }`}>
+                            }`} style={s.empTab === 'REGISTER' ? { background: '#FEF3C7' } : {}}>
                             <span className="material-symbols-outlined text-sm">{s.empTab === 'REGISTER' ? 'info' : 'event_available'}</span>
                             {s.empTab === 'REGISTER' ? `Nhấn ô để đăng ký. Đã ĐK ${s.regCount} ca.` : `${s.assignments.length} ca • ${Math.round(s.totalHours)} giờ tuần này tại ${storeName}`}
                         </div>
                     )}
 
                     {/* ── Calendar Grid ── */}
-                    <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
                         {s.loading ? <SkeletonTable /> : s.shiftTree.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 gap-3">
                                 <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800/50 rounded-2xl flex items-center justify-center">

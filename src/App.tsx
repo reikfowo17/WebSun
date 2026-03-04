@@ -12,9 +12,11 @@ import { AnimatePresence, motion } from "framer-motion";
 // Contexts
 import { UserProvider, useUser } from "./contexts";
 import { ToastProvider, useToast } from "./contexts";
+import type { User } from "./types";
 
 // Components
 import Layout from "./components/Layout";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -87,6 +89,77 @@ const ProtectedLayout: React.FC = () => {
   );
 };
 
+// ─── Generic Route Wrappers (DRY) ───
+
+/** Wraps a page component that requires `user` prop */
+function withUser<P extends { user: User }>(
+  Component: React.ComponentType<P>,
+  extraProps?: Partial<P>,
+) {
+  const Wrapper: React.FC = () => {
+    const { user } = useUser();
+    if (!user) return null;
+    return <Component {...({ user, ...extraProps } as P)} />;
+  };
+  Wrapper.displayName = `withUser(${Component.displayName || Component.name || 'Component'})`;
+  return Wrapper;
+}
+
+/** Wraps a page component that requires admin role */
+function withAdmin<P extends { user: User }>(
+  Component: React.ComponentType<P>,
+  extraProps?: Partial<P>,
+) {
+  const Wrapper: React.FC = () => {
+    const { user } = useUser();
+    if (!user || user.role !== "ADMIN") return <Navigate to="/" replace />;
+    return <Component {...({ user, ...extraProps } as P)} />;
+  };
+  Wrapper.displayName = `withAdmin(${Component.displayName || Component.name || 'Component'})`;
+  return Wrapper;
+}
+
+/** Wraps a page component that requires `user` + `toast` props */
+function withUserAndToast<P extends { user: User; toast: ReturnType<typeof useToast> }>(
+  Component: React.ComponentType<P>,
+) {
+  const Wrapper: React.FC = () => {
+    const { user } = useUser();
+    const toast = useToast();
+    if (!user) return null;
+    return <Component {...({ user, toast } as P)} />;
+  };
+  Wrapper.displayName = `withUserAndToast(${Component.displayName || Component.name || 'Component'})`;
+  return Wrapper;
+}
+
+/** Wraps a page component that requires admin + toast */
+function withAdminAndToast<P extends { toast: ReturnType<typeof useToast> }>(
+  Component: React.ComponentType<P>,
+) {
+  const Wrapper: React.FC = () => {
+    const { user } = useUser();
+    const toast = useToast();
+    if (!user || user.role !== "ADMIN") return <Navigate to="/" replace />;
+    return <Component {...({ toast } as P)} />;
+  };
+  Wrapper.displayName = `withAdminAndToast(${Component.displayName || Component.name || 'Component'})`;
+  return Wrapper;
+}
+
+// ─── Route Components ───
+const DashboardPage = withUser(Dashboard);
+const InventoryPage = withUser(Inventory);
+const ExpiryPage = withUser(Expiry);
+const InventoryHQPage = withUser(InventoryHQ);
+const ExpiryHQPage = withUser(ExpiryHQ);
+const ProfilePage = withUser(Profile);
+const SettingsPage = withAdminAndToast(Settings);
+const SchedulePage = withUserAndToast(Schedule);
+const ShiftPageRoute = withUser(ShiftPage);
+const CashHQPage = withAdmin(CashHQ);
+const TaskHQPage = withAdmin(TaskHQ);
+
 const AppRoutes: React.FC = () => {
   const location = useLocation();
 
@@ -116,94 +189,17 @@ const AppRoutes: React.FC = () => {
 
         {/* Protected Routes */}
         <Route element={<ProtectedLayout />}>
-          <Route
-            path="/"
-            element={
-              <AnimatedPage>
-                <DashboardWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/inventory"
-            element={
-              <AnimatedPage>
-                <InventoryWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/expiry"
-            element={
-              <AnimatedPage>
-                <ExpiryWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/hq"
-            element={
-              <AnimatedPage>
-                <InventoryHQWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/expiry-hq"
-            element={
-              <AnimatedPage>
-                <ExpiryHQWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <AnimatedPage>
-                <ProfileWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <AnimatedPage>
-                <SettingsWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/schedule"
-            element={
-              <AnimatedPage>
-                <ScheduleWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/shift"
-            element={
-              <AnimatedPage>
-                <ShiftPageWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/cash-hq"
-            element={
-              <AnimatedPage>
-                <CashHQWrapper />
-              </AnimatedPage>
-            }
-          />
-          <Route
-            path="/task-hq"
-            element={
-              <AnimatedPage>
-                <TaskHQWrapper />
-              </AnimatedPage>
-            }
-          />
+          <Route path="/" element={<AnimatedPage><DashboardPage /></AnimatedPage>} />
+          <Route path="/inventory" element={<AnimatedPage><InventoryPage /></AnimatedPage>} />
+          <Route path="/expiry" element={<AnimatedPage><ExpiryPage /></AnimatedPage>} />
+          <Route path="/hq" element={<AnimatedPage><InventoryHQPage /></AnimatedPage>} />
+          <Route path="/expiry-hq" element={<AnimatedPage><ExpiryHQPage /></AnimatedPage>} />
+          <Route path="/profile" element={<AnimatedPage><ProfilePage /></AnimatedPage>} />
+          <Route path="/settings" element={<AnimatedPage><SettingsPage /></AnimatedPage>} />
+          <Route path="/schedule" element={<AnimatedPage><SchedulePage /></AnimatedPage>} />
+          <Route path="/shift" element={<AnimatedPage><ShiftPageRoute /></AnimatedPage>} />
+          <Route path="/cash-hq" element={<AnimatedPage><CashHQPage /></AnimatedPage>} />
+          <Route path="/task-hq" element={<AnimatedPage><TaskHQPage /></AnimatedPage>} />
         </Route>
 
         {/* Catch all */}
@@ -222,77 +218,17 @@ const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({
   return <>{children}</>;
 };
 
-// Props Adapters
-const DashboardWrapper = () => {
-  const { user } = useUser();
-  return user ? <Dashboard user={user} /> : null;
-};
-
-const InventoryWrapper = () => {
-  const { user } = useUser();
-  return user ? <Inventory user={user} /> : null;
-};
-
-const ExpiryWrapper = () => {
-  const { user } = useUser();
-  return user ? <Expiry user={user} /> : null;
-};
-
-const InventoryHQWrapper = () => {
-  const { user } = useUser();
-  return user ? <InventoryHQ user={user} /> : null;
-};
-
-const ExpiryHQWrapper = () => {
-  const { user } = useUser();
-  return user ? <ExpiryHQ user={user} /> : null;
-};
-
-const ProfileWrapper = () => {
-  const { user } = useUser();
-  return user ? <Profile user={user} /> : null;
-};
-
-const SettingsWrapper = () => {
-  const { user } = useUser();
-  const toast = useToast();
-  return user && user.role === "ADMIN" ? (
-    <Settings toast={toast} />
-  ) : (
-    <Navigate to="/" replace />
-  );
-};
-
-const ScheduleWrapper = () => {
-  const { user } = useUser();
-  const toast = useToast();
-  return user ? <Schedule user={user} toast={toast} /> : null;
-};
-
-const ShiftPageWrapper = () => {
-  const { user } = useUser();
-  return user ? <ShiftPage user={user} /> : null;
-};
-
-const CashHQWrapper = () => {
-  const { user } = useUser();
-  return user && user.role === "ADMIN" ? <CashHQ user={user} /> : <Navigate to="/" replace />;
-};
-
-const TaskHQWrapper = () => {
-  const { user } = useUser();
-  return user && user.role === "ADMIN" ? <TaskHQ user={user} /> : <Navigate to="/" replace />;
-};
-
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <ToastProvider>
-        <UserProvider>
-          <AppRoutes />
-        </UserProvider>
-      </ToastProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ToastProvider>
+          <UserProvider>
+            <AppRoutes />
+          </UserProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 };
 

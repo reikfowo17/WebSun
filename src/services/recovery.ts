@@ -39,7 +39,7 @@ class RecoveryServiceClass {
                 map[p.barcode] = p.id;
             }
             return map;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Resolve product IDs error:', e);
             return {};
         }
@@ -92,7 +92,7 @@ class RecoveryServiceClass {
                 products: undefined,
                 assigned_user: undefined,
             }));
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get items error:', e);
             return [];
         }
@@ -117,7 +117,7 @@ class RecoveryServiceClass {
                 products: undefined,
                 assigned_user: undefined,
             } : null;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get item error:', e);
             return null;
         }
@@ -176,9 +176,9 @@ class RecoveryServiceClass {
             }
 
             return { success: true, data: { ...data, products: undefined } as RecoveryItem };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Create item error:', e);
-            return { success: false, error: 'Không thể tạo: ' + e.message };
+            return { success: false, error: 'Không thể tạo: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -203,9 +203,9 @@ class RecoveryServiceClass {
                 throw error;
             }
             return { success: true, data };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Update item error:', e);
-            return { success: false, error: 'Không thể cập nhật: ' + e.message };
+            return { success: false, error: 'Không thể cập nhật: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -225,9 +225,9 @@ class RecoveryServiceClass {
                 throw error;
             }
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Delete item error:', e);
-            return { success: false, error: 'Không thể xóa: ' + e.message };
+            return { success: false, error: 'Không thể xóa: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -249,9 +249,9 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Submit error:', e);
-            return { success: false, error: 'Không thể gửi duyệt: ' + e.message };
+            return { success: false, error: 'Không thể gửi duyệt: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -290,9 +290,9 @@ class RecoveryServiceClass {
                 throw error;
             }
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Approve error:', e);
-            return { success: false, error: 'Không thể duyệt: ' + e.message };
+            return { success: false, error: 'Không thể duyệt: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -335,9 +335,9 @@ class RecoveryServiceClass {
                 throw error;
             }
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Reject error:', e);
-            return { success: false, error: 'Không thể từ chối: ' + e.message };
+            return { success: false, error: 'Không thể từ chối: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -372,9 +372,9 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Mark recovered error:', e);
-            return { success: false, error: 'Không thể cập nhật: ' + e.message };
+            return { success: false, error: 'Không thể cập nhật: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -403,9 +403,9 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Update status error:', e);
-            return { success: false, error: 'Không thể cập nhật trạng thái: ' + e.message };
+            return { success: false, error: 'Không thể cập nhật trạng thái: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -421,7 +421,7 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return data || [];
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get documents error:', e);
             return [];
         }
@@ -459,9 +459,9 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return { success: true, data };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Add document error:', e);
-            return { success: false, error: 'Không thể thêm tài liệu: ' + e.message };
+            return { success: false, error: 'Không thể thêm tài liệu: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -478,9 +478,9 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Delete document error:', e);
-            return { success: false, error: 'Không thể xóa tài liệu: ' + e.message };
+            return { success: false, error: 'Không thể xóa tài liệu: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -496,7 +496,7 @@ class RecoveryServiceClass {
 
             if (error) throw error;
             return data || [];
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get history error:', e);
             return [];
         }
@@ -531,7 +531,7 @@ class RecoveryServiceClass {
             };
 
             return stats;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get stats error:', e);
             return null;
         }
@@ -570,9 +570,9 @@ class RecoveryServiceClass {
             });
 
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Assign error:', e);
-            return { success: false, error: 'Không thể giao phiếu: ' + e.message };
+            return { success: false, error: 'Không thể giao phiếu: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -610,7 +610,7 @@ class RecoveryServiceClass {
                 name: u.name,
                 store_name: u.stores?.name || '',
             }));
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get assignable users error:', e);
             return [];
         }
@@ -635,7 +635,7 @@ class RecoveryServiceClass {
                 id: row.users.id,
                 name: row.users.name,
             }));
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Recovery] Get store employees error:', e);
             return [];
         }

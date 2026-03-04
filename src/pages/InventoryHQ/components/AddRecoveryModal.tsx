@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../../contexts/ToastContext';
 import { RecoveryService } from '../../../services/recovery';
 import { InventoryService } from '../../../services/inventory';
 import type { CreateRecoveryItemInput } from '../../../types/recovery';
 
 interface AddRecoveryModalProps {
-    toast: any;
+    toast: ToastContextType;
     onClose: () => void;
     onSuccess: () => void;
 }
@@ -79,9 +80,9 @@ const AddRecoveryModal: React.FC<AddRecoveryModalProps> = ({ toast, onClose, onS
             } else {
                 toast.error(result.error || 'Không thể tạo phiếu truy thu');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AddRecoveryModal] Submit error:', error);
-            toast.error('Lỗi hệ thống: ' + error.message);
+            toast.error('Lỗi hệ thống: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setSubmitting(false);
         }

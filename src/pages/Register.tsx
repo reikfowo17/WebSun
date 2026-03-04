@@ -53,21 +53,21 @@ const Register: React.FC = () => {
             } else {
                 setError(res.error || 'Đăng ký thất bại');
             }
-        } catch (err: any) {
-            setError(err.message || 'Lỗi kết nối');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Lỗi kết nối');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-white relative overflow-hidden p-4">
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4" style={{ background: '#F8F7F4' }}>
             {/* Background Blobs */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-green-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-yellow-50 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2"></div>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-green-100 rounded-full blur-3xl opacity-40 -translate-y-1/2 translate-x-1/2"></div>
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-50 rounded-full blur-3xl opacity-40 translate-y-1/2 -translate-x-1/2"></div>
 
-            <div className="w-full max-w-md bg-white rounded-[32px] shadow-2xl border border-gray-100 p-10 relative z-10">
-                <div className="w-20 h-20 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-200 -rotate-3">
+            <div className="w-full max-w-md bg-white rounded-[32px] p-10 relative z-10" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-8 -rotate-3" style={{ background: 'linear-gradient(135deg, #34D399, #059669)', boxShadow: '0 8px 20px rgba(5,150,105,0.25)' }}>
                     <span className="material-symbols-outlined text-4xl text-white">person_add</span>
                 </div>
 
@@ -94,7 +94,8 @@ const Register: React.FC = () => {
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-none transition-all font-semibold"
+                                className="w-full h-12 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+                                style={{ border: '1.5px solid #EEEDE9' }}
                                 placeholder="Nhập tên đăng nhập tùy chọn..."
                             />
                         </div>
@@ -107,7 +108,8 @@ const Register: React.FC = () => {
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-none transition-all font-semibold"
+                                className="w-full h-12 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+                                style={{ border: '1.5px solid #EEEDE9' }}
                                 placeholder="Nguyễn Văn A"
                             />
                         </div>
@@ -117,7 +119,8 @@ const Register: React.FC = () => {
                             <select
                                 value={store}
                                 onChange={(e) => setStore(e.target.value)}
-                                className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-none transition-all font-semibold"
+                                className="w-full h-12 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+                                style={{ border: '1.5px solid #EEEDE9' }}
                             >
                                 <option value="">-- Chọn cửa hàng --</option>
                                 <option value="BEE">SM BEE</option>
@@ -138,7 +141,8 @@ const Register: React.FC = () => {
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-none transition-all font-semibold"
+                                    className="w-full h-12 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+                                    style={{ border: '1.5px solid #EEEDE9' }}
                                     placeholder="••••••"
                                 />
                             </div>
@@ -150,7 +154,8 @@ const Register: React.FC = () => {
                                     type="password"
                                     value={confirmPass}
                                     onChange={(e) => setConfirmPass(e.target.value)}
-                                    className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-none transition-all font-semibold"
+                                    className="w-full h-12 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+                                    style={{ border: '1.5px solid #EEEDE9' }}
                                     placeholder="••••••"
                                 />
                             </div>
@@ -165,7 +170,8 @@ const Register: React.FC = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full h-14 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-200/50 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="w-full h-14 text-white font-bold rounded-xl transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            style={{ background: 'linear-gradient(135deg, #34D399, #059669)', boxShadow: '0 4px 14px rgba(5,150,105,0.3)' }}
                         >
                             {loading ? (
                                 <span className="material-symbols-outlined animate-spin">progress_activity</span>

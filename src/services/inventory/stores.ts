@@ -207,9 +207,9 @@ export async function distributeToStore(
             : `Đã phân phối ${newProducts.length} sản phẩm cho ${storeCode} ca ${shift}`;
 
         return { success: true, itemCount: newProducts.length, message: msg };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Distribute error:', e);
-        return { success: false, message: 'Lỗi: ' + e.message };
+        return { success: false, message: 'Lỗi: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 
@@ -251,9 +251,9 @@ export async function redistributeToStore(
                 ? `Đã phân phối lại ${distResult.itemCount} sản phẩm (đã xóa ${status.totalItems} mục cũ)`
                 : distResult.message,
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Redistribute error:', e);
-        return { success: false, message: 'Lỗi: ' + e.message };
+        return { success: false, message: 'Lỗi: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 
@@ -274,7 +274,7 @@ export async function resetDistribution(
             .eq('shift', shift);
 
         const uniqueDates = [...new Set((existingItems || []).map((d: any) => d.check_date))];
-        console.log(`[Reset] store=${storeCode} shift=${shift} foundDates=[${uniqueDates.join(',')}] itemCount=${existingItems?.length || 0}`);
+        console.debug(`[Reset] store=${storeCode} shift=${shift} foundDates=[${uniqueDates.join(',')}] itemCount=${existingItems?.length || 0}`);
 
         if (uniqueDates.length === 0) {
             return { success: true, itemCount: 0, message: 'Không có phân phối nào để xóa' };
@@ -334,7 +334,7 @@ export async function resetDistribution(
                 .in('check_date', uniqueDates);
 
             if (error) throw error;
-            console.log(`[Reset] Fallback deletedCount=${deletedCount}`);
+            console.debug(`[Reset] Fallback deletedCount=${deletedCount}`);
 
             const latestDate = uniqueDates.sort().pop() || '';
             await logDistribution(storeId, shift, latestDate, 'RESET', deletedCount || 0, force ? 'Forced reset' : undefined);
@@ -348,7 +348,7 @@ export async function resetDistribution(
 
         // RPC succeeded
         const result = rpcResult as any;
-        console.log(`[Reset] RPC result:`, result);
+        console.debug(`[Reset] RPC result:`, result);
 
         if (!result?.success) {
             return { success: false, message: result?.message || 'Lỗi khi reset' };
@@ -363,9 +363,9 @@ export async function resetDistribution(
             itemCount: deletedCount,
             message: result.message || `Đã xóa ${deletedCount} mục phân phối`,
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Reset error:', e);
-        return { success: false, message: 'Lỗi: ' + e.message };
+        return { success: false, message: 'Lỗi: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 
@@ -427,9 +427,9 @@ export async function addProductsToDistribution(
             : `Đã thêm ${newProductIds.length} sản phẩm`;
 
         return { success: true, itemCount: newProductIds.length, message: msg };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Add products error:', e);
-        return { success: false, message: 'Lỗi: ' + e.message };
+        return { success: false, message: 'Lỗi: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 
@@ -460,9 +460,9 @@ export async function updateStore(id: string, data: {
         const { error } = await supabase.from('stores').update(data).eq('id', id);
         if (error) throw error;
         return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Update store error:', e);
-        return { success: false, error: 'Không thể cập nhật: ' + e.message };
+        return { success: false, error: 'Không thể cập nhật: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 

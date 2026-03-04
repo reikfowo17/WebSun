@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import type { HandoverProduct } from '../../types/shift';
 import { HandoverService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsHandoverProductsProps {
-    toast: any;
+    toast: ToastContextType;
     storeId?: string;
 }
 
@@ -26,8 +27,8 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
         try {
             const data = await HandoverService.getProductTemplates(storeId);
             setProducts(data);
-        } catch (err: any) {
-            toast.error('Lỗi tải SP giao ca: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi tải SP giao ca: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setLoading(false);
         }
@@ -57,8 +58,8 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
             setIsAdding(false);
             setDraft({});
             toast.success('Đã thêm SP giao ca');
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setSaving(false);
         }
@@ -79,8 +80,8 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
             setEditingId(null);
             setDraft({});
             toast.success('Đã cập nhật');
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setSaving(false);
         }
@@ -96,8 +97,8 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                     await HandoverService.deleteProduct(product.id);
                     setProducts(prev => prev.filter(p => p.id !== product.id));
                     toast.success('Đã xóa');
-                } catch (err: any) {
-                    toast.error('Lỗi: ' + err.message);
+                } catch (err: unknown) {
+                    toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
                 }
             },
         });

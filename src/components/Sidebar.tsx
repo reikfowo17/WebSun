@@ -40,7 +40,6 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     localStorage.setItem("sunmart_sidebar_mode", sidebarMode);
   }, [sidebarMode]);
 
-  // Close mode menu on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -104,7 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     return location.pathname.startsWith(path);
   };
 
-  // Reusable nav button renderer
+  // Reusable nav button renderer — Dark theme
   const renderNavItem = (item: NavItem) => {
     const active = isActive(item.path);
     return (
@@ -113,25 +112,24 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         onClick={() => navigate(item.path)}
         title={!isExpanded ? item.label : undefined}
         aria-label={item.label}
-        className={`w-full flex items-center p-2 rounded-xl transition-all duration-200 group relative
-          ${active
-            ? "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
-          }
-        `}
+        className="sb-nav-item"
+        data-active={active || undefined}
       >
-        {active && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-yellow-400 rounded-r-full" />
-        )}
-        <div className="w-[32px] h-[32px] flex items-center justify-center flex-shrink-0 ml-[4px]">
+        {active && <div className="sb-nav-indicator" />}
+        <div className="sb-nav-icon-wrap">
           <span
-            className={`material-symbols-outlined text-[22px] transition-colors ${active ? "material-symbols-fill text-yellow-500" : "group-hover:text-gray-700"}`}
+            className={`material-symbols-outlined sb-nav-icon ${active ? "material-symbols-fill" : ""}`}
           >
             {item.icon}
           </span>
         </div>
         <span
-          className={`whitespace-nowrap font-bold text-sm transition-opacity duration-200 ${isExpanded ? "opacity-100 ml-2" : "opacity-0 w-0 overflow-hidden"}`}
+          className="sb-nav-label"
+          style={{
+            opacity: isExpanded ? 1 : 0,
+            width: isExpanded ? "auto" : 0,
+            overflow: "hidden",
+          }}
         >
           {item.label}
         </span>
@@ -140,134 +138,347 @@ const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   };
 
   return (
-    <aside
-      className="h-full flex-shrink-0 relative z-40 transition-all duration-300"
-      style={{ width: sidebarMode === "expanded" ? 260 : 72 }}
-    >
-      <div
-        className={`fixed left-0 top-0 h-full bg-white dark:bg-[#1a1a1a] flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-50 border-r border-gray-200 dark:border-gray-800/60 ${isExpanded
-          ? `w-[260px] ${sidebarMode === "hover" ? "shadow-[4px_0_24px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)]" : ""}`
-          : "w-[72px]"
-          }`}
-        style={{ willChange: "width" }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+    <>
+      <style>{SIDEBAR_CSS}</style>
+      <aside
+        className="sb-spacer"
+        style={{ width: sidebarMode === "expanded" ? 260 : 72 }}
       >
-        {/* ─── Header ─── */}
-        <div className="h-[60px] px-4 flex items-center border-b border-gray-100 dark:border-gray-800/60 flex-shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center flex-shrink-0 shadow-md shadow-yellow-500/20">
-            <span className="material-symbols-outlined material-symbols-fill text-white">
-              sunny
-            </span>
-          </div>
-          <div
-            className={`ml-3 flex flex-col overflow-hidden transition-opacity duration-300 ${isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0"}`}
-          >
-            <span
-              className="text-sm font-black text-gray-800 dark:text-gray-100 tracking-tight"
-              style={{ fontFamily: '"Arial Rounded MT Bold", sans-serif' }}
-            >
-              SUNMART
-            </span>
-            <span className="text-[10px] font-bold text-yellow-600 dark:text-yellow-500 uppercase tracking-widest leading-none mt-0.5">
-              {user.role}
-            </span>
-          </div>
-        </div>
-
-        {/* ─── Main Navigation ─── */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col">
-          <div className="flex flex-col gap-1">
-            {mainItems.map(renderNavItem)}
-          </div>
-
-          {/* Separator + Bottom Nav Group (Settings) */}
-          {bottomItems.length > 0 && (
-            <>
-              <div className="my-3 mx-1 border-t border-gray-100 dark:border-gray-800/60" />
-              <div className="flex flex-col gap-1">
-                {bottomItems.map(renderNavItem)}
-              </div>
-            </>
-          )}
-        </nav>
-
-        {/* ─── Footer: Mode Toggle ─── */}
-        <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-800/60 bg-white dark:bg-[#1a1a1a] p-2 flex flex-col gap-1">
-          {/* Sidebar Mode Toggle */}
-          <div className="relative" ref={modeMenuRef}>
-            <button
-              onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
-              className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-              title="Chế độ Sidebar"
-              aria-label="Chế độ Sidebar"
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                view_sidebar
+        <div
+          className={`sb-root ${isExpanded ? "sb-expanded" : "sb-collapsed"} ${sidebarMode === "hover" && isExpanded ? "sb-shadow" : ""}`}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* ─── Header ─── */}
+          <div className="sb-header">
+            <div className="sb-logo">
+              <span className="material-symbols-outlined material-symbols-fill sb-logo-icon">
+                sunny
               </span>
-            </button>
+            </div>
+            <div
+              className="sb-brand"
+              style={{
+                opacity: isExpanded ? 1 : 0,
+                width: isExpanded ? "auto" : 0,
+                overflow: "hidden",
+              }}
+            >
+              <span className="sb-brand-name">SUNMART</span>
+              <span className="sb-brand-role">{user.role === 'ADMIN' ? 'ADMIN PORTAL' : 'EMPLOYEE'}</span>
+            </div>
+          </div>
 
-            {isModeMenuOpen && (
-              <div className="absolute bottom-[calc(100%+8px)] left-0 w-[220px] bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-gray-800 rounded-xl shadow-[0px_8px_32px_rgba(0,0,0,0.12)] py-1 z-[100] overflow-hidden">
-                <div className="px-4 py-2 text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 mb-1">
-                  Chế độ Sidebar
+          {/* ─── Main Navigation ─── */}
+          <nav className="sb-nav">
+            <div className="sb-nav-group">
+              {mainItems.map(renderNavItem)}
+            </div>
+
+            {bottomItems.length > 0 && (
+              <>
+                <div className="sb-divider" />
+                <div className="sb-nav-group">
+                  {bottomItems.map(renderNavItem)}
                 </div>
-
-                <button
-                  onClick={() => {
-                    setSidebarMode("expanded");
-                    setIsModeMenuOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 dark:text-gray-300 flex items-center hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer outline-none font-semibold"
-                >
-                  <div className="w-6 flex justify-center mr-2">
-                    {sidebarMode === "expanded" && (
-                      <span className="material-symbols-outlined text-[18px] text-yellow-500">
-                        check
-                      </span>
-                    )}
-                  </div>
-                  Luôn mở (Ghim)
-                </button>
-                <button
-                  onClick={() => {
-                    setSidebarMode("collapsed");
-                    setIsModeMenuOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 dark:text-gray-300 flex items-center hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer outline-none font-semibold"
-                >
-                  <div className="w-6 flex justify-center mr-2">
-                    {sidebarMode === "collapsed" && (
-                      <span className="material-symbols-outlined text-[18px] text-yellow-500">
-                        check
-                      </span>
-                    )}
-                  </div>
-                  Thu gọn
-                </button>
-                <button
-                  onClick={() => {
-                    setSidebarMode("hover");
-                    setIsModeMenuOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 dark:text-gray-300 flex items-center hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer outline-none font-semibold"
-                >
-                  <div className="w-6 flex justify-center mr-2">
-                    {sidebarMode === "hover" && (
-                      <span className="material-symbols-outlined text-[18px] text-yellow-500">
-                        check
-                      </span>
-                    )}
-                  </div>
-                  Mở khi lướt chuột
-                </button>
-              </div>
+              </>
             )}
+          </nav>
+
+          {/* ─── Footer: Mode Toggle ─── */}
+          <div className="sb-footer">
+            <div className="relative" ref={modeMenuRef}>
+              <button
+                onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
+                className="sb-mode-btn"
+                title="Chế độ Sidebar"
+                aria-label="Chế độ Sidebar"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                  view_sidebar
+                </span>
+              </button>
+
+              {isModeMenuOpen && (
+                <div className="sb-mode-menu">
+                  <div className="sb-mode-menu-title">Chế độ Sidebar</div>
+                  {[
+                    { mode: "expanded" as SidebarMode, label: "Luôn mở (Ghim)" },
+                    { mode: "collapsed" as SidebarMode, label: "Thu gọn" },
+                    { mode: "hover" as SidebarMode, label: "Mở khi lướt chuột" },
+                  ].map(({ mode, label }) => (
+                    <button
+                      key={mode}
+                      onClick={() => { setSidebarMode(mode); setIsModeMenuOpen(false); }}
+                      className="sb-mode-option"
+                    >
+                      <div style={{ width: 24, display: "flex", justifyContent: "center", marginRight: 8 }}>
+                        {sidebarMode === mode && (
+                          <span className="material-symbols-outlined" style={{ fontSize: 18, color: "#FACC15" }}>
+                            check
+                          </span>
+                        )}
+                      </div>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 
 export default Sidebar;
+
+const SIDEBAR_CSS = `
+/* ═══ DARK SIDEBAR — SunMart Redesign ═══ */
+.sb-spacer {
+  height: 100%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 40;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sb-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #0F0F0F;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 50;
+  will-change: width;
+}
+
+.sb-expanded { width: 260px; }
+.sb-collapsed { width: 72px; }
+.sb-shadow { box-shadow: 4px 0 24px rgba(0,0,0,0.3); }
+
+/* ─── Header ─── */
+.sb-header {
+  height: 72px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.sb-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #FACC15, #F59E0B);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(250, 204, 21, 0.3);
+}
+
+.sb-logo-icon {
+  color: #FFFFFF;
+  font-size: 22px !important;
+}
+
+.sb-brand {
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+
+.sb-brand-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: 1px;
+  line-height: 1.2;
+}
+
+.sb-brand-role {
+  font-size: 9px;
+  font-weight: 600;
+  color: #FACC15;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 2px;
+}
+
+/* ─── Navigation ─── */
+.sb-nav {
+  flex: 1;
+  padding: 16px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sb-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-divider {
+  margin: 12px 4px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.sb-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.sb-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sb-nav-item[data-active] {
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.sb-nav-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: #FACC15;
+  border-radius: 0 4px 4px 0;
+}
+
+.sb-nav-icon-wrap {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.sb-nav-icon {
+  font-size: 22px !important;
+  color: #737373;
+  transition: color 0.2s;
+}
+
+.sb-nav-item:hover .sb-nav-icon {
+  color: #A3A3A3;
+}
+
+.sb-nav-item[data-active] .sb-nav-icon {
+  color: #FACC15;
+}
+
+.sb-nav-label {
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: #A3A3A3;
+  margin-left: 8px;
+  transition: opacity 0.2s;
+}
+
+.sb-nav-item[data-active] .sb-nav-label {
+  color: #FACC15;
+  font-weight: 700;
+}
+
+.sb-nav-item:hover .sb-nav-label {
+  color: #D4D4D4;
+}
+
+/* ─── Footer ─── */
+.sb-footer {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 12px;
+}
+
+.sb-mode-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #737373;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sb-mode-btn:hover {
+  color: #D4D4D4;
+  background: rgba(255,255,255,0.06);
+}
+
+.sb-mode-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 220px;
+  background: #1A1A1A;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  padding: 4px 0;
+  z-index: 100;
+}
+
+.sb-mode-menu-title {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #737373;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 4px;
+}
+
+.sb-mode-option {
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #D4D4D4;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.sb-mode-option:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Dark mode overrides — sidebar stays dark always */
+html.dark .sb-root { background: #0F0F0F; }
+`;

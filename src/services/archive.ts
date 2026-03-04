@@ -129,7 +129,7 @@ class InventoryArchiveServiceClass {
             const { data, error } = await query;
             if (error) throw error;
             return data || [];
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Get log error:', e);
             return [];
         }
@@ -148,7 +148,7 @@ class InventoryArchiveServiceClass {
 
             if (error && error.code !== 'PGRST116') throw error;
             return data || null;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Get status error:', e);
             return null;
         }
@@ -170,7 +170,7 @@ class InventoryArchiveServiceClass {
             return (data || [])
                 .filter(f => f.name.endsWith('.json'))
                 .map(f => `${folder}/${f.name}`);
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] List files error:', e);
             return [];
         }
@@ -190,7 +190,7 @@ class InventoryArchiveServiceClass {
 
             const text = await data.text();
             return JSON.parse(text) as ArchivedDayData;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Download file error:', e);
             return null;
         }
@@ -251,7 +251,7 @@ class InventoryArchiveServiceClass {
                     onProgress(i + 1, files.length, fileName);
                 }
 
-                console.log(`📄 [Archive Scan] Processing: ${fileName}`);
+                console.debug(`[Archive Scan] Processing: ${fileName}`);
 
                 const dayData = await this.downloadArchiveFile(filePath);
                 if (!dayData) {
@@ -331,11 +331,11 @@ class InventoryArchiveServiceClass {
                 }
             }
 
-            console.log(`✅ [Archive Scan] Complete: ${result.total_files_scanned} files, ${result.total_missing_products} missing products`);
+            console.debug(`[Archive Scan] Complete: ${result.total_files_scanned} files, ${result.total_missing_products} missing products`);
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Scan error:', e);
-            result.errors.push('Lỗi quét lịch sử: ' + e.message);
+            result.errors.push('Lỗi quét lịch sử: ' + (e instanceof Error ? e.message : String(e)));
         }
 
         return result;
@@ -349,9 +349,9 @@ class InventoryArchiveServiceClass {
             });
             if (error) throw error;
             return data;
-        } catch (e: any) {
-            console.error('[Archive] Analyze KiotViet error:', e.message);
-            return { success: false, error: e.message };
+        } catch (e: unknown) {
+            console.error('[Archive] Analyze KiotViet error:', e instanceof Error ? e.message : String(e));
+            return { success: false, error: e instanceof Error ? e.message : String(e) };
         }
     }
 
@@ -425,7 +425,7 @@ class InventoryArchiveServiceClass {
                 total_stores: Object.keys(stores).length,
                 stores,
             }));
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Get recent DB items error:', e);
             return [];
         }
@@ -452,7 +452,7 @@ class InventoryArchiveServiceClass {
             const { data, error } = await query;
             if (error) throw error;
             return data || [];
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Get summaries error:', e);
             return [];
         }
@@ -487,9 +487,9 @@ class InventoryArchiveServiceClass {
 
             if (error) throw error;
             return { success: true, data };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Trigger error:', e);
-            return { success: false, error: 'Không thể archive: ' + e.message };
+            return { success: false, error: 'Không thể archive: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
 
@@ -524,7 +524,7 @@ class InventoryArchiveServiceClass {
                 newestArchive: dates[dates.length - 1] || null,
                 totalFileSize: data.reduce((sum, d) => sum + (d.file_size_bytes || 0), 0),
             };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Archive] Get stats error:', e);
             return null;
         }

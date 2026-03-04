@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { RecoveryService } from '../../services/recovery';
 import { InventoryArchiveService } from '../../services/archive';
 import type { RecoveryScanResult, MissingProduct } from '../../services/archive';
@@ -8,7 +9,7 @@ import AddRecoveryModal from './components/AddRecoveryModal';
 import RecoveryDetailModal from './components/RecoveryDetailModal';
 
 interface RecoveryViewProps {
-    toast: any;
+    toast: ToastContextType;
     date: string;
 }
 
@@ -109,8 +110,8 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
             } else {
                 toast.info(`Tìm thấy ${result.total_missing_products} sản phẩm thiếu`);
             }
-        } catch (err: any) {
-            toast.error('Lỗi quét lịch sử: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi quét lịch sử: ' + (err instanceof Error ? err.message : String(err)));
         } finally { setScanning(false); }
     }, [selectedYear, selectedMonth, toast]);
 
@@ -151,8 +152,8 @@ const RecoveryView: React.FC<RecoveryViewProps> = ({ toast, date }) => {
                 });
                 toast.success(`Đã tự động bù trừ chéo ${res.data.matchedCount} cặp sản phẩm qua KiotViet!`);
             }
-        } catch (e: any) {
-            toast.error('Lỗi kết nối KiotViet: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Lỗi kết nối KiotViet: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
             setAnalyzingKiot(false);
         }

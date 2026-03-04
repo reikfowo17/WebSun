@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../../contexts/ToastContext';
 import { RecoveryService } from '../../../services/recovery';
 import type { RecoveryItem, RecoveryHistoryEntry, RecoveryStatus } from '../../../types/recovery';
 import ConfirmModal from '../../../components/ConfirmModal';
 
 interface RecoveryDetailModalProps {
     item: RecoveryItem;
-    toast: any;
+    toast: ToastContextType;
     onClose: (shouldRefresh?: boolean) => void;
 }
 
@@ -75,8 +76,8 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
             } else {
                 toast.error(result.error || 'Không thể giao');
             }
-        } catch (error: any) {
-            toast.error('Lỗi: ' + error.message);
+        } catch (error: unknown) {
+            toast.error('Lỗi: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setProcessing(null);
         }
@@ -96,8 +97,8 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
             } else {
                 toast.error(result.error || 'Không thể thực hiện');
             }
-        } catch (error: any) {
-            toast.error('Lỗi hệ thống: ' + error.message);
+        } catch (error: unknown) {
+            toast.error('Lỗi hệ thống: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setProcessing(null);
         }
@@ -127,8 +128,8 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
             } else {
                 toast.error(result.error || 'Không thể từ chối');
             }
-        } catch (error: any) {
-            toast.error('Lỗi hệ thống: ' + error.message);
+        } catch (error: unknown) {
+            toast.error('Lỗi hệ thống: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setProcessing(null);
         }
@@ -146,8 +147,8 @@ const RecoveryDetailModal: React.FC<RecoveryDetailModalProps> = ({ item, toast, 
             } else {
                 toast.error(result.error || 'Không thể hoàn thành');
             }
-        } catch (error: any) {
-            toast.error('Lỗi hệ thống: ' + error.message);
+        } catch (error: unknown) {
+            toast.error('Lỗi hệ thống: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setProcessing(null);
         }

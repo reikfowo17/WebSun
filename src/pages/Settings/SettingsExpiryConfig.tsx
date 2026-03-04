@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, ExpiryConfigItem, StoreConfig } from '../../services/system';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface Props {
-    toast: any;
+    toast: ToastContextType;
     initialConfigs: ExpiryConfigItem[];
     allStores: StoreConfig[];
 }

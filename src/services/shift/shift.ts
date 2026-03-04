@@ -12,7 +12,7 @@ export const ShiftService = {
         const today = new Date().toISOString().split('T')[0];
         const { data } = await supabase
             .from('shifts')
-            .select('*, started_by_user:users!shifts_started_by_fkey(id,name,email), store:stores(id,code,name)')
+            .select('*, started_by_user:users!shifts_started_by_fkey(id,name), store:stores(id,code,name)')
             .eq('store_id', storeId)
             .eq('shift_type', shiftType)
             .eq('shift_date', today)
@@ -32,7 +32,7 @@ export const ShiftService = {
                 started_at: new Date().toISOString(),
                 status: 'OPEN' as ShiftStatus,
             })
-            .select('*, started_by_user:users!shifts_started_by_fkey(id,name,email), store:stores(id,code,name)')
+            .select('*, started_by_user:users!shifts_started_by_fkey(id,name), store:stores(id,code,name)')
             .single();
         if (error) throw new Error(error.message);
         return data;
@@ -47,7 +47,7 @@ export const ShiftService = {
                 ended_at: new Date().toISOString(),
             })
             .eq('id', shiftId)
-            .select('*, started_by_user:users!shifts_started_by_fkey(id,name,email), store:stores(id,code,name)')
+            .select('*, started_by_user:users!shifts_started_by_fkey(id,name), store:stores(id,code,name)')
             .single();
         if (error) throw new Error(error.message);
         return data;
@@ -56,7 +56,7 @@ export const ShiftService = {
     async getShiftById(shiftId: string): Promise<Shift | null> {
         const { data } = await supabase
             .from('shifts')
-            .select('*, started_by_user:users!shifts_started_by_fkey(id,name,email), store:stores(id,code,name)')
+            .select('*, started_by_user:users!shifts_started_by_fkey(id,name), store:stores(id,code,name)')
             .eq('id', shiftId)
             .maybeSingle();
         return data;
@@ -73,7 +73,7 @@ export const ShiftService = {
     } = {}): Promise<Shift[]> {
         let query = supabase
             .from('shifts')
-            .select('*, started_by_user:users!shifts_started_by_fkey(id,name,email), store:stores(id,code,name)')
+            .select('*, started_by_user:users!shifts_started_by_fkey(id,name), store:stores(id,code,name)')
             .order('shift_date', { ascending: false })
             .order('shift_type');
 

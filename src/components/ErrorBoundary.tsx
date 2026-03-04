@@ -51,7 +51,8 @@ class ErrorBoundary extends Component<Props, State> {
             </p>
             <button
               onClick={this.handleReset}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 text-gray-900 rounded-lg font-medium transition-colors"
+              style={{ background: 'linear-gradient(180deg, #FACC15, #F59E0B)' }}
             >
               Thử lại
             </button>

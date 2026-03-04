@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { User } from '../types';
 import { useToast } from '../contexts';
+import { ToastContextType } from '../contexts/ToastContext';
 import { ExpiryService, ExpiryConfig, ExpiryReport } from '../services';
 import ConfirmModal from '../components/ConfirmModal';
 import SubSidebar, { SubSidebarGroup } from '../components/SubSidebar';
@@ -95,7 +96,7 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-const ExpiryConfigView: React.FC<{ toast: any }> = ({ toast }) => {
+const ExpiryConfigView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
     const [configs, setConfigs] = useState<ExpiryConfig[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -213,7 +214,7 @@ const ExpiryConfigView: React.FC<{ toast: any }> = ({ toast }) => {
 /* ═══════════════════════════════════════════════
    2. SCHEDULE VIEW
    ═══════════════════════════════════════════════ */
-const ExpiryScheduleView: React.FC<{ toast: any }> = ({ toast }) => {
+const ExpiryScheduleView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
     return (
         <div className="space-y-4">
             <div className="bg-white p-6 rounded-2xl border border-gray-200 text-center py-12">
@@ -233,7 +234,7 @@ const ExpiryScheduleView: React.FC<{ toast: any }> = ({ toast }) => {
 /* ═══════════════════════════════════════════════
    3. REPORTS VIEW
    ═══════════════════════════════════════════════ */
-const ExpiryReportsView: React.FC<{ toast: any }> = ({ toast }) => {
+const ExpiryReportsView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
     const [reports, setReports] = useState<ExpiryReport[]>([]);
     const [loading, setLoading] = useState(false);
 

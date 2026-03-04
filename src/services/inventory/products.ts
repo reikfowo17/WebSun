@@ -65,9 +65,9 @@ export async function addMasterItem(product: {
                 return { success: false, error: result?.error || 'Lỗi không xác định' };
             }
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Add master item error:', e);
-            return { success: false, error: 'Không thể thêm sản phẩm: ' + e.message };
+            return { success: false, error: 'Không thể thêm sản phẩm: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
     return { success: false, error: 'Database disconnected' };
@@ -97,9 +97,9 @@ export async function updateMasterItem(id: string, data: {
                 throw error;
             }
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Update master item error:', e);
-            return { success: false, error: 'Không thể cập nhật: ' + e.message };
+            return { success: false, error: 'Không thể cập nhật: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
     return { success: false, error: 'Database disconnected' };
@@ -123,9 +123,9 @@ export async function deleteMasterItem(id: string, userRole?: string): Promise<{
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Delete master item error:', e);
-            return { success: false, error: 'Không thể xóa: ' + e.message };
+            return { success: false, error: 'Không thể xóa: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
     return { success: false, error: 'Database disconnected' };
@@ -143,9 +143,9 @@ export async function clearActiveMasterItems(userRole?: string): Promise<{ succe
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Clear master items error:', e);
-            return { success: false, error: 'Không thể reset danh sách: ' + e.message };
+            return { success: false, error: 'Không thể reset danh sách: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
     return { success: false, error: 'Database disconnected' };
@@ -194,9 +194,9 @@ export async function importProducts(products: Array<{
                 imported: result?.imported ?? 0,
                 errors: result?.errors || [],
             };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Import products error:', e);
-            return { success: false, imported: 0, errors: [e.message] };
+            return { success: false, imported: 0, errors: [e instanceof Error ? e.message : String(e)] };
         }
     }
     return { success: false, imported: 0, errors: ['Database disconnected'] };

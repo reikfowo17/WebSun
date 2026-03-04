@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import type { User, Store } from '../../types';
 import type { Shift, ShiftType, ChecklistResponse } from '../../types/shift';
 import { SHIFT_ICONS, SHIFT_COLORS, CHECKLIST_LABELS } from '../../types/shift';
@@ -7,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 
 interface TaskMonitorProps {
     user: User;
-    toast: any;
+    toast: ToastContextType;
 }
 
 interface ShiftProgress {

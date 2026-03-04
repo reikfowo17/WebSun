@@ -25,7 +25,7 @@ interface Toast {
   duration?: number;
 }
 
-interface ToastContextType {
+export interface ToastContextType {
   toasts: Toast[];
   showToast: (type: ToastType, message: string, duration?: number) => void;
   success: (message: string) => void;

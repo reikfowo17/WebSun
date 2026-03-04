@@ -1,20 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '../types';
-// XPService was a mock, using local state instead
+import type { User } from '../types';
 
 interface ProfileProps {
     user: User;
 }
 
-// Mock achievements for display
+// Achievement icons using Material Symbols instead of emoji
 const MOCK_ACHIEVEMENTS = [
-    { id: '1', name: 'Chào Mừng!', icon: '👋', xp: 50, unlocked: true },
-    { id: '2', name: 'Siêng Năng', icon: '⭐', xp: 100, unlocked: true },
-    { id: '3', name: 'Chính Xác', icon: '🎯', xp: 150, unlocked: true },
-    { id: '4', name: 'Chuyên Gia', icon: '🏆', xp: 500, unlocked: false },
-    { id: '5', name: 'Huyền Thoại', icon: '👑', xp: 2000, unlocked: false },
-    { id: '6', name: 'Thần Tốc', icon: '⚡', xp: 75, unlocked: false },
+    { id: '1', name: 'Chào Mừng!', icon: 'waving_hand', xp: 50, unlocked: true },
+    { id: '2', name: 'Siêng Năng', icon: 'star', xp: 100, unlocked: true },
+    { id: '3', name: 'Chính Xác', icon: 'target', xp: 150, unlocked: true },
+    { id: '4', name: 'Chuyên Gia', icon: 'emoji_events', xp: 500, unlocked: false },
+    { id: '5', name: 'Huyền Thoại', icon: 'workspace_premium', xp: 2000, unlocked: false },
+    { id: '6', name: 'Thần Tốc', icon: 'bolt', xp: 75, unlocked: false },
 ];
+
+const ACHIEVEMENT_COLORS: Record<string, { bg: string; color: string }> = {
+    waving_hand: { bg: '#FEF3C7', color: '#D97706' },
+    star: { bg: '#FEF9C3', color: '#CA8A04' },
+    target: { bg: '#DBEAFE', color: '#2563EB' },
+    emoji_events: { bg: '#FDE68A', color: '#92400E' },
+    workspace_premium: { bg: '#EDE9FE', color: '#7C3AED' },
+    bolt: { bg: '#FEF3C7', color: '#F59E0B' },
+};
+
+// Rank icons using Material Symbols
+const RANK_ICONS: Record<number, { icon: string; color: string }> = {
+    1: { icon: 'military_tech', color: '#F59E0B' },
+    2: { icon: 'military_tech', color: '#94A3B8' },
+    3: { icon: 'military_tech', color: '#CD7F32' },
+};
 
 // Mock leaderboard
 const MOCK_LEADERBOARD = [
@@ -25,8 +40,10 @@ const MOCK_LEADERBOARD = [
     { rank: 5, name: 'Hoàng Thị E', xp: 1200, level: 3 },
 ];
 
+type ProfileTab = 'overview' | 'achievements' | 'leaderboard';
+
 const Profile: React.FC<ProfileProps> = ({ user }) => {
-    const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'leaderboard'>('overview');
+    const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
     const [stats, setStats] = useState({ xp: user.xp, level: user.level, xpToNextLevel: 500 });
 
     const xpPerLevel = 500;
@@ -34,7 +51,6 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
     const progressPercent = (xpInCurrentLevel / xpPerLevel) * 100;
 
     useEffect(() => {
-        // Update stats when user changes
         setStats({
             xp: user.xp,
             level: user.level,
@@ -43,10 +59,10 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
     }, [user.id, user.xp, user.level]);
 
     return (
-        <div className="min-h-full bg-gray-50 p-6">
+        <div className="min-h-full p-6" style={{ background: '#F8F7F4' }}>
             <div className="max-w-3xl mx-auto">
                 {/* Compact Header Card */}
-                <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 mb-6">
+                <div className="rounded-2xl p-6 mb-6" style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #0F0F0F 100%)' }}>
                     <div className="flex items-center gap-4">
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
@@ -73,8 +89,8 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                                 </div>
                                 <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-gradient-to-r from-yellow-400 to-yellow-300 rounded-full"
-                                        style={{ width: `${progressPercent}%` }}
+                                        className="h-full rounded-full"
+                                        style={{ width: `${progressPercent}%`, background: 'linear-gradient(90deg, #FACC15, #F59E0B)' }}
                                     />
                                 </div>
                             </div>
@@ -99,18 +115,18 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                 </div>
 
                 {/* Tabs */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
                     <div className="flex border-b border-gray-100">
-                        {[
-                            { key: 'overview', label: 'Tổng quan', icon: 'person' },
-                            { key: 'achievements', label: 'Thành tựu', icon: 'emoji_events' },
-                            { key: 'leaderboard', label: 'Bảng xếp hạng', icon: 'leaderboard' },
-                        ].map(tab => (
+                        {([
+                            { key: 'overview' as ProfileTab, label: 'Tổng quan', icon: 'person' },
+                            { key: 'achievements' as ProfileTab, label: 'Thành tựu', icon: 'emoji_events' },
+                            { key: 'leaderboard' as ProfileTab, label: 'Bảng xếp hạng', icon: 'leaderboard' },
+                        ]).map(tab => (
                             <button
                                 key={tab.key}
-                                onClick={() => setActiveTab(tab.key as any)}
+                                onClick={() => setActiveTab(tab.key)}
                                 className={`flex-1 py-3 text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === tab.key
-                                    ? 'text-primary border-b-2 border-primary bg-yellow-50/50'
+                                    ? 'text-amber-600 border-b-2 border-amber-500 bg-amber-50/50 font-bold'
                                     : 'text-gray-400 hover:text-gray-600'
                                     }`}
                             >
@@ -126,21 +142,21 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                             <div className="space-y-3">
                                 {/* Info Grid */}
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#FAFAF8' }}>
                                         <span className="material-symbols-outlined text-gray-400">badge</span>
                                         <div>
                                             <div className="text-[10px] text-gray-400 uppercase">Mã NV</div>
                                             <div className="font-bold text-sm text-gray-800">{user.id?.slice(0, 8).toUpperCase()}</div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#FAFAF8' }}>
                                         <span className="material-symbols-outlined text-gray-400">store</span>
                                         <div>
                                             <div className="text-[10px] text-gray-400 uppercase">Cửa hàng</div>
                                             <div className="font-bold text-sm text-gray-800">{user.store || 'N/A'}</div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#FAFAF8' }}>
                                         <span className="material-symbols-outlined text-gray-400">military_tech</span>
                                         <div>
                                             <div className="text-[10px] text-gray-400 uppercase">Vai trò</div>
@@ -157,7 +173,7 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                                 </div>
 
                                 {/* Activity Stats */}
-                                <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-100">
+                                <div className="p-4 rounded-xl" style={{ background: 'linear-gradient(135deg, #FEF3C7, #FFEDD5)', border: '1px solid #FBBF24' }}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="material-symbols-outlined text-yellow-600 text-lg">analytics</span>
                                         <span className="font-bold text-gray-800 text-sm">Thống kê hoạt động</span>
@@ -182,23 +198,36 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
 
                         {activeTab === 'achievements' && (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {MOCK_ACHIEVEMENTS.map(ach => (
-                                    <div
-                                        key={ach.id}
-                                        className={`relative p-3 rounded-xl border transition-all text-center ${ach.unlocked
-                                            ? 'bg-white border-yellow-200 shadow-sm'
-                                            : 'bg-gray-50 border-gray-200 opacity-50'
-                                            }`}
-                                    >
-                                        <div className="text-2xl mb-1">{ach.unlocked ? ach.icon : '🔒'}</div>
-                                        <div className={`font-bold text-xs ${ach.unlocked ? 'text-gray-800' : 'text-gray-400'}`}>
-                                            {ach.name}
+                                {MOCK_ACHIEVEMENTS.map(ach => {
+                                    const colors = ACHIEVEMENT_COLORS[ach.icon] || { bg: '#F3F4F6', color: '#6B7280' };
+                                    return (
+                                        <div
+                                            key={ach.id}
+                                            className={`relative p-3 rounded-xl border transition-all text-center ${ach.unlocked
+                                                ? 'bg-white border-yellow-200 shadow-sm'
+                                                : 'bg-gray-50 border-gray-200 opacity-50'
+                                                }`}
+                                        >
+                                            <div
+                                                className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2"
+                                                style={{ background: ach.unlocked ? colors.bg : '#F3F4F6' }}
+                                            >
+                                                <span
+                                                    className="material-symbols-outlined"
+                                                    style={{ fontSize: 22, color: ach.unlocked ? colors.color : '#9CA3AF' }}
+                                                >
+                                                    {ach.unlocked ? ach.icon : 'lock'}
+                                                </span>
+                                            </div>
+                                            <div className={`font-bold text-xs ${ach.unlocked ? 'text-gray-800' : 'text-gray-400'}`}>
+                                                {ach.name}
+                                            </div>
+                                            <div className={`text-[10px] font-bold ${ach.unlocked ? 'text-yellow-600' : 'text-gray-400'}`}>
+                                                +{ach.xp} XP
+                                            </div>
                                         </div>
-                                        <div className={`text-[10px] font-bold ${ach.unlocked ? 'text-yellow-600' : 'text-gray-400'}`}>
-                                            +{ach.xp} XP
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -206,7 +235,7 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                             <div className="space-y-2">
                                 {MOCK_LEADERBOARD.map((entry, idx) => {
                                     const isCurrentUser = idx === 2; // Assume #3 is current user
-                                    const rankIcons = ['🥇', '🥈', '🥉'];
+                                    const rankCfg = RANK_ICONS[entry.rank];
                                     return (
                                         <div
                                             key={entry.rank}
@@ -215,9 +244,12 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
                                                 : 'bg-gray-50'
                                                 }`}
                                         >
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${entry.rank <= 3 ? 'text-lg' : 'bg-gray-200 text-gray-500'
-                                                }`}>
-                                                {rankIcons[entry.rank - 1] || entry.rank}
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${!rankCfg ? 'bg-gray-200 text-gray-500' : ''}`}>
+                                                {rankCfg ? (
+                                                    <span className="material-symbols-outlined material-symbols-fill" style={{ fontSize: 22, color: rankCfg.color }}>
+                                                        {rankCfg.icon}
+                                                    </span>
+                                                ) : entry.rank}
                                             </div>
                                             <img
                                                 src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(entry.name)}&backgroundColor=94a3b8`}

@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
+import { ToastContextType } from '../../../contexts/ToastContext';
 import { InventoryArchiveService } from '../../../services/archive';
 import type { RecoveryScanResult, MissingProduct } from '../../../services/archive';
 import { RecoveryService } from '../../../services/recovery';
 import { SystemService, StoreConfig } from '../../../services/system';
 
 interface RecoveryScanModalProps {
-    toast: any;
+    toast: ToastContextType;
     onClose: () => void;
     onRecoveryCreated: () => void;
 }
@@ -57,8 +58,8 @@ const RecoveryScanModal: React.FC<RecoveryScanModalProps> = ({ toast, onClose, o
             } else {
                 toast.info(`Tìm thấy ${result.total_missing_products} sản phẩm thiếu`);
             }
-        } catch (err: any) {
-            toast.error('Lỗi quét lịch sử: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi quét lịch sử: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setScanning(false);
         }

@@ -1,15 +1,10 @@
-/* ===========================================================================
-   SHIFT MANAGEMENT - STYLES
-   Mobile-first design optimized for staff on-the-go
-   =========================================================================== */
-
 /* ─── Root Page Layout ─── */
 .shift-page {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 100vh;
-    background: #fafaf9;
+    background: #F8F7F4;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -20,8 +15,8 @@
     z-index: 30;
     padding: 1rem 1.25rem;
     background: white;
-    border-bottom: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid #EEEDE9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .shift-header-info {
@@ -220,238 +215,954 @@
     padding: 0.75rem 1rem;
 }
 
-/* ─── Cash Denomination Grid ─── */
-.cash-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0.625rem;
+/* ─── SP Layout System (Pencil Design v2) ─── */
+.sp-tab-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0;
+    animation: sp-fadeIn 0.25s ease;
 }
 
-.cash-denom-item {
+@keyframes sp-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sp-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+    padding: 1.25rem;
+    transition: box-shadow 0.2s ease;
+}
+
+.sp-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.sp-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.sp-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.75rem;
+}
+
+.sp-card-head .sp-card-title {
+    margin-bottom: 0;
+}
+
+.sp-count-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+/* ─── 2-Column Layouts ─── */
+.sp-tasks-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 900px) {
+    .sp-tasks-layout {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+    }
+}
+
+.sp-tasks-left,
+.sp-tasks-right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ─── Progress Ring ─── */
+.sp-progress-visual {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0;
+}
+
+.sp-progress-ring {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sp-progress-pct {
+    position: absolute;
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #1e293b;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-progress-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.sp-progress-count {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1e293b;
+    line-height: 1;
+}
+
+.sp-progress-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+/* ─── Notice Card ─── */
+.sp-notice {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 0.875rem;
+    padding: 0.875rem 1rem;
+}
+
+.sp-notice-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.sp-notice-header .material-symbols-outlined {
+    color: #d97706;
+}
+
+.sp-notice-item {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #78350f;
+    line-height: 1.6;
+    padding-left: 0.125rem;
+}
+
+/* ─── Quick Report Grid ─── */
+.sp-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+    .sp-quick-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.sp-quick-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.375rem;
     padding: 0.625rem 0.5rem;
-    border-radius: 0.75rem;
-    border: 1.5px solid #e5e7eb;
-    background: #fafafa;
-    transition: all 0.2s ease;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    transition: border-color 0.15s ease;
 }
 
-.cash-denom-item:focus-within {
+.sp-quick-item:focus-within {
     border-color: #f59e0b;
     background: #fffbeb;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
 }
 
-.cash-denom-label {
+.sp-quick-name {
     font-size: 0.6875rem;
-    font-weight: 700;
-    color: #6b7280;
-    letter-spacing: 0.02em;
+    font-weight: 600;
+    color: #475569;
+    text-align: center;
+    line-height: 1.3;
 }
 
-.cash-denom-input {
-    width: 100%;
-    height: 36px;
+.sp-quick-input {
+    width: 40px;
+    height: 28px;
     text-align: center;
-    border: none;
-    background: transparent;
-    font-size: 1.125rem;
-    font-weight: 800;
-    color: #111827;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.25rem;
+    background: #ffffff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1e293b;
+    font-family: 'JetBrains Mono', monospace;
     outline: none;
 }
 
-.cash-denom-total {
-    font-size: 0.625rem;
-    font-weight: 600;
-    color: #9ca3af;
+.sp-quick-input:focus {
+    border-color: #f59e0b;
+    background: #fffbeb;
 }
 
-/* ─── Revenue Form ─── */
-.revenue-row {
+/* ─── Checklist Group ─── */
+.sp-group-header {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.625rem 0;
-    border-bottom: 1px solid #f3f4f6;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.revenue-row:last-child {
+.sp-group-label {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    flex: 1;
+}
+
+.sp-group-count {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 0.125rem 0.5rem;
+    background: #f1f5f9;
+    border-radius: 999px;
+    color: #64748b;
+}
+
+.sp-check-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f8f9fa;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.sp-check-item:last-child {
     border-bottom: none;
 }
 
-.revenue-row-main {
+.sp-check-item:hover {
+    background: #f8fafc;
+}
+
+.sp-check-item.done {
+    background: #f0fdf4;
+}
+
+.sp-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 0.375rem;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+.sp-checkbox.checked {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+.sp-checkbox .material-symbols-outlined {
+    font-size: 14px;
+    color: #ffffff;
+}
+
+.sp-check-text {
+    flex: 1;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.sp-check-item.done .sp-check-text {
+    color: #94a3b8;
+    text-decoration: line-through;
+}
+
+/* ─── Empty State ─── */
+.sp-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+}
+
+.sp-empty-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-top: 0.5rem;
+}
+
+.sp-empty-desc {
+    font-size: 0.8125rem;
+    color: #94a3b8;
+    line-height: 1.6;
+    max-width: 260px;
+    margin-top: 0.25rem;
+}
+
+/* ─── Data Table (Handover / Assets) ─── */
+.sp-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.sp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.sp-table thead {
+    background: #f8fafc;
+}
+
+.sp-table th {
+    padding: 0.5rem 1rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.sp-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-weight: 500;
+}
+
+.sp-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.sp-table tbody tr:hover {
+    background: #fafbfc;
+}
+
+.sp-td-product {
+    font-weight: 700 !important;
+    color: #1e293b !important;
+}
+
+.sp-td-barcode {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: #f59e0b !important;
+    font-weight: 600 !important;
+}
+
+.sp-td-input {
+    width: 56px;
+    height: 30px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.25rem;
+    background: #f8fafc;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #1e293b;
+    font-family: 'JetBrains Mono', monospace;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.sp-td-input:focus {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.sp-table-empty {
+    text-align: center;
+    padding: 2rem !important;
+    color: #94a3b8 !important;
+    font-style: italic;
+}
+
+/* ─── End-Shift Bar ─── */
+.sp-endbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.sp-endbar-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.sp-end-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.sp-end-btn:hover:not(:disabled) {
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+    transform: translateY(-1px);
+}
+
+.sp-end-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.sp-end-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.sp-end-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+/* ─── Auto-Save ─── */
+.sp-autosave {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+}
+
+.sp-autosave.saving {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.sp-autosave.saved {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.sp-autosave.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.sp-autosave-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+}
+
+.sp-autosave.saving .sp-autosave-dot {
+    background: #f59e0b;
+    animation: pulse 1s infinite;
+}
+
+.sp-autosave.saved .sp-autosave-dot {
+    background: #10b981;
+}
+
+.sp-autosave.error .sp-autosave-dot {
+    background: #ef4444;
+}
+
+/* ─── Cash 2-Column Layout ─── */
+.sp-cash-2col {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 900px) {
+    .sp-cash-2col {
+        grid-template-columns: 1.2fr 1fr;
+        align-items: start;
+    }
+}
+
+.sp-cash-report,
+.sp-cash-denom {
+    min-width: 0;
+}
+
+/* ─── Báo Cáo Kết Két (Cash Report Form) ─── */
+.sp-cash-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.sp-cash-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.sp-cash-field:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.sp-cash-field-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
 }
 
-.revenue-label {
+.sp-cash-field-label {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #374151;
+    color: #334155;
     flex: 1;
 }
 
-.revenue-input {
+.sp-cash-field.expense .sp-cash-field-label {
+    color: #ef4444;
+}
+
+.sp-cash-field-input {
     width: 140px;
     height: 36px;
     padding: 0 0.75rem;
     border-radius: 0.5rem;
-    border: 1.5px solid #e5e7eb;
-    background: #fafafa;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
     font-size: 0.875rem;
     font-weight: 700;
-    color: #111827;
+    color: #1e293b;
     text-align: right;
     transition: all 0.2s ease;
 }
 
-.revenue-input:focus {
-    border-color: #f59e0b;
-    background: #fffbeb;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+.sp-cash-field-input:focus {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     outline: none;
 }
 
-/* Per-item note input */
-.revenue-note {
+.sp-cash-field-note {
     width: 100%;
     height: 28px;
     padding: 0 0.5rem;
     border-radius: 0.375rem;
-    border: 1px solid #f3f4f6;
+    border: 1px dashed #e2e8f0;
     background: transparent;
-    font-size: 0.6875rem;
-    color: #9ca3af;
+    font-size: 0.75rem;
+    color: #64748b;
     transition: all 0.15s ease;
 }
 
-.revenue-note:focus {
-    border-color: #d1d5db;
-    background: #fafafa;
-    color: #374151;
+.sp-cash-field-note:focus {
+    border-color: #cbd5e1;
+    border-style: solid;
+    background: #f8fafc;
+    color: #334155;
     outline: none;
 }
 
-.revenue-note::placeholder {
-    color: #d1d5db;
-    font-style: italic;
+.sp-cash-payment-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed #cbd5e1;
 }
 
-/* ─── Summary Row ─── */
-.cash-summary {
-    margin-top: 0.75rem;
-    padding: 0.875rem;
-    border-radius: 0.75rem;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+.sp-cash-pay-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+    border: 1px solid #f1f5f9;
 }
 
-.cash-summary-row {
+.sp-cash-pay-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #475569;
+    flex: 1;
+}
+
+/* ─── Quản Lý Tiền Két (Denomination Table) ─── */
+.sp-denom-table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+    background: #fff;
+}
+
+.sp-denom-thead {
+    display: grid;
+    grid-template-columns: 1fr 60px 100px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.05em;
+}
+
+.sp-denom-thead span:nth-child(2),
+.sp-denom-thead span:nth-child(3) {
+    text-align: right;
+}
+
+.sp-denom-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 100px;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s ease;
+}
+
+.sp-denom-row:hover {
+    background: #f8fafc;
+}
+
+.sp-denom-row:last-child {
+    border-bottom: none;
+}
+
+.sp-denom-label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.sp-denom-input {
+    width: 60px;
+    height: 32px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    background: #f8fafc;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.sp-denom-input:focus {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
+}
+
+.sp-denom-total {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #64748b;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-denom-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.375rem 0;
+    padding: 0.75rem 1rem;
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 0.5rem;
+    border-left: 4px solid #f59e0b;
 }
 
-.cash-summary-label {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: #6b7280;
-}
-
-.cash-summary-value {
-    font-size: 0.9375rem;
-    font-weight: 800;
-    color: #111827;
-}
-
-.cash-summary-value.positive {
-    color: #10b981;
-}
-
-.cash-summary-value.negative {
-    color: #ef4444;
-}
-
-.cash-summary-row.total {
-    border-top: 2px solid #e5e7eb;
-    margin-top: 0.375rem;
-    padding-top: 0.625rem;
-}
-
-.cash-summary-row.total .cash-summary-label {
+.sp-denom-footer-label {
     font-size: 0.875rem;
     font-weight: 800;
-    color: #111827;
-}
-
-.cash-summary-row.total .cash-summary-value {
-    font-size: 1.125rem;
-}
-
-/* ─── Difference Alert ─── */
-.diff-alert {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    margin-top: 0.75rem;
-}
-
-.diff-alert.ok {
-    background: #d1fae5;
-    border: 1px solid #a7f3d0;
-}
-
-.diff-alert.warning {
-    background: #fef3c7;
-    border: 1px solid #fcd34d;
-}
-
-.diff-alert.danger {
-    background: #fee2e2;
-    border: 1px solid #fca5a5;
-}
-
-.diff-alert-icon {
-    font-size: 20px;
-}
-
-.diff-alert.ok .diff-alert-icon {
-    color: #10b981;
-}
-
-.diff-alert.warning .diff-alert-icon {
-    color: #f59e0b;
-}
-
-.diff-alert.danger .diff-alert-icon {
-    color: #ef4444;
-}
-
-.diff-alert-text {
-    font-size: 0.8125rem;
-    font-weight: 700;
-}
-
-.diff-alert.ok .diff-alert-text {
-    color: #065f46;
-}
-
-.diff-alert.warning .diff-alert-text {
     color: #92400e;
 }
 
-.diff-alert.danger .diff-alert-text {
-    color: #991b1b;
+.sp-denom-footer-value {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #d97706;
 }
+
+/* ─── Summary Strip ─── */
+.sp-cash-strip {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    background: white;
+    border-radius: 0.875rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+@media (min-width: 900px) {
+    .sp-cash-strip {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
+.sp-strip-row {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border-radius: 0.75rem;
+    border: 1px solid #f1f5f9;
+}
+
+.sp-strip-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.sp-strip-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.sp-strip-value.amber {
+    color: #d97706;
+}
+
+.sp-strip-value.blue {
+    color: #3b82f6;
+}
+
+.sp-strip-row.highlight {
+    background: #fff;
+    border-width: 2px;
+}
+
+.sp-strip-row.highlight.ok {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.sp-strip-row.highlight.warn {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.sp-strip-row.highlight.danger {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.sp-strip-row.highlight .sp-strip-value {
+    font-size: 1.5rem;
+}
+
+.sp-strip-row.highlight.ok .sp-strip-value,
+.sp-strip-row.highlight.ok .sp-strip-label {
+    color: #059669;
+}
+
+.sp-strip-row.highlight.warn .sp-strip-value,
+.sp-strip-row.highlight.warn .sp-strip-label {
+    color: #d97706;
+}
+
+.sp-strip-row.highlight.danger .sp-strip-value,
+.sp-strip-row.highlight.danger .sp-strip-label {
+    color: #dc2626;
+}
+
+.sp-diff-reason-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #b91c1c;
+    margin-bottom: 0.5rem;
+}
+
+.sp-diff-reason-input {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    font-size: 0.875rem;
+    color: #7f1d1d;
+    resize: vertical;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.sp-diff-reason-input:focus {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* ─── Notes & Signatures ─── */
+.sp-cash-bottom-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+    .sp-cash-bottom-actions {
+        grid-template-columns: 3fr 2fr;
+    }
+}
+
+.sp-signatures {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sp-sig-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+}
+
+.sp-sig-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.sp-sig-area {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.sp-sig-todo {
+    font-size: 0.75rem;
+    font-style: italic;
+    color: #94a3b8;
+}
+
+.sp-sig-done {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #10b981;
+}
+
+.sp-sig-done .material-symbols-outlined {
+    font-size: 14px;
+}
+
+.sp-sig-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.375rem;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sp-sig-btn:hover:not(:disabled) {
+    background: #e0e7ff;
+    border-color: #a5b4fc;
+}
+
+.sp-sig-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
 
 /* ─── Checklist ─── */
 .checklist-category {
@@ -1686,4 +2397,1509 @@ html.dark .cashhq-reason {
 
 html.dark .cashhq-section-title {
     color: #d1d5db;
+}
+
+/* ═════ CashHQ — New Components ═════ */
+
+/* Revenue summary bar */
+.cashhq-revenue-summary {
+    display: flex;
+    align-items: center;
+    padding: 0.875rem 1.25rem;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.cashhq-revenue-summary-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cashhq-revenue-summary-label {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.cashhq-revenue-summary-value {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #111827;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.cashhq-revenue-summary-divider {
+    width: 1px;
+    height: 28px;
+    background: #e5e7eb;
+}
+
+/* Action buttons */
+.cashhq-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.cashhq-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.cashhq-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.cashhq-btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.cashhq-btn-success:hover:not(:disabled) {
+    background: #059669;
+}
+
+.cashhq-btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.cashhq-btn-danger:hover:not(:disabled) {
+    background: #dc2626;
+}
+
+.cashhq-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.cashhq-btn-secondary:hover:not(:disabled) {
+    background: #e5e7eb;
+}
+
+/* Status info badge */
+.cashhq-status-info {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.cashhq-status-info.approved {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.cashhq-status-info.rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Reject modal */
+.cashhq-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.cashhq-modal {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 440px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.cashhq-reject-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.cashhq-reject-textarea:focus {
+    border-color: #f59e0b;
+}
+
+/* Badge variants */
+.badge-default {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.badge-danger {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Dark mode — new components */
+html.dark .cashhq-revenue-summary-value {
+    color: #f9fafb;
+}
+
+html.dark .cashhq-revenue-summary-divider {
+    background: #333;
+}
+
+html.dark .cashhq-actions {
+    border-color: #333;
+}
+
+html.dark .cashhq-btn-secondary {
+    background: #262626;
+    color: #d1d5db;
+}
+
+html.dark .cashhq-status-info.approved {
+    background: rgba(16, 185, 129, 0.1);
+    color: #6ee7b7;
+}
+
+html.dark .cashhq-status-info.rejected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+}
+
+html.dark .cashhq-modal {
+    background: #1f1f1f;
+    border: 1px solid #333;
+}
+
+html.dark .cashhq-reject-textarea {
+    background: #121212;
+    border-color: #333;
+    color: #f9fafb;
+}
+
+html.dark .cashhq-reject-textarea:focus {
+    border-color: #f59e0b;
+}
+
+html.dark .badge-default {
+    background: #262626;
+    color: #9ca3af;
+}
+
+html.dark .badge-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SHIFT PAGE v3 — SubSidebar Layout
+   Uses hq-page / hq-layout / SubSidebar (no extra header)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Sidebar Shift Info (footer) ── */
+.sp-sidebar-shift-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: var(--hq-page-bg, #F8F7F4);
+    border: 1px solid var(--hq-border, #EEEDE9);
+}
+
+.sp-sidebar-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.sp-sidebar-badge.morning {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.sp-sidebar-badge.afternoon {
+    background: linear-gradient(135deg, #fb923c, #f97316);
+}
+
+.sp-sidebar-badge.evening {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+}
+
+.sp-sidebar-shift-detail {
+    flex: 1;
+    min-width: 0;
+}
+
+.sp-sidebar-shift-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--hq-text, #111827);
+    line-height: 1.3;
+}
+
+.sp-sidebar-shift-meta {
+    font-size: 0.6875rem;
+    color: var(--hq-text-muted, #9ca3af);
+    line-height: 1.4;
+}
+
+.sp-sidebar-completed {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #10b981;
+    background: #d1fae5;
+    padding: 2px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* ── Autosave indicator ── */
+.sp-autosave {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #9ca3af;
+}
+
+.sp-autosave-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #d1d5db;
+}
+
+.sp-autosave.saving .sp-autosave-dot {
+    background: #f59e0b;
+    animation: pulse 1s infinite;
+}
+
+.sp-autosave.saved .sp-autosave-dot {
+    background: #10b981;
+}
+
+.sp-autosave.error .sp-autosave-dot {
+    background: #ef4444;
+}
+
+/* ── Start Shift Card ── */
+.sp-start-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 1rem;
+}
+
+.sp-start-card {
+    max-width: 420px;
+    width: 100%;
+    padding: 2rem 1.5rem;
+    background: white;
+    border-radius: 1.25rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    text-align: center;
+}
+
+.sp-start-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    color: white;
+    font-size: 28px;
+}
+
+.sp-start-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 0.375rem;
+}
+
+.sp-start-desc {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0 0 1.5rem;
+}
+
+.sp-type-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-bottom: 1.5rem;
+}
+
+.sp-type-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: 0.875rem;
+    border: 2px solid #e5e7eb;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.sp-type-btn:hover {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+.sp-type-btn.active {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.sp-type-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+}
+
+.sp-type-icon.morning {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.sp-type-icon.afternoon {
+    background: linear-gradient(135deg, #fb923c, #f97316);
+}
+
+.sp-type-icon.evening {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+}
+
+.sp-type-label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.sp-start-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.875rem;
+    border: none;
+    border-radius: 0.875rem;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.sp-start-btn:hover:not(:disabled) {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+}
+
+.sp-start-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Tab Content Area ── */
+.sp-tab-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 800px;
+}
+
+/* ── Generic Card ── */
+.sp-card {
+    background: white;
+    border-radius: 0.875rem;
+    border: 1px solid var(--hq-border, #EEEDE9);
+    padding: 1rem 1.25rem;
+}
+
+.sp-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.sp-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--hq-text, #111827);
+    margin-bottom: 0.75rem;
+}
+
+.sp-card-head .sp-card-title {
+    margin-bottom: 0;
+}
+
+.sp-count-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+}
+
+.sp-row-between {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.sp-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.sp-bold {
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+/* ── Progress ── */
+.sp-progress-track {
+    height: 6px;
+    background: #f3f4f6;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.sp-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+/* ── Notice ── */
+.sp-notice {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-left: 4px solid #f59e0b;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+}
+
+.sp-notice-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #92400e;
+    margin-bottom: 0.5rem;
+}
+
+.sp-notice-item {
+    font-size: 0.8125rem;
+    color: #78350f;
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+/* ── Checklist Groups ── */
+.sp-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1rem;
+    background: #FAFAF8;
+    border-bottom: 1px solid var(--hq-border, #EEEDE9);
+}
+
+.sp-group-label {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #374151;
+    flex: 1;
+}
+
+.sp-group-count {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #9ca3af;
+}
+
+.sp-check-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f9fafb;
+}
+
+.sp-check-item:last-child {
+    border-bottom: none;
+}
+
+.sp-check-item:hover {
+    background: #fafaf8;
+}
+
+.sp-check-item.done {
+    background: rgba(16, 185, 129, 0.04);
+}
+
+.sp-checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 2px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.sp-checkbox.checked {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+.sp-checkbox .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.sp-check-text {
+    font-size: 0.8125rem;
+    color: #374151;
+    font-weight: 500;
+}
+
+.sp-check-item.done .sp-check-text {
+    text-decoration: line-through;
+    color: #9ca3af;
+}
+
+/* ── Quick Reports ── */
+.sp-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+
+.sp-quick-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: #FAFAF8;
+    border-radius: 0.5rem;
+    border: 1px solid var(--hq-border, #EEEDE9);
+}
+
+.sp-quick-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.sp-quick-input {
+    width: 60px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    background: white;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-quick-input:focus {
+    border-color: #f59e0b;
+}
+
+/* ═══ CASH TAB — 2-Column Google Sheets Layout ═══ */
+.sp-cash-layout {
+    flex-direction: row !important;
+    gap: 1rem;
+    max-width: 1100px !important;
+    align-items: flex-start;
+}
+
+.sp-cash-col {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .sp-cash-layout {
+        flex-direction: column !important;
+    }
+}
+
+/* Denom table */
+.sp-denom-table {
+    display: flex;
+    flex-direction: column;
+}
+
+.sp-denom-thead {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #FAFAF8;
+    border-radius: 0.375rem;
+    margin-bottom: 0.25rem;
+}
+
+.sp-denom-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    align-items: center;
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid #f5f5f0;
+    transition: background 0.15s;
+}
+
+.sp-denom-row:focus-within {
+    background: #fffbeb;
+}
+
+.sp-denom-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.sp-denom-input {
+    width: 100%;
+    padding: 0.25rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    background: white;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-denom-input:focus {
+    border-color: #f59e0b;
+}
+
+.sp-denom-total {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #111827;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-denom-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0.5rem 0;
+    margin-top: 0.5rem;
+    border-top: 2px solid #f59e0b;
+}
+
+.sp-denom-footer-label {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: #111827;
+}
+
+.sp-denom-footer-value {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #f59e0b;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Revenue rows */
+.sp-revenue-row {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f5f5f0;
+}
+
+.sp-revenue-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sp-revenue-label {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.sp-revenue-input {
+    width: 120px;
+    padding: 0.375rem 0.625rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-align: right;
+    outline: none;
+    background: white;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-revenue-input:focus {
+    border-color: #f59e0b;
+}
+
+.sp-revenue-note {
+    width: 100%;
+    margin-top: 2px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+    font-size: 0.6875rem;
+    color: #9ca3af;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+}
+
+.sp-revenue-note:focus {
+    border-color: #e5e7eb;
+    background: #fafaf8;
+    color: #374151;
+}
+
+.sp-payment-section {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Cash Summary — spreadsheet highlight rows */
+.sp-cash-summary {
+    margin-top: 0.75rem;
+}
+
+.sp-summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.sp-summary-val {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-summary-highlight {
+    border-radius: 0.375rem;
+    margin-bottom: 0.25rem;
+}
+
+.sp-summary-highlight.blue {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.sp-summary-highlight.green {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.sp-summary-highlight.yellow {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.sp-summary-highlight.red {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Difference reason */
+.sp-diff-reason {
+    margin-top: 0.5rem;
+}
+
+.sp-diff-reason-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #dc2626;
+    margin-bottom: 4px;
+}
+
+.sp-diff-reason-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #fecaca;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    min-height: 48px;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+}
+
+.sp-diff-reason-input:focus {
+    border-color: #f59e0b;
+}
+
+/* ─ Data Tables ─ */
+.sp-table-wrap {
+    overflow-x: auto;
+}
+
+.sp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.sp-table th {
+    padding: 0.5rem;
+    text-align: left;
+    font-weight: 700;
+    color: #6b7280;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #FAFAF8;
+    border-bottom: 2px solid var(--hq-border, #EEEDE9);
+}
+
+.sp-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #f5f5f0;
+    color: #374151;
+}
+
+.sp-td-product {
+    font-weight: 600;
+    font-size: 0.75rem;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sp-td-barcode {
+    font-size: 0.6875rem;
+    color: #9ca3af;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-td-input {
+    width: 56px;
+    padding: 0.25rem 0.375rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    outline: none;
+    background: white;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-td-input:focus {
+    border-color: #f59e0b;
+}
+
+.sp-table-empty {
+    text-align: center;
+    padding: 2rem;
+    color: #9ca3af;
+    font-size: 0.8125rem;
+}
+
+/* ─ End-Shift Bar (inline) ─ */
+.sp-endbar {
+    margin-top: 2rem;
+    padding: 0.875rem 1.25rem;
+    background: white;
+    border: 1px solid var(--hq-border, #EEEDE9);
+    border-radius: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sp-endbar-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.sp-end-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1.25rem;
+    border: none;
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.sp-end-btn:hover:not(:disabled) {
+    filter: brightness(1.05);
+}
+
+.sp-end-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ═══ DARK MODE ═══ */
+html.dark .sp-sidebar-shift-info {
+    background: #121212;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-sidebar-shift-name {
+    color: #f9fafb;
+}
+
+html.dark .sp-sidebar-completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+}
+
+html.dark .sp-card {
+    background: #1a1a1a;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-card-title {
+    color: #f9fafb;
+}
+
+html.dark .sp-group-header {
+    background: #121212;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-group-label {
+    color: #d1d5db;
+}
+
+html.dark .sp-check-item:hover {
+    background: #262626;
+}
+
+html.dark .sp-check-item.done {
+    background: rgba(16, 185, 129, 0.06);
+}
+
+html.dark .sp-check-text {
+    color: #d1d5db;
+}
+
+html.dark .sp-checkbox {
+    border-color: #4b5563;
+    background: #0a0a0a;
+}
+
+html.dark .sp-denom-thead {
+    background: #121212;
+    color: #9ca3af;
+}
+
+html.dark .sp-denom-row {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-denom-row:focus-within {
+    background: rgba(245, 158, 11, 0.08);
+}
+
+html.dark .sp-denom-label {
+    color: #d1d5db;
+}
+
+html.dark .sp-denom-input {
+    background: #0a0a0a;
+    border-color: #3e3e3e;
+    color: #f9fafb;
+}
+
+html.dark .sp-denom-total {
+    color: #f9fafb;
+}
+
+html.dark .sp-denom-footer {
+    border-color: #f59e0b;
+}
+
+html.dark .sp-denom-footer-label {
+    color: #f9fafb;
+}
+
+html.dark .sp-revenue-row {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-revenue-label {
+    color: #d1d5db;
+}
+
+html.dark .sp-revenue-input {
+    background: #121212;
+    border-color: #2e2e2e;
+    color: #f9fafb;
+}
+
+html.dark .sp-revenue-note {
+    color: #6b7280;
+}
+
+html.dark .sp-revenue-note:focus {
+    border-color: #3e3e3e;
+    background: #1a1a1a;
+    color: #d1d5db;
+}
+
+html.dark .sp-payment-section {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-summary-highlight.blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+}
+
+html.dark .sp-summary-highlight.green {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+}
+
+html.dark .sp-summary-highlight.yellow {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+}
+
+html.dark .sp-summary-highlight.red {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+
+html.dark .sp-quick-item {
+    background: #121212;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-quick-name {
+    color: #d1d5db;
+}
+
+html.dark .sp-quick-input {
+    background: #0a0a0a;
+    border-color: #3e3e3e;
+    color: #f9fafb;
+}
+
+html.dark .sp-table th {
+    background: #121212;
+    border-color: #2e2e2e;
+    color: #9ca3af;
+}
+
+html.dark .sp-table td {
+    border-color: #2e2e2e;
+    color: #d1d5db;
+}
+
+html.dark .sp-td-input {
+    background: #0a0a0a;
+    border-color: #3e3e3e;
+    color: #f9fafb;
+}
+
+html.dark .sp-endbar {
+    background: #1a1a1a;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-notice {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+    border-left-color: #f59e0b;
+}
+
+html.dark .sp-notice-header {
+    color: #fbbf24;
+}
+
+html.dark .sp-notice-item {
+    color: #fde68a;
+}
+
+html.dark .sp-start-card {
+    background: #1a1a1a;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-start-title {
+    color: #f9fafb;
+}
+
+html.dark .sp-start-desc {
+    color: #9ca3af;
+}
+
+html.dark .sp-type-btn {
+    background: #121212;
+    border-color: #3e3e3e;
+}
+
+html.dark .sp-type-btn:hover {
+    background: #262626;
+}
+
+html.dark .sp-type-btn.active {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+html.dark .sp-type-label {
+    color: #f9fafb;
+}
+
+html.dark .sp-diff-reason-input {
+    background: #121212;
+    border-color: #ef4444;
+    color: #f9fafb;
+}
+
+@media (min-width: 640px) {
+    .sp-quick-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ═══ CASH TAB v2 — Report-first layout ═══ */
+
+/* Cash fields grid */
+.sp-cash-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sp-cash-field {
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.sp-cash-field-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.sp-cash-field-label {
+    font-size: 0.8125rem;
+    color: #374151;
+    font-weight: 500;
+    flex: 1;
+}
+
+.sp-cash-field.expense .sp-cash-field-label {
+    color: #dc2626;
+}
+
+.sp-cash-field-input {
+    width: 100px;
+    padding: 0.3125rem 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-align: right;
+    outline: none;
+    background: white;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sp-cash-field-input:focus {
+    border-color: #f59e0b;
+}
+
+.sp-cash-field-note {
+    width: 100%;
+    margin-top: 1px;
+    padding: 0.125rem 0;
+    border: none;
+    font-size: 0.6875rem;
+    color: #9ca3af;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+}
+
+.sp-cash-field-note:focus {
+    color: #374151;
+}
+
+/* Payment bar */
+.sp-cash-payment-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.sp-cash-pay-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0;
+}
+
+.sp-cash-pay-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+    flex: 1;
+}
+
+
+
+/* Dark mode for new cash elements */
+html.dark .sp-cash-field {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-cash-field-label {
+    color: #d1d5db;
+}
+
+html.dark .sp-cash-field.expense .sp-cash-field-label {
+    color: #fca5a5;
+}
+
+html.dark .sp-cash-field-input {
+    background: #121212;
+    border-color: #3e3e3e;
+    color: #f9fafb;
+}
+
+html.dark .sp-cash-field-note {
+    color: #6b7280;
+}
+
+html.dark .sp-cash-field-note:focus {
+    color: #d1d5db;
+}
+
+html.dark .sp-cash-payment-bar {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-cash-pay-label {
+    color: #9ca3af;
+}
+
+html.dark .sp-cash-strip {
+    background: #1a1a1a;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-strip-row {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-strip-label {
+    color: #9ca3af;
+}
+
+html.dark .sp-strip-label.bold {
+    color: #f9fafb;
+}
+
+html.dark .sp-strip-row.highlight.ok {
+    background: rgba(16, 185, 129, 0.1);
+}
+
+html.dark .sp-strip-row.highlight.warn {
+    background: rgba(245, 158, 11, 0.1);
+}
+
+html.dark .sp-strip-row.highlight.danger {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+html.dark .sp-denom-table {
+    background: #121212;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-denom-thead {
+    background: #1a1a1a;
+    border-bottom: 1px solid #2e2e2e;
+    color: #9ca3af;
+}
+
+html.dark .sp-denom-row {
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-denom-row:hover {
+    background: #1a1a1a;
+}
+
+html.dark .sp-denom-label {
+    color: #d1d5db;
+}
+
+html.dark .sp-denom-input {
+    background: #0a0a0a;
+    border-color: #3e3e3e;
+    color: #f9fafb;
+}
+
+html.dark .sp-denom-input:focus {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+}
+
+html.dark .sp-denom-footer {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+html.dark .sp-denom-footer-label {
+    color: #fbbf24;
+}
+
+html.dark .sp-denom-footer-value {
+    color: #f59e0b;
+}
+
+html.dark .sp-cash-pay-item {
+    background: #121212;
+    border-color: #2e2e2e;
+}
+
+html.dark .sp-sig-box {
+    background: #121212;
+    border-color: #3e3e3e;
+}
+
+html.dark .sp-sig-title {
+    color: #d1d5db;
+}
+
+html.dark .sp-sig-todo {
+    color: #6b7280;
+}
+
+html.dark .sp-sig-btn {
+    background: rgba(79, 70, 229, 0.1);
+    color: #818cf8;
+    border-color: rgba(79, 70, 229, 0.3);
+}
+
+html.dark .sp-sig-btn:hover:not(:disabled) {
+    background: rgba(79, 70, 229, 0.2);
+}
+
+/* ═══ 2-Column Cash Layout — mobile fallback ═══ */
+
+@media (max-width: 900px) {
+    .sp-cash-2col {
+        grid-template-columns: 1fr;
+    }
+
+    .sp-tasks-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark mode additions */
+html.dark .sp-progress-pct {
+    color: #f9fafb;
+}
+
+html.dark .sp-progress-count {
+    color: #f9fafb;
+}
+
+html.dark .sp-empty-title {
+    color: #9ca3af;
+}
+
+html.dark .sp-empty-desc {
+    color: #6b7280;
 }

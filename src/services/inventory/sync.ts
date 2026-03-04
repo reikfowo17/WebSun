@@ -81,9 +81,9 @@ export async function syncKiotVietStock(storeCode: string, shift: number): Promi
             synced: syncedCount,
             message: `Đã đồng bộ ${syncedCount}/${items.length} sản phẩm từ KiotViet`
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] KiotViet sync error:', e);
-        return { success: false, message: 'Lỗi: ' + e.message };
+        return { success: false, message: 'Lỗi: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 

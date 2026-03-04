@@ -23,7 +23,7 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return data || [];
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Get error:', e);
             return [];
         }
@@ -45,7 +45,7 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return count || 0;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Unread count error:', e);
             return 0;
         }
@@ -63,7 +63,7 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return true;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Mark read error:', e);
             return false;
         }
@@ -85,7 +85,7 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return true;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Mark all read error:', e);
             return false;
         }
@@ -102,9 +102,9 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Create error:', e);
-            return { success: false, error: e.message };
+            return { success: false, error: e instanceof Error ? e.message : String(e) };
         }
     }
 
@@ -121,7 +121,7 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return userIds.length;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Notify multiple error:', e);
             return 0;
         }
@@ -144,7 +144,7 @@ class NotificationServiceClass {
 
             if (error) throw error;
             return data?.length || 0;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Notification] Cleanup error:', e);
             return 0;
         }

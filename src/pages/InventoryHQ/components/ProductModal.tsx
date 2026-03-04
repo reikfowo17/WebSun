@@ -32,7 +32,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="bg-white rounded-2xl w-full max-w-md animate-in zoom-in-95 duration-150" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="text-lg font-black text-slate-800">
                         {isEditing ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}
@@ -52,7 +52,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                             value={productForm.barcode}
                             onChange={(e) => onFormChange({ barcode: e.target.value })}
                             placeholder="8934567890123"
-                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none"
+                            className="w-full px-4 py-2.5 bg-white rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 outline-none"
+                            style={{ border: '1.5px solid #EEEDE9' }}
                         />
                     </div>
                     <div>
@@ -62,7 +63,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                             value={productForm.name}
                             onChange={(e) => onFormChange({ name: e.target.value })}
                             placeholder="Bánh mì sữa tươi"
-                            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none"
+                            className="w-full px-4 py-2.5 bg-white rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 outline-none"
+                            style={{ border: '1.5px solid #EEEDE9' }}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -71,7 +73,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                             <select
                                 value={productForm.unit}
                                 onChange={(e) => onFormChange({ unit: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                                className="w-full px-4 py-2.5 bg-white rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 outline-none"
+                                style={{ border: '1.5px solid #EEEDE9' }}
                             >
                                 <option value="">Chọn...</option>
                                 {UNIT_OPTIONS.map(opt => (
@@ -86,12 +89,13 @@ const ProductModal: React.FC<ProductModalProps> = ({
                                 value={productForm.category}
                                 onChange={(e) => onFormChange({ category: e.target.value })}
                                 placeholder="SP001"
-                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 outline-none"
+                                className="w-full px-4 py-2.5 bg-white rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 outline-none"
+                                style={{ border: '1.5px solid #EEEDE9' }}
                             />
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                <div className="flex gap-3 px-5 py-4 rounded-b-2xl" style={{ background: '#FAFAF8', borderTop: '1px solid #EEEDE9' }}>
                     <button
                         onClick={onClose}
                         className="flex-1 py-2.5 px-4 bg-white text-gray-600 font-bold text-sm rounded-xl border border-gray-200 hover:bg-gray-50"
@@ -101,7 +105,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     <button
                         onClick={onSave}
                         disabled={!!processing}
-                        className="flex-1 py-2.5 px-4 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 px-4 text-gray-900 font-bold text-sm rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                        style={{ background: 'linear-gradient(180deg, #FACC15, #F59E0B)', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
                     >
                         {processing === 'SAVE_PRODUCT' ? (
                             <span className="material-symbols-outlined text-sm animate-spin">sync</span>

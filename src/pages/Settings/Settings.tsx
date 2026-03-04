@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, ShiftConfig, StoreConfig, EmployeeConfig, ExpiryConfigItem, ProductConfig } from '../../services/system';
 import PortalHeader from '../../components/PortalHeader';
 import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
@@ -13,7 +14,7 @@ import { SettingsNotifications } from './SettingsNotifications';
 import { SettingsGeneral } from './SettingsGeneral';
 
 interface SettingsTabProps {
-    toast: any;
+    toast: ToastContextType;
 }
 
 type SettingsSection = 'shifts' | 'stores' | 'employees' | 'expiry' | 'products' | 'notifications' | 'general';

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, GeneralSettings } from '../../services/system';
 
 interface Props {
-    toast: any;
+    toast: ToastContextType;
 }
 
 const DEFAULTS: GeneralSettings = { system_name: 'SunMart', timezone: 'Asia/Ho_Chi_Minh' };

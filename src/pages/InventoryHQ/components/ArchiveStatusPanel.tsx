@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ToastContextType } from '../../../contexts/ToastContext';
 import { InventoryArchiveService } from '../../../services/archive';
 import type { ArchiveLogEntry } from '../../../services/archive';
 
 interface ArchiveStatusPanelProps {
-    toast: any;
+    toast: ToastContextType;
 }
 
 const formatBytes = (bytes: number): string => {
@@ -64,8 +65,8 @@ const ArchiveStatusPanel: React.FC<ArchiveStatusPanelProps> = ({ toast }) => {
             } else {
                 toast.error(result.error || 'Lỗi lưu trữ');
             }
-        } catch (e: any) {
-            toast.error('Lỗi: ' + e.message);
+        } catch (e: unknown) {
+            toast.error('Lỗi: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
             setTriggerLoading(false);
         }

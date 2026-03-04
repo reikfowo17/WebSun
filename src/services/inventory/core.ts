@@ -108,7 +108,7 @@ export async function updateItem(id: string, field: string, value: any, userId?:
                 updateData.checked_at = new Date().toISOString();
             } else if (field === 'actual_stock' && (value === null || value === '')) {
                 updateData[field] = null;
-                
+
             }
 
             const { error } = await supabase
@@ -212,7 +212,7 @@ export async function submitReport(storeCode: string, shift: number, userId: str
                 success: true,
                 message: `Đã lưu lịch sử kiểm kê (${checkedItems.length}/${items.length} SP)`
             };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Submit report error:', e);
             return { success: false, message: 'Lỗi hệ thống khi nộp báo cáo. Vui lòng thử lại.' };
         }
@@ -281,9 +281,9 @@ export async function createStore(data: {
 
             if (error) throw error;
             return { success: true };
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('[Inventory] Create store error:', e);
-            return { success: false, error: 'Không thể tạo cửa hàng: ' + e.message };
+            return { success: false, error: 'Không thể tạo cửa hàng: ' + (e instanceof Error ? e.message : String(e)) };
         }
     }
     return { success: false, error: 'Database disconnected' };
@@ -356,9 +356,9 @@ export async function reviewReport(reportId: string, status: ReportStatus, revie
                 ? 'Đã duyệt báo cáo nhưng cập nhật tồn kho thất bại. Vui lòng liên hệ admin.'
                 : undefined
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Review report error:', e);
-        return { success: false, message: e.message };
+        return { success: false, message: e instanceof Error ? e.message : 'Lỗi hệ thống' };
     }
 }
 export async function bulkReviewReports(reportIds: string[], status: ReportStatus, reviewerId: string, reason?: string, userRole?: string): Promise<BulkReviewResult> {
@@ -515,7 +515,7 @@ export async function getOverview(date: string): Promise<{
             stats,
             stores: finalStores
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Get overview error:', e);
         return { success: false };
     }
@@ -576,7 +576,7 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
         }));
 
         return { success: true, items };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Get report items error:', e);
         return { success: false };
     }
@@ -602,8 +602,8 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
                 if (error) {
                     console.warn(`[Inventory] Cascade delete from '${table}' warning:`, error.message);
                 }
-            } catch (e: any) {
-                console.warn(`[Inventory] Cascade delete from '${table}' failed:`, e.message);
+            } catch (e: unknown) {
+                console.warn(`[Inventory] Cascade delete from '${table}' failed:`, e instanceof Error ? e.message : String(e));
             }
         };
 
@@ -625,7 +625,7 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
         if (delErr) throw delErr;
 
         return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error('[Inventory] Delete report error:', e);
         return { success: false, message: 'Lỗi hệ thống khi xóa báo cáo' };
     }

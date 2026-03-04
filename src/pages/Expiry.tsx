@@ -204,7 +204,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="h-full flex flex-col overflow-hidden" style={{ background: '#F8F7F4' }}>
       {/* Header */}
       <PortalHeader>
         <div className="flex items-center gap-4 py-1">
@@ -259,67 +259,69 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div
               onClick={() => setFilter('ALL')}
-              className={`relative overflow-hidden bg-white/70 backdrop-blur-sm p-5 rounded-2xl border cursor-pointer transition-all hover:shadow-lg ${filter === 'ALL' ? 'border-gray-400 ring-2 ring-gray-200 shadow-md' : 'border-gray-100'
+              className={`relative overflow-hidden p-5 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 ${filter === 'ALL' ? 'ring-2 ring-blue-200' : ''
                 }`}
+              style={{ background: '#FFFFFF', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined">inventory_2</span>
+                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined" style={{ fontSize: 24 }}>inventory_2</span>
                 </div>
                 <span className="text-xs font-bold text-gray-400 uppercase">Tổng SP</span>
               </div>
-              <p className="text-3xl font-black text-gray-800">{stats.total}</p>
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-100 rounded-full opacity-20" />
+              <p className="text-3xl font-black text-gray-800" style={{ letterSpacing: '-1px' }}>{stats.total}</p>
             </div>
 
             <div
               onClick={() => setFilter('NEAR_EXPIRY')}
-              className={`relative overflow-hidden bg-white/70 backdrop-blur-sm p-5 rounded-2xl border cursor-pointer transition-all hover:shadow-lg ${filter === 'NEAR_EXPIRY' ? 'border-amber-400 ring-2 ring-amber-200 shadow-md' : 'border-gray-100'
+              className={`relative overflow-hidden p-5 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 ${filter === 'NEAR_EXPIRY' ? 'ring-2 ring-amber-200' : ''
                 }`}
+              style={{ background: '#FFFFFF', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center animate-pulse">
-                  <span className="material-symbols-outlined">warning</span>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#FEF3C7' }}>
+                  <span className="material-symbols-outlined text-amber-500" style={{ fontSize: 24 }}>warning</span>
                 </div>
                 <span className="text-xs font-bold text-amber-600 uppercase">Cận Date</span>
               </div>
-              <p className="text-3xl font-black text-amber-600">{stats.nearExpiry}</p>
+              <p className="text-3xl font-black text-amber-600" style={{ letterSpacing: '-1px' }}>{stats.nearExpiry}</p>
               <p className="text-[10px] text-gray-400 mt-1">≤ {EXPIRY_CONFIG.NEAR_EXPIRY_DAYS} ngày</p>
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-100 rounded-full opacity-20" />
             </div>
 
             <div
               onClick={() => setFilter('EXPIRED')}
-              className={`relative overflow-hidden bg-white/70 backdrop-blur-sm p-5 rounded-2xl border cursor-pointer transition-all hover:shadow-lg ${filter === 'EXPIRED' ? 'border-red-400 ring-2 ring-red-200 shadow-md' : 'border-gray-100'
+              className={`relative overflow-hidden p-5 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5 ${filter === 'EXPIRED' ? 'ring-2 ring-red-200' : ''
                 }`}
+              style={{ background: '#FFFFFF', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined">error</span>
+                <div className="w-12 h-12 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined" style={{ fontSize: 24 }}>error</span>
                 </div>
                 <span className="text-xs font-bold text-red-600 uppercase">Hết Hạn</span>
               </div>
-              <p className="text-3xl font-black text-red-600">{stats.expired}</p>
+              <p className="text-3xl font-black text-red-600" style={{ letterSpacing: '-1px' }}>{stats.expired}</p>
               <p className="text-[10px] text-gray-400 mt-1">Đã quá hạn</p>
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-red-100 rounded-full opacity-20" />
             </div>
 
-            <div className="relative overflow-hidden bg-white/70 backdrop-blur-sm p-5 rounded-2xl border border-gray-100">
+            <div
+              className="relative overflow-hidden p-5 rounded-2xl"
+              style={{ background: '#FFFFFF', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+            >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                  <span className="material-symbols-outlined">verified</span>
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined" style={{ fontSize: 24 }}>verified</span>
                 </div>
                 <span className="text-xs font-bold text-emerald-600 uppercase">An Toàn</span>
               </div>
-              <p className="text-3xl font-black text-emerald-600">{stats.safe}</p>
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-100 rounded-full opacity-20" />
+              <p className="text-3xl font-black text-emerald-600" style={{ letterSpacing: '-1px' }}>{stats.safe}</p>
             </div>
           </div>
 
           {/* Toolbar */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Product Type Tabs */}
-            <div className="flex p-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto max-w-full">
+            <div className="flex p-1 bg-white rounded-xl overflow-x-auto max-w-full" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.03)' }}>
               {EXPIRY_CONFIG.PRODUCT_TYPES.map(t => (
                 <button
                   key={t}
@@ -343,10 +345,11 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm sản phẩm..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-white text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white text-sm focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                  style={{ border: '1.5px solid #EEEDE9' }}
                 />
               </div>
-              <div className="flex bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
+              <div className="flex bg-white rounded-xl p-1" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.03)' }}>
                 <button
                   onClick={() => setViewMode('LIST')}
                   className={`p-2 rounded-lg flex items-center justify-center transition-all ${viewMode === 'LIST' ? 'bg-gray-100 text-gray-800' : 'text-gray-400 hover:text-gray-600'
@@ -372,7 +375,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
               <p className="text-gray-400 font-medium mt-4">Đang tải dữ liệu...</p>
             </div>
           ) : displayedProducts.length === 0 ? (
-            <div className="py-16 text-center bg-white/70 backdrop-blur-sm rounded-2xl border border-dashed border-gray-200">
+            <div className="py-16 text-center rounded-2xl" style={{ background: '#FAFAF8', border: '1.5px dashed #EEEDE9' }}>
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="material-symbols-outlined text-4xl text-gray-300">event_available</span>
               </div>
@@ -385,7 +388,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
             <>
               {/* List Header */}
               {viewMode === 'LIST' && (
-                <div className="flex items-center px-4 py-3 bg-white/70 backdrop-blur-sm rounded-xl border border-gray-100 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center px-4 py-3 rounded-xl text-xs font-bold text-gray-400 uppercase tracking-wider" style={{ background: '#FAFAF8', border: '1px solid #EEEDE9' }}>
                   <div className="w-10">
                     <input
                       type="checkbox"
@@ -415,10 +418,11 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
                       <div
                         key={item.id}
                         onClick={() => handleSelect(item.id)}
-                        className={`relative bg-white/80 backdrop-blur-sm p-5 rounded-2xl border transition-all cursor-pointer group ${isSelected
-                          ? `border-amber-400 ring-2 ${statusConfig.ringColor} shadow-lg`
-                          : 'border-gray-100 hover:border-gray-300 hover:shadow-md'
+                        className={`relative p-5 rounded-2xl transition-all cursor-pointer group ${isSelected
+                          ? `ring-2 ${statusConfig.ringColor}`
+                          : 'hover:-translate-y-0.5'
                           }`}
+                        style={{ background: '#FFFFFF', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
                       >
                         {/* Selection indicator */}
                         <div className={`absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all ${isSelected ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'

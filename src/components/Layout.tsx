@@ -50,128 +50,357 @@ const Layout: React.FC<LayoutProps> = ({ user, children, onLogout }) => {
   const userInitial = (user.name || "?").charAt(0).toUpperCase();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-[#0e0e0e] text-gray-800 dark:text-gray-200 font-sans transition-colors duration-200">
-      <Sidebar
-        user={user}
-        onLogout={onLogout}
-        collapsed={false}
-        onToggle={() => { }}
-      />
+    <>
+      <style>{LAYOUT_CSS}</style>
+      <div className="layout-root">
+        <Sidebar
+          user={user}
+          onLogout={onLogout}
+          collapsed={false}
+          onToggle={() => { }}
+        />
 
-      <div className="flex flex-col flex-1 overflow-hidden relative">
-        {/* Topbar */}
-        <header className="h-[60px] flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800/60 bg-white dark:bg-[#1a1a1a] flex-shrink-0 z-30 transition-colors duration-200">
-          {/* Left: Breadcrumbs portal */}
-          <div className="flex items-center h-full w-full flex-1">
-            <div
-              id="topbar-left"
-              className="flex items-center h-full w-full relative"
-            ></div>
-          </div>
+        <div className="layout-main">
+          {/* Topbar */}
+          <header className="layout-topbar">
+            {/* Left: Breadcrumbs portal */}
+            <div className="layout-topbar-left">
+              <div id="topbar-left" className="layout-topbar-portal"></div>
+            </div>
 
-          {/* Right: Theme toggle + User avatar */}
-          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setIsDark(!isDark)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-all duration-200"
-              title={isDark ? "Chuyển sang sáng" : "Chuyển sang tối"}
-              aria-label="Đổi giao diện"
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                {isDark ? "light_mode" : "dark_mode"}
-              </span>
-            </button>
-
-            {/* Notifications */}
-            <NotificationBell userId={user.id} />
-
-            {/* User Avatar Dropdown */}
-            <div className="relative ml-1" ref={dropdownRef}>
-              <div
-                className="relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-yellow-100 to-yellow-200 overflow-hidden cursor-pointer border-2 border-yellow-300 transform transition-transform hover:scale-105"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            {/* Right: Theme toggle + Notifications + User avatar */}
+            <div className="layout-topbar-right">
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setIsDark(!isDark)}
+                className="layout-topbar-btn"
+                title={isDark ? "Chuyển sang sáng" : "Chuyển sang tối"}
+                aria-label="Đổi giao diện"
               >
-                {user.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-[14px] font-black text-yellow-700">
-                    {userInitial}
-                  </span>
-                )}
-              </div>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                  {isDark ? "light_mode" : "dark_mode"}
+                </span>
+              </button>
 
-              {/* Dropdown */}
-              <div
-                className={`absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#1f1f1f] border border-gray-100 dark:border-gray-800 rounded-xl shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-1 transition-all duration-200 z-[100] transform origin-top-right ${isDropdownOpen ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
-              >
-                {/* User Info */}
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800/60 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-100 to-yellow-200 flex flex-shrink-0 items-center justify-center text-yellow-700 font-black overflow-hidden border-2 border-yellow-300">
-                    {user.avatar ? (
-                      <img
-                        src={user.avatar}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      userInitial
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-                      {user.name}
-                    </div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 font-medium truncate mt-0.5">
-                      {user.store || "Sunmart"}
-                    </div>
-                  </div>
+              {/* Notifications */}
+              <NotificationBell userId={user.id} />
+
+              {/* User Avatar Dropdown */}
+              <div className="layout-avatar-wrap" ref={dropdownRef}>
+                <div
+                  className="layout-avatar"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <span className="layout-avatar-initial">{userInitial}</span>
+                  )}
                 </div>
 
-                <div className="p-1.5">
-                  {/* Profile */}
-                  <button
-                    onClick={() => {
-                      navigate("/profile");
-                      setIsDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg flex items-center transition-colors font-medium"
-                  >
-                    <span className="material-symbols-outlined text-[18px] mr-3 text-gray-400">
-                      person
-                    </span>
-                    Hồ Sơ Cá Nhân
-                  </button>
+                {/* Dropdown */}
+                <div
+                  className={`layout-dropdown ${isDropdownOpen ? "layout-dropdown-open" : ""}`}
+                >
+                  {/* User Info */}
+                  <div className="layout-dropdown-header">
+                    <div className="layout-dropdown-avatar">
+                      {user.avatar ? (
+                        <img src={user.avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        userInitial
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="layout-dropdown-name">{user.name}</div>
+                      <div className="layout-dropdown-store">{user.store || "Sunmart"}</div>
+                    </div>
+                  </div>
 
-                  {/* Logout */}
-                  <button
-                    onClick={() => {
-                      onLogout();
-                      setIsDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg flex items-center transition-colors font-medium"
-                  >
-                    <span className="material-symbols-outlined text-[18px] mr-3">
-                      logout
-                    </span>
-                    Đăng Xuất
-                  </button>
+                  <div style={{ padding: 6 }}>
+                    <button
+                      onClick={() => { navigate("/profile"); setIsDropdownOpen(false); }}
+                      className="layout-dropdown-item"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 18, marginRight: 12, color: "#A3A3A3" }}>person</span>
+                      Hồ Sơ Cá Nhân
+                    </button>
+
+                    <button
+                      onClick={() => { onLogout(); setIsDropdownOpen(false); }}
+                      className="layout-dropdown-item layout-dropdown-logout"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 18, marginRight: 12 }}>logout</span>
+                      Đăng Xuất
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 dark:bg-[#0e0e0e] transition-colors duration-200">
-          {children}
-        </main>
+          {/* Main Content */}
+          <main className="layout-content">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
 export default Layout;
+
+const LAYOUT_CSS = `
+/* ═══ LAYOUT — SunMart Redesign ═══ */
+.layout-root {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: #F8F7F4;
+  color: #171717;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.2s, color 0.2s;
+}
+
+html.dark .layout-root {
+  background: #0e0e0e;
+  color: #e5e7eb;
+}
+
+.layout-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─── Topbar ─── */
+.layout-topbar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  border-bottom: 1px solid #EEEDE9;
+  background: #FFFFFF;
+  flex-shrink: 0;
+  z-index: 30;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+html.dark .layout-topbar {
+  background: #1a1a1a;
+  border-bottom-color: rgba(255,255,255,0.06);
+}
+
+.layout-topbar-left {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  flex: 1;
+}
+
+.layout-topbar-portal {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.layout-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.layout-topbar-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: #A3A3A3;
+  border: none;
+  background: #F5F5F5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layout-topbar-btn:hover {
+  color: #525252;
+  background: #F5F5F0;
+}
+
+html.dark .layout-topbar-btn:hover {
+  color: #D4D4D4;
+  background: rgba(255,255,255,0.05);
+}
+
+/* ─── Avatar ─── */
+.layout-avatar-wrap {
+  position: relative;
+  margin-left: 4px;
+}
+
+.layout-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FACC15, #F59E0B);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid rgba(250, 204, 21, 0.3);
+  transition: transform 0.15s;
+}
+
+.layout-avatar:hover {
+  transform: scale(1.05);
+}
+
+.layout-avatar-initial {
+  font-size: 14px;
+  font-weight: 800;
+  color: #171717;
+}
+
+/* ─── Dropdown ─── */
+.layout-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 8px;
+  width: 240px;
+  background: #FFFFFF;
+  border: 1px solid #EEEDE9;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  padding: 4px 0;
+  z-index: 100;
+  transform: scale(0.95) translateY(-4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s;
+}
+
+.layout-dropdown-open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+html.dark .layout-dropdown {
+  background: #1f1f1f;
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.layout-dropdown-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #EEEDE9;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+html.dark .layout-dropdown-header {
+  border-bottom-color: rgba(255,255,255,0.06);
+}
+
+.layout-dropdown-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FACC15, #F59E0B);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #171717;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid rgba(250, 204, 21, 0.3);
+}
+
+.layout-dropdown-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #171717;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.dark .layout-dropdown-name { color: #e5e7eb; }
+
+.layout-dropdown-store {
+  font-size: 12px;
+  color: #A3A3A3;
+  font-weight: 500;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layout-dropdown-item {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #525252;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.layout-dropdown-item:hover {
+  background: #F5F5F0;
+  color: #171717;
+}
+
+html.dark .layout-dropdown-item { color: #A3A3A3; }
+html.dark .layout-dropdown-item:hover { background: rgba(255,255,255,0.05); color: #e5e7eb; }
+
+.layout-dropdown-logout:hover {
+  background: #FEF2F2;
+  color: #EF4444;
+}
+
+html.dark .layout-dropdown-logout:hover {
+  background: rgba(239,68,68,0.1);
+  color: #f87171;
+}
+
+/* ─── Content ─── */
+.layout-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #F8F7F4;
+  transition: background 0.2s;
+}
+
+html.dark .layout-content {
+  background: #0e0e0e;
+}
+`;

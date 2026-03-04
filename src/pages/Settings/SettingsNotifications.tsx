@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, NotificationSettings } from '../../services/system';
 
 interface Props {
-    toast: any;
+    toast: ToastContextType;
 }
 
 const DEFAULTS: NotificationSettings = { retention_days: 30, auto_cleanup: true };

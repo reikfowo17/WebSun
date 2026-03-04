@@ -22,27 +22,27 @@ const Login: React.FC = () => {
       } else {
         setError(res.error || 'Đăng nhập thất bại');
       }
-    } catch (err: any) {
-      setError(err.message || 'Lỗi kết nối');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Lỗi kết nối');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white relative overflow-hidden p-4">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4" style={{ background: '#F8F7F4' }}>
       {/* Background Blobs */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-yellow-50 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-100 rounded-full blur-3xl opacity-40 -translate-y-1/2 translate-x-1/2"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-50 rounded-full blur-3xl opacity-40 translate-y-1/2 -translate-x-1/2"></div>
 
-      <div className="w-full max-w-md bg-white rounded-[32px] shadow-2xl border border-gray-100 p-10 relative z-10">
-        <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-yellow-200 rotate-3">
+      <div className="w-full max-w-md bg-white rounded-[32px] p-10 relative z-10" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-8 rotate-3" style={{ background: 'linear-gradient(135deg, #FACC15, #F59E0B)', boxShadow: '0 8px 20px rgba(245,158,11,0.25)' }}>
           <span className="material-symbols-outlined text-4xl text-white material-symbols-fill">sunny</span>
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-secondary mb-2 tracking-tight">Sunmart Portal</h1>
-          <p className="text-gray-400 font-medium">Hệ thống quản lý cửa hàng</p>
+          <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-widest uppercase">SUNMART</h1>
+          <p className="text-gray-400 font-medium text-sm">Đăng nhập vào hệ thống quản lý</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
@@ -52,7 +52,8 @@ const Login: React.FC = () => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full h-14 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-4 focus:ring-yellow-100 outline-none transition-all font-semibold"
+              className="w-full h-14 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+              style={{ border: '1.5px solid #EEEDE9' }}
               placeholder="Nhập tên đăng nhập..."
             />
           </div>
@@ -62,7 +63,8 @@ const Login: React.FC = () => {
               type="password"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
-              className="w-full h-14 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-primary focus:ring-4 focus:ring-yellow-100 outline-none transition-all font-semibold"
+              className="w-full h-14 px-4 rounded-xl bg-white outline-none transition-all font-semibold focus:ring-2 focus:ring-amber-500/20"
+              style={{ border: '1.5px solid #EEEDE9' }}
               placeholder="••••••"
             />
           </div>
@@ -76,9 +78,15 @@ const Login: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-14 bg-primary hover:bg-primary-dark text-secondary font-bold rounded-xl shadow-lg shadow-yellow-200/50 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full h-14 text-gray-900 font-bold rounded-xl transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(180deg, #FACC15, #F59E0B)', boxShadow: '0 4px 14px rgba(245,158,11,0.3)' }}
           >
-            {loading ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : 'Vào hệ thống'}
+            {loading ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : (
+              <>
+                Đăng Nhập
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>arrow_forward</span>
+              </>
+            )}
           </button>
         </form>
 

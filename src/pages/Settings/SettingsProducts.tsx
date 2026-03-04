@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, ProductConfig } from '../../services/system';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface Props {
-    toast: any;
+    toast: ToastContextType;
     initialProducts: ProductConfig[];
 }
 

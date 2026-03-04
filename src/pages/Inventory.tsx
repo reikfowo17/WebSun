@@ -35,14 +35,14 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
 
   if (shiftsLoading) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]" role="status">
+      <div className="h-full flex items-center justify-center dark:bg-[#0a0a0a]" role="status" style={{ background: '#F8F7F4' }}>
         <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 dark:bg-[#0a0a0a]">
+    <div className="h-full flex flex-col dark:bg-[#0a0a0a]" style={{ background: '#F8F7F4' }}>
       <PortalHeader>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors">

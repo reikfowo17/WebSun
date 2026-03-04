@@ -77,7 +77,8 @@ const PromptModal: React.FC<PromptModalProps> = ({
           <button
             onClick={handleConfirm}
             disabled={!value.trim()}
-            className="flex-1 py-3 px-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-900 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(180deg, #FACC15, #F59E0B)' }}
           >
             {confirmText}
           </button>

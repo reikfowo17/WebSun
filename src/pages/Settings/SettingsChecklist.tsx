@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import type { ChecklistTemplate, ChecklistCategory, ShiftType, DayOfWeek } from '../../types/shift';
 import { CHECKLIST_LABELS, CHECKLIST_ICONS, DAY_LABELS } from '../../types/shift';
 import { ChecklistService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsChecklistProps {
-    toast: any;
+    toast: ToastContextType;
     storeId?: string; // undefined = show global items only
 }
 
@@ -30,8 +31,8 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
         try {
             const data = await ChecklistService.getTemplates(storeId);
             setTemplates(data);
-        } catch (err: any) {
-            toast.error('Lỗi tải checklist: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi tải checklist: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setLoading(false);
         }
@@ -70,8 +71,8 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
             setIsAdding(false);
             setDraft({});
             toast.success('Đã thêm mục công việc');
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setSaving(false);
         }
@@ -93,8 +94,8 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
             setEditingId(null);
             setDraft({});
             toast.success('Đã cập nhật');
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setSaving(false);
         }
@@ -111,8 +112,8 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                     await ChecklistService.deleteTemplate(template.id);
                     setTemplates(prev => prev.filter(t => t.id !== template.id));
                     toast.success('Đã xóa mục công việc');
-                } catch (err: any) {
-                    toast.error('Lỗi: ' + err.message);
+                } catch (err: unknown) {
+                    toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
                 }
             },
         });

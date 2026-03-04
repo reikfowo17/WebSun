@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContextType } from '../../contexts/ToastContext';
 import type { ShiftAsset } from '../../types/shift';
 import { AssetService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface SettingsAssetsProps {
-    toast: any;
+    toast: ToastContextType;
     storeId?: string;
 }
 
@@ -26,8 +27,8 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
         try {
             const data = await AssetService.getAssets(storeId);
             setAssets(data);
-        } catch (err: any) {
-            toast.error('Lỗi tải vật tư: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi tải vật tư: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setLoading(false);
         }
@@ -63,8 +64,8 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
             setIsAdding(false);
             setDraft({});
             toast.success('Đã thêm vật tư');
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setSaving(false);
         }
@@ -86,8 +87,8 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
             setEditingId(null);
             setDraft({});
             toast.success('Đã cập nhật vật tư');
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
             setSaving(false);
         }
@@ -99,8 +100,8 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
             const updated = await AssetService.updateAsset(asset.id, { is_active: !asset.is_active });
             setAssets(prev => prev.map(a => a.id === asset.id ? updated : a));
             toast.success(`Đã ${updated.is_active ? 'bật' : 'tắt'} "${asset.name}"`);
-        } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         }
     };
 
