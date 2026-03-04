@@ -4,8 +4,7 @@ import { DENOMINATION_VALUES, CASH_REVENUE_FIELDS, CASH_PAYMENT_FIELDS } from '.
 
 // ─── Helpers ───
 
-/** Compute total from denomination counts */
-function computeDenomTotal(settlement: Partial<CashSettlement>): number {
+export function computeDenomTotal(settlement: Partial<CashSettlement>): number {
     let total = 0;
     const s = settlement as Record<string, unknown>;
     for (const d of DENOMINATION_VALUES) {
@@ -14,8 +13,7 @@ function computeDenomTotal(settlement: Partial<CashSettlement>): number {
     return total;
 }
 
-/** Compute expected cash at end of shift from revenue/expense/payment fields */
-function computeCashExpected(settlement: Partial<CashSettlement>): number {
+export function computeCashExpected(settlement: Partial<CashSettlement>): number {
     const s = settlement as Record<string, unknown>;
     let expected = 0;
     for (const field of CASH_REVENUE_FIELDS) {
@@ -24,18 +22,17 @@ function computeCashExpected(settlement: Partial<CashSettlement>): number {
     }
     for (const field of CASH_PAYMENT_FIELDS) {
         const val = Number(s[field.key]) || 0;
-        expected -= val; // non-cash payments reduce expected cash
+        expected -= val;
     }
     return expected;
 }
 
-/** Fields that are computed — strip before insert/update to let us control them */
-const COMPUTED_FIELDS = ['total_counted', 'cash_end_expected', 'difference', 'cash_end_actual'] as const;
+const GENERATED_FIELDS = ['total_counted', 'cash_end_expected', 'difference'] as const;
 const READONLY_FIELDS = ['id', 'created_at', 'updated_at'] as const;
 
 function cleanForUpsert(settlement: Partial<CashSettlement>): Record<string, unknown> {
     const result: Record<string, unknown> = {};
-    const skipKeys = new Set<string>([...COMPUTED_FIELDS, ...READONLY_FIELDS]);
+    const skipKeys = new Set<string>([...GENERATED_FIELDS, ...READONLY_FIELDS]);
     for (const [key, value] of Object.entries(settlement)) {
         if (!skipKeys.has(key)) {
             result[key] = value;
@@ -66,13 +63,9 @@ export const CashService = {
     },
 
     async upsert(shiftId: string, settlement: Partial<CashSettlement>): Promise<CashSettlement> {
-        // Clean out computed / readonly fields
         const cleanData = cleanForUpsert(settlement);
 
-        // Compute totals from the merged data
-        const totalCounted = computeDenomTotal(settlement);
-        const cashExpected = computeCashExpected(settlement);
-        const difference = totalCounted - cashExpected;
+        const denomTotal = computeDenomTotal(settlement);
 
         const { data, error } = await supabase
             .from('cash_settlements')
@@ -80,10 +73,7 @@ export const CashService = {
                 {
                     ...cleanData,
                     shift_id: shiftId,
-                    total_counted: totalCounted,
-                    cash_end_expected: cashExpected,
-                    cash_end_actual: totalCounted,
-                    difference: difference,
+                    cash_end_actual: denomTotal,
                     updated_at: new Date().toISOString(),
                 },
                 { onConflict: 'shift_id' }
@@ -96,22 +86,16 @@ export const CashService = {
     },
 
     async submit(shiftId: string): Promise<CashSettlement> {
-        // First, re-read current data to compute final totals
         const current = await this.getByShift(shiftId);
         if (!current) throw new Error('Chưa có dữ liệu két cho ca này');
 
-        const totalCounted = computeDenomTotal(current);
-        const cashExpected = computeCashExpected(current);
-        const difference = totalCounted - cashExpected;
+        const denomTotal = computeDenomTotal(current);
 
         const { data, error } = await supabase
             .from('cash_settlements')
             .update({
                 status: 'SUBMITTED',
-                total_counted: totalCounted,
-                cash_end_expected: cashExpected,
-                cash_end_actual: totalCounted,
-                difference: difference,
+                cash_end_actual: denomTotal,
                 submitted_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
@@ -156,7 +140,6 @@ export const CashService = {
         return data;
     },
 
-    /** Get all settlements for admin dashboard with shift + store info */
     async listSettlements(filters: {
         storeId?: string;
         startDate?: string;
@@ -185,7 +168,6 @@ export const CashService = {
             return [];
         }
 
-        // Filter by store/date from the joined shift data
         let results = data || [];
         if (filters.storeId) {
             results = results.filter((r: any) => r.shift?.store?.id === filters.storeId);
@@ -200,7 +182,6 @@ export const CashService = {
         return results;
     },
 
-    /** Get aggregated stats for admin dashboard */
     async getStats(storeId?: string, startDate?: string, endDate?: string): Promise<{
         totalSettlements: number;
         submitted: number;

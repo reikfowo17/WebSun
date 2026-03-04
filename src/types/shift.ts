@@ -1,14 +1,8 @@
-// ===========================================================================
-// SHIFT MANAGEMENT - TYPE DEFINITIONS (v2 — fixed per Google Sheets analysis)
-// ===========================================================================
-
 export type ShiftType = 'MORNING' | 'AFTERNOON' | 'EVENING';
 export type ShiftStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'LOCKED';
 export type ChecklistCategory = 'NOTE' | 'START_SHIFT' | 'MID_SHIFT' | 'END_SHIFT' | 'HANDOVER';
 export type AssetCondition = 'OK' | 'DAMAGED' | 'MISSING';
 export type CashSettlementStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
-
-// Day of week: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
 export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export const DAY_LABELS: Record<DayOfWeek, string> = {
@@ -90,6 +84,7 @@ export interface Shift {
     wifi_password?: string;
     momo_filter_time?: string;
     notes?: string;
+    previous_shift_id?: string; 
     created_at: string;
     updated_at: string;
     // Joined

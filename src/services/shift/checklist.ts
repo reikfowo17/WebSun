@@ -58,7 +58,7 @@ export const ChecklistService = {
         const inserts = templates.map(t => ({
             shift_id: shiftId,
             template_id: t.id,
-            completed: false,
+            is_completed: false,
         }));
 
         if (inserts.length === 0) return [];

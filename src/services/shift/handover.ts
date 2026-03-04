@@ -1,12 +1,7 @@
-// ===========================================================================
-// HANDOVER SERVICE (admin-configured product templates)
-// ===========================================================================
-
 import { supabase } from '../../lib/supabase';
 import type { HandoverProduct, ShiftInventoryHandover } from '../../types/shift';
 
 export const HandoverService = {
-    /** Get admin-configured handover product templates */
     async getProductTemplates(storeId?: string): Promise<HandoverProduct[]> {
         let query = supabase
             .from('shift_handover_products')
@@ -24,14 +19,27 @@ export const HandoverService = {
         return data || [];
     },
 
-    /** Initialize handover items from templates for a new shift */
-    async initFromTemplates(shiftId: string, templates: HandoverProduct[], userId: string): Promise<ShiftInventoryHandover[]> {
+    async initFromTemplates(
+        shiftId: string,
+        templates: HandoverProduct[],
+        userId: string,
+        previousHandover?: { product_template_id: string; actual_qty: number }[]
+    ): Promise<ShiftInventoryHandover[]> {
+        const prevMap = new Map<string, number>();
+        if (previousHandover) {
+            for (const item of previousHandover) {
+                if (item.product_template_id) {
+                    prevMap.set(item.product_template_id, Number(item.actual_qty) || 0);
+                }
+            }
+        }
+
         const inserts = templates.map(t => ({
             shift_id: shiftId,
             product_template_id: t.id,
             product_name: t.product_name,
             barcode: t.barcode,
-            system_qty: 0,
+            system_qty: prevMap.get(t.id) || 0,
             actual_qty: 0,
             checked_by: userId,
             checked_at: new Date().toISOString(),
@@ -56,7 +64,6 @@ export const HandoverService = {
         return data || [];
     },
 
-    /** Update qty for a handover item */
     async updateItem(id: string, updates: Partial<ShiftInventoryHandover>): Promise<ShiftInventoryHandover> {
         const { difference, ...cleanUpdates } = updates as any;
         const { data, error } = await supabase
@@ -77,7 +84,6 @@ export const HandoverService = {
         if (error) throw new Error(error.message);
     },
 
-    // ─── Admin: CRUD handover product templates ───
     async createProduct(product: Partial<HandoverProduct>): Promise<HandoverProduct> {
         const { data, error } = await supabase
             .from('shift_handover_products')

@@ -1,7 +1,3 @@
-// ===========================================================================
-// ASSET SERVICE
-// ===========================================================================
-
 import { supabase } from '../../lib/supabase';
 import type { ShiftAsset, ShiftAssetCheck } from '../../types/shift';
 
@@ -52,14 +48,32 @@ export const AssetService = {
         return data;
     },
 
-    async initChecks(shiftId: string, assets: ShiftAsset[], userId: string): Promise<ShiftAssetCheck[]> {
-        const inserts = assets.map(a => ({
-            shift_id: shiftId,
-            asset_id: a.id,
-            ok_count: a.expected_ok,
-            damaged_count: 0,
-            checked_by: userId,
-        }));
+    async initChecks(
+        shiftId: string,
+        assets: ShiftAsset[],
+        userId: string,
+        previousAssets?: { asset_id: string; ok_count: number; damaged_count: number }[]
+    ): Promise<ShiftAssetCheck[]> {
+        const prevMap = new Map<string, { ok_count: number; damaged_count: number }>();
+        if (previousAssets) {
+            for (const item of previousAssets) {
+                prevMap.set(item.asset_id, {
+                    ok_count: item.ok_count,
+                    damaged_count: item.damaged_count,
+                });
+            }
+        }
+
+        const inserts = assets.map(a => {
+            const prev = prevMap.get(a.id);
+            return {
+                shift_id: shiftId,
+                asset_id: a.id,
+                ok_count: prev ? prev.ok_count : a.expected_ok,
+                damaged_count: prev ? prev.damaged_count : 0,
+                checked_by: userId,
+            };
+        });
 
         const { data, error } = await supabase
             .from('shift_asset_checks')
