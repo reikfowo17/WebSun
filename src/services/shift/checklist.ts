@@ -20,11 +20,11 @@ export const ChecklistService = {
             .order('category')
             .order('sort_order');
 
+        // store_ids NULL = all stores, or array contains this store
         if (storeId) {
-            query = query.or(`store_id.eq.${storeId},store_id.is.null`);
-        } else {
-            query = query.is('store_id', null);
+            query = query.or(`store_ids.cs.{${storeId}},store_ids.is.null`);
         }
+        // When no storeId filter, return all templates
 
         const { data } = await query;
         let templates = data || [];

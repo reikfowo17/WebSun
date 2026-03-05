@@ -84,7 +84,7 @@ export interface Shift {
     wifi_password?: string;
     momo_filter_time?: string;
     notes?: string;
-    previous_shift_id?: string; 
+    previous_shift_id?: string;
     created_at: string;
     updated_at: string;
     // Joined
@@ -140,7 +140,7 @@ export interface CashSettlement {
 
 export interface ChecklistTemplate {
     id: string;
-    store_id?: string;
+    store_ids: string[] | null;
     category: ChecklistCategory;
     title: string;
     description?: string;
@@ -148,7 +148,7 @@ export interface ChecklistTemplate {
     requires_note: boolean;
     sort_order: number;
     shift_types: ShiftType[];
-    day_of_week: DayOfWeek[] | null;  // FIX: NULL = tất cả ngày
+    day_of_week: DayOfWeek[] | null;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -171,7 +171,7 @@ export interface ChecklistResponse {
 
 export interface ShiftAsset {
     id: string;
-    store_id?: string;
+    store_ids: string[] | null; // NULL = all stores, array = specific stores
     name: string;
     unit_value: number;
     expected_ok: number;
@@ -198,7 +198,7 @@ export interface ShiftAssetCheck {
 // FIX: Handover product template (admin-configured fixed list)
 export interface HandoverProduct {
     id: string;
-    store_id?: string;
+    store_ids: string[] | null; // NULL = all stores, array = specific stores
     product_name: string;
     barcode?: string;
     sort_order: number;

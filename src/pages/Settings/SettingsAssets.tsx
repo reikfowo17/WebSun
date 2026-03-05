@@ -4,15 +4,18 @@ import type { ShiftAsset } from '../../types/shift';
 import { AssetService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
+import type { Store } from '../../types';
+
 interface SettingsAssetsProps {
     toast: ToastContextType;
-    storeId?: string;
+    stores: Store[];
 }
 
-export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }) => {
+export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores }) => {
     const [assets, setAssets] = useState<ShiftAsset[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [filterStore, setFilterStore] = useState<string>('ALL');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [draft, setDraft] = useState<Partial<ShiftAsset>>({});
     const [isAdding, setIsAdding] = useState(false);
@@ -25,7 +28,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
     const loadAssets = async () => {
         setLoading(true);
         try {
-            const data = await AssetService.getAssets(storeId);
+            const data = await AssetService.getAssets();
             setAssets(data);
         } catch (err: unknown) {
             toast.error('Lỗi tải vật tư: ' + (err instanceof Error ? err.message : String(err)));
@@ -37,6 +40,10 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 
+    const filtered = assets.filter(a => {
+        return filterStore === 'ALL' || (a.store_ids === null) || a.store_ids.includes(filterStore);
+    });
+
     // ─── Add ───
     const handleAdd = () => {
         if (isAdding || editingId) return;
@@ -46,9 +53,9 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
             unit_value: 0,
             expected_ok: 0,
             expected_total: 0,
-            sort_order: assets.length + 1,
+            sort_order: (filtered.length || assets.length) + 1,
             is_active: true,
-            store_id: storeId || null,
+            store_ids: filterStore !== 'ALL' ? [filterStore] : null,
         });
     };
 
@@ -124,6 +131,19 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
                             </span>
                         </div>
                         <div className="stg-toolbar-right">
+                            {/* Store filter */}
+                            <select
+                                className="stg-input stg-input-mono"
+                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120, marginRight: 8 }}
+                                value={filterStore}
+                                onChange={e => setFilterStore(e.target.value)}
+                            >
+                                <option value="ALL">Tất cả cửa hàng</option>
+                                {stores.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+
                             <button
                                 onClick={handleAdd}
                                 className="stg-btn stg-btn-primary"
@@ -139,12 +159,13 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
                     <table className="stg-table stg-table-fixed">
                         <colgroup>
                             <col style={{ width: '5%' }} />
-                            <col style={{ width: '30%' }} />
-                            <col style={{ width: '15%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '13%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '10%' }} />
                         </colgroup>
                         <thead>
                             <tr>
@@ -154,6 +175,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
                                 <th style={{ textAlign: 'center' }}>SL CHUẨN</th>
                                 <th style={{ textAlign: 'center' }}>SL TỔNG</th>
                                 <th style={{ textAlign: 'center' }}>TRẠNG THÁI</th>
+                                <th>CỬA HÀNG</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -166,7 +188,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
                                 </td></tr>
                             ) : (
                                 <>
-                                    {assets.map((asset, idx) => {
+                                    {filtered.map((asset, idx) => {
                                         const isEditing = editingId === asset.id;
                                         return (
                                             <tr key={asset.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}
@@ -247,6 +269,42 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
                                                     </div>
                                                 </td>
                                                 <td>
+                                                    {isEditing ? (
+                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                                                            {stores.map(s => (
+                                                                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
+                                                                        onChange={e => {
+                                                                            let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
+                                                                            if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
+                                                                            else { sIds = sIds.filter(x => x !== s.id); }
+                                                                            setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
+                                                                        }}
+                                                                    />
+                                                                    {s.code}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                            {asset.store_ids === null ? (
+                                                                <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#dbeafe', color: '#1e40af' }}>Tất cả CH</span>
+                                                            ) : (
+                                                                asset.store_ids.map(sid => {
+                                                                    const store = stores.find(s => s.id === sid);
+                                                                    return store ? (
+                                                                        <span key={sid} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px', background: '#fef3c7', color: '#b45309' }}>
+                                                                            {store.code}
+                                                                        </span>
+                                                                    ) : null;
+                                                                })
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td>
                                                     <div className="stg-row-actions" style={isEditing ? { opacity: 1 } : undefined}>
                                                         {isEditing ? (
                                                             <>
@@ -313,7 +371,25 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, storeId }
                                                     min="0" placeholder="0"
                                                 />
                                             </td>
-                                            <td></td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                                                    {stores.map(s => (
+                                                        <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
+                                                                onChange={e => {
+                                                                    let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
+                                                                    if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
+                                                                    else { sIds = sIds.filter(x => x !== s.id); }
+                                                                    setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
+                                                                }}
+                                                            />
+                                                            {s.code}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </td>
                                             <td>
                                                 <div className="stg-row-actions" style={{ opacity: 1 }}>
                                                     <button onClick={handleSaveNew} className="stg-btn-icon stg-btn-save" disabled={saving}>

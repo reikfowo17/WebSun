@@ -11,10 +11,6 @@ import { TaskMonitor } from './TaskMonitor';
 import '../../styles/hq-sidebar.css';
 import '../../styles/settings.css';
 
-/* ═══════════════════════════════════════════════
-   TASK HQ — Nhiệm Vụ Trong Ca
-   ═══════════════════════════════════════════════ */
-
 type TaskSection = 'monitor' | 'checklist' | 'handover' | 'assets';
 
 const TAB_META: Record<TaskSection, { label: string; desc: string }> = {
@@ -29,13 +25,12 @@ const TaskHQ: React.FC<{ user: User }> = ({ user }) => {
     const [activeSection, setActiveSection] = useState<TaskSection>('monitor');
     const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
     const [stores, setStores] = useState<Store[]>([]);
-    const [selectedStoreId, setSelectedStoreId] = useState<string>('all');
 
     useEffect(() => {
         setTopbarNode(document.getElementById('topbar-left'));
     }, []);
 
-    // Load stores
+    // Load stores for multi-select in child components
     useEffect(() => {
         const loadStores = async () => {
             const { data } = await supabase
@@ -67,39 +62,16 @@ const TaskHQ: React.FC<{ user: User }> = ({ user }) => {
 
     const meta = TAB_META[activeSection];
 
-    // Store filter — shown in config tabs
-    const storeFilter = activeSection !== 'monitor' ? (
-        <div className="hq-store-filter">
-            <span className="material-symbols-outlined hq-store-filter-icon">storefront</span>
-            <div className="hq-store-filter-body">
-                <div className="hq-store-filter-label">Cửa hàng</div>
-                <select
-                    className="hq-store-filter-select"
-                    value={selectedStoreId}
-                    onChange={e => setSelectedStoreId(e.target.value)}
-                >
-                    <option value="all">🌐 Tất cả (chung)</option>
-                    {stores.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                </select>
-            </div>
-        </div>
-    ) : null;
-
     const renderContent = () => {
-        // Pass storeId to config components (undefined = all stores)
-        const storeId = selectedStoreId !== 'all' ? selectedStoreId : undefined;
-
         switch (activeSection) {
             case 'monitor':
                 return <TaskMonitor user={user} toast={toast} />;
             case 'checklist':
-                return <SettingsChecklist toast={toast} storeId={storeId} key={selectedStoreId} />;
+                return <SettingsChecklist toast={toast} stores={stores} />;
             case 'handover':
-                return <SettingsHandoverProducts toast={toast} storeId={storeId} key={selectedStoreId} />;
+                return <SettingsHandoverProducts toast={toast} stores={stores} />;
             case 'assets':
-                return <SettingsAssets toast={toast} storeId={storeId} key={selectedStoreId} />;
+                return <SettingsAssets toast={toast} stores={stores} />;
             default:
                 return null;
         }
@@ -124,7 +96,6 @@ const TaskHQ: React.FC<{ user: User }> = ({ user }) => {
                     groups={sidebarGroups}
                     activeId={activeSection}
                     onSelect={(id) => setActiveSection(id as TaskSection)}
-                    footer={storeFilter}
                 />
                 <div className="hq-content" key={activeSection}>
                     <div className="hq-section-animate">
@@ -137,3 +108,4 @@ const TaskHQ: React.FC<{ user: User }> = ({ user }) => {
 };
 
 export default TaskHQ;
+

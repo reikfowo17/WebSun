@@ -12,12 +12,13 @@ import { SettingsExpiryConfig } from './SettingsExpiryConfig';
 import { SettingsProducts } from './SettingsProducts';
 import { SettingsNotifications } from './SettingsNotifications';
 import { SettingsGeneral } from './SettingsGeneral';
+import { SettingsDataLifecycle } from './SettingsDataLifecycle';
 
 interface SettingsTabProps {
     toast: ToastContextType;
 }
 
-type SettingsSection = 'shifts' | 'stores' | 'employees' | 'expiry' | 'products' | 'notifications' | 'general';
+type SettingsSection = 'shifts' | 'stores' | 'employees' | 'expiry' | 'products' | 'notifications' | 'general' | 'lifecycle';
 
 const SECTION_META: Record<SettingsSection, { label: string; desc: string; icon: string }> = {
     shifts: { label: 'Ca Làm Việc', desc: 'Khung giờ & quy trình', icon: 'schedule' },
@@ -27,6 +28,7 @@ const SECTION_META: Record<SettingsSection, { label: string; desc: string; icon:
     employees: { label: 'Nhân Viên', desc: 'Phân quyền & chi nhánh', icon: 'badge' },
     notifications: { label: 'Thông Báo', desc: 'Cấu hình thông báo', icon: 'notifications' },
     general: { label: 'Cài Đặt Chung', desc: 'Tên hệ thống, múi giờ', icon: 'tune' },
+    lifecycle: { label: 'Quản Lý Dữ Liệu', desc: 'Xóa cũ & lưu trữ tồn', icon: 'auto_delete' },
 };
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
@@ -90,6 +92,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
             items: [
                 { id: 'notifications', label: 'Thông Báo' },
                 { id: 'general', label: 'Cài Đặt Chung' },
+                { id: 'lifecycle', label: 'Quản Lý Dữ Liệu' },
             ]
         }
     ];
@@ -139,6 +142,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
                 return <SettingsNotifications toast={toast} />;
             case 'general':
                 return <SettingsGeneral toast={toast} />;
+            case 'lifecycle':
+                return <SettingsDataLifecycle toast={toast} allStores={stores} />;
             default:
                 return null;
         }

@@ -1,0 +1,737 @@
+
+--- 3d-web-experience 
+PATH: skills/3d-web-experience 
+DESC: Expert in building 3D experiences for the web - Three.js, React Three Fiber, Spline, WebGL, and interactive 3D scenes. Covers product configurators, 3D portfolios, immersive websites, and bringing depth to web experiences. Use when: 3D website, three.js, WebGL, react three fiber, 3D experience.
+
+--- accessibility-compliance-accessibility-audit 
+PATH: skills/accessibility-compliance-accessibility-audit 
+DESC: You are an accessibility expert specializing in WCAG compliance, inclusive design, and assistive technology compatibility. Conduct audits, identify barriers, and provide remediation guidance.
+
+--- agent-memory-mcp 
+PATH: skills/agent-memory-mcp 
+DESC: A hybrid memory system that provides persistent, searchable knowledge management for AI agents (Architecture, Patterns, Decisions).
+
+--- agent-memory-systems 
+PATH: skills/agent-memory-systems 
+DESC: Memory is the cornerstone of intelligent agents. Without it, every interaction starts from zero. This skill covers the architecture of agent memory: short-term (context window), long-term (vector stores), and the cognitive architectures that organize them.  Key insight: Memory isn't just storage - it's retrieval. A million stored facts mean nothing if you can't find the right one. Chunking, embedding, and retrieval strategies determine whether your agent remembers or forgets.  The field is fragm
+
+--- agent-tool-builder 
+PATH: skills/agent-tool-builder 
+DESC: Tools are how AI agents interact with the world. A well-designed tool is the difference between an agent that works and one that hallucinates, fails silently, or costs 10x more tokens than necessary.  This skill covers tool design from schema to error handling. JSON Schema best practices, description writing that actually helps the LLM, validation, and the emerging MCP standard that's becoming the lingua franca for AI tools.  Key insight: Tool descriptions are more important than tool implementa
+
+--- ai-product 
+PATH: skills/ai-product 
+DESC: Every product will be AI-powered. The question is whether you'll build it right or ship a demo that falls apart in production.  This skill covers LLM integration patterns, RAG architecture, prompt engineering that scales, AI UX that users trust, and cost optimization that doesn't bankrupt you. Use when: keywords, file_patterns, code_patterns.
+
+--- airflow-dag-patterns 
+PATH: skills/airflow-dag-patterns 
+DESC: Build production Apache Airflow DAGs with best practices for operators, sensors, testing, and deployment. Use when creating data pipelines, orchestrating workflows, or scheduling batch jobs.
+
+--- algolia-search 
+PATH: skills/algolia-search 
+DESC: Expert patterns for Algolia search implementation, indexing strategies, React InstantSearch, and relevance tuning Use when: adding search to, algolia, instantsearch, search api, search functionality.
+
+--- analytics-tracking 
+PATH: skills/analytics-tracking 
+DESC: Design, audit, and improve analytics tracking systems that produce reliable, decision-ready data. Use when the user wants to set up, fix, or evaluate analytics tracking (GA4, GTM, product analytics, events, conversions, UTMs). This skill focuses on measurement strategy, signal quality, and validation— not just firing events.
+
+--- api-documentation-generator 
+PATH: skills/api-documentation-generator 
+DESC: Generate comprehensive, developer-friendly API documentation from code, including endpoints, parameters, examples, and best practices
+
+--- application-performance-performance-optimization 
+PATH: skills/application-performance-performance-optimization 
+DESC: Optimize end-to-end application performance with profiling, observability, and backend/frontend tuning. Use when coordinating performance optimization across the stack.
+
+--- architect-review 
+PATH: skills/architect-review 
+DESC: Master software architect specializing in modern architecture patterns, clean architecture, microservices, event-driven systems, and DDD. Reviews system designs and code changes for architectural integrity, scalability, and maintainability. Use PROACTIVELY for architectural decisions.
+
+--- architecture 
+PATH: skills/architecture 
+DESC: Architectural decision-making framework. Requirements analysis, trade-off evaluation, ADR documentation. Use when making architecture decisions or analyzing system design.
+
+--- architecture-decision-records 
+PATH: skills/architecture-decision-records 
+DESC: Write and maintain Architecture Decision Records (ADRs) following best practices for technical decision documentation. Use when documenting significant technical decisions, reviewing past architectural choices, or establishing decision processes.
+
+--- architecture-patterns 
+PATH: skills/architecture-patterns 
+DESC: Implement proven backend architecture patterns including Clean Architecture, Hexagonal Architecture, and Domain-Driven Design. Use when architecting complex backend systems or refactoring existing applications for better maintainability.
+
+--- automate-whatsapp 
+PATH: skills/automate-whatsapp 
+DESC: Build WhatsApp automations with Kapso workflows: configure WhatsApp triggers, edit workflow graphs, manage executions, deploy functions, and use databases/integrations for state. Use when automating WhatsApp conversations and event handling.
+
+--- autonomous-agents 
+PATH: skills/autonomous-agents 
+DESC: Autonomous agents are AI systems that can independently decompose goals, plan actions, execute tools, and self-correct without constant human guidance. The challenge isn't making them capable - it's making them reliable. Every extra decision multiplies failure probability.  This skill covers agent loops (ReAct, Plan-Execute), goal decomposition, reflection patterns, and production reliability. Key insight: compounding error rates kill autonomous agents. A 95% success rate per step drops to 60% b
+
+--- avalonia-viewmodels-zafiro 
+PATH: skills/avalonia-viewmodels-zafiro 
+DESC: Optimal ViewModel and Wizard creation patterns for Avalonia using Zafiro and ReactiveUI.
+
+--- aws-skills 
+PATH: skills/aws-skills 
+DESC: AWS development with infrastructure automation and cloud architecture patterns
+
+--- backend-architect 
+PATH: skills/backend-architect 
+DESC: Expert backend architect specializing in scalable API design, microservices architecture, and distributed systems. Masters REST/GraphQL/gRPC APIs, event-driven architectures, service mesh patterns, and modern backend frameworks. Handles service boundary definition, inter-service communication, resilience patterns, and observability. Use PROACTIVELY when creating new backend services or APIs.
+
+--- backend-dev-guidelines 
+PATH: skills/backend-dev-guidelines 
+DESC: Opinionated backend development standards for Node.js + Express + TypeScript microservices. Covers layered architecture, BaseController pattern, dependency injection, Prisma repositories, Zod validation, unifiedConfig, Sentry error tracking, async safety, and testing discipline.
+
+--- backend-patterns 
+PATH: skills/cc-skill-backend-patterns 
+DESC: Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes.
+
+--- brainstorming 
+PATH: skills/brainstorming 
+DESC: Use this skill before any creative or constructive work (features, components, architecture, behavior changes, or functionality). This skill transforms vague ideas into validated designs through disciplined, incremental reasoning and collaboration.
+
+--- browser-extension-builder 
+PATH: skills/browser-extension-builder 
+DESC: Expert in building browser extensions that solve real problems - Chrome, Firefox, and cross-browser extensions. Covers extension architecture, manifest v3, content scripts, popup UIs, monetization strategies, and Chrome Web Store publishing. Use when: browser extension, chrome extension, firefox addon, extension, manifest v3.
+
+--- bullmq-specialist 
+PATH: skills/bullmq-specialist 
+DESC: BullMQ expert for Redis-backed job queues, background processing, and reliable async execution in Node.js/TypeScript applications. Use when: bullmq, bull queue, redis queue, background job, job queue.
+
+--- bun-development 
+PATH: skills/bun-development 
+DESC: Modern JavaScript/TypeScript development with Bun runtime. Covers package management, bundling, testing, and migration from Node.js. Use when working with Bun, optimizing JS/TS development speed, or migrating from Node.js to Bun.
+
+--- c4-architecture-c4-architecture 
+PATH: skills/c4-architecture-c4-architecture 
+DESC: Generate comprehensive C4 architecture documentation for an existing repository/codebase using a bottom-up analysis approach.
+
+--- c4-component 
+PATH: skills/c4-component 
+DESC: Expert C4 Component-level documentation specialist. Synthesizes C4 Code-level documentation into Component-level architecture, defining component boundaries, interfaces, and relationships. Creates component diagrams and documentation. Use when synthesizing code-level documentation into logical components.
+
+--- c4-container 
+PATH: skills/c4-container 
+DESC: Expert C4 Container-level documentation specialist. Synthesizes Component-level documentation into Container-level architecture, mapping components to deployment units, documenting container interfaces as APIs, and creating container diagrams. Use when synthesizing components into deployment containers and documenting system deployment architecture.
+
+--- c4-context 
+PATH: skills/c4-context 
+DESC: Expert C4 Context-level documentation specialist. Creates high-level system context diagrams, documents personas, user journeys, system features, and external dependencies. Synthesizes container and component documentation with system documentation to create comprehensive context-level architecture. Use when creating the highest-level C4 system context documentation.
+
+--- Claude Code Guide 
+PATH: skills/claude-code-guide 
+DESC: Master guide for using Claude Code effectively. Includes configuration templates, prompting strategies "Thinking" keywords, debugging techniques, and best practices for interacting with the agent.
+
+--- clickhouse-io 
+PATH: skills/cc-skill-clickhouse-io 
+DESC: ClickHouse database patterns, query optimization, analytics, and data engineering best practices for high-performance analytical workloads.
+
+--- Cloud Penetration Testing 
+PATH: skills/cloud-penetration-testing 
+DESC: This skill should be used when the user asks to "perform cloud penetration testing", "assess Azure or AWS or GCP security", "enumerate cloud resources", "exploit cloud misconfigurations", "test O365 security", "extract secrets from cloud environments", or "audit cloud infrastructure". It provides comprehensive techniques for security assessment across major cloud platforms.
+
+--- cloud-architect 
+PATH: skills/cloud-architect 
+DESC: Expert cloud architect specializing in AWS/Azure/GCP multi-cloud infrastructure design, advanced IaC (Terraform/OpenTofu/CDK), FinOps cost optimization, and modern architectural patterns. Masters serverless, microservices, security, compliance, and disaster recovery. Use PROACTIVELY for cloud architecture, cost optimization, migration planning, or multi-cloud strategies.
+
+--- code-documentation-doc-generate 
+PATH: skills/code-documentation-doc-generate 
+DESC: You are a documentation expert specializing in creating comprehensive, maintainable documentation from code. Generate API docs, architecture diagrams, user guides, and technical references using AI-powered analysis and industry best practices.
+
+--- code-refactoring-refactor-clean 
+PATH: skills/code-refactoring-refactor-clean 
+DESC: You are a code refactoring expert specializing in clean code principles, SOLID design patterns, and modern software engineering best practices. Analyze and refactor the provided code to improve its quality, maintainability, and performance.
+
+--- code-reviewer 
+PATH: skills/code-reviewer 
+DESC: Elite code review expert specializing in modern AI-powered code analysis, security vulnerabilities, performance optimization, and production reliability. Masters static analysis tools, security scanning, and configuration review with 2024/2025 best practices. Use PROACTIVELY for code quality assurance.
+
+--- codebase-cleanup-deps-audit 
+PATH: skills/codebase-cleanup-deps-audit 
+DESC: You are a dependency security expert specializing in vulnerability scanning, license compliance, and supply chain security. Analyze project dependencies for known vulnerabilities, licensing issues, outdated packages, and provide actionable remediation strategies.
+
+--- codebase-cleanup-refactor-clean 
+PATH: skills/codebase-cleanup-refactor-clean 
+DESC: You are a code refactoring expert specializing in clean code principles, SOLID design patterns, and modern software engineering best practices. Analyze and refactor the provided code to improve its quality, maintainability, and performance.
+
+--- coding-standards 
+PATH: skills/cc-skill-coding-standards 
+DESC: Universal coding standards, best practices, and patterns for TypeScript, JavaScript, React, and Node.js development.
+
+--- competitor-alternatives 
+PATH: skills/competitor-alternatives 
+DESC: When the user wants to create competitor comparison or alternative pages for SEO and sales enablement. Also use when the user mentions 'alternative page,' 'vs page,' 'competitor comparison,' 'comparison page,' '[Product] vs [Product],' '[Product] alternative,' or 'competitive landing pages.' Covers four formats: singular alternative, plural alternatives, you vs competitor, and competitor vs competitor. Emphasizes deep research, modular content architecture, and varied section types beyond feature tables.
+
+--- comprehensive-review-pr-enhance 
+PATH: skills/comprehensive-review-pr-enhance 
+DESC: You are a PR optimization expert specializing in creating high-quality pull requests that facilitate efficient code reviews. Generate comprehensive PR descriptions, automate review processes, and ensure PRs follow best practices for clarity, size, and reviewability.
+
+--- content-marketer 
+PATH: skills/content-marketer 
+DESC: Elite content marketing strategist specializing in AI-powered content creation, omnichannel distribution, SEO optimization, and data-driven performance marketing. Masters modern content tools, social media automation, and conversion optimization with 2024/2025 best practices. Use PROACTIVELY for comprehensive content marketing.
+
+--- context-manager 
+PATH: skills/context-manager 
+DESC: Elite AI context engineering specialist mastering dynamic context management, vector databases, knowledge graphs, and intelligent memory systems. Orchestrates context across multi-agent workflows, enterprise AI systems, and long-running projects with 2024/2025 best practices. Use PROACTIVELY for complex AI orchestration.
+
+--- copywriting 
+PATH: skills/copywriting 
+DESC: Use this skill when writing, rewriting, or improving marketing copy for any page (homepage, landing page, pricing, feature, product, or about page). This skill produces clear, compelling, and testable copy while enforcing alignment, honesty, and conversion best practices.
+
+--- cqrs-implementation 
+PATH: skills/cqrs-implementation 
+DESC: Implement Command Query Responsibility Segregation for scalable architectures. Use when separating read and write models, optimizing query performance, or building event-sourced systems.
+
+--- customer-support 
+PATH: skills/customer-support 
+DESC: Elite AI-powered customer support specialist mastering conversational AI, automated ticketing, sentiment analysis, and omnichannel support experiences. Integrates modern support tools, chatbot platforms, and CX optimization with 2024/2025 best practices. Use PROACTIVELY for comprehensive customer experience management.
+
+--- d3-viz 
+PATH: skills/claude-d3js-skill 
+DESC: Creating interactive data visualisations using d3.js. This skill should be used when creating custom charts, graphs, network diagrams, geographic visualisations, or any complex SVG-based data visualisation that requires fine-grained control over visual elements, transitions, or interactions. Use this for bespoke visualisations beyond standard charting libraries, whether in React, Vue, Svelte, vanilla JavaScript, or any other environment.
+
+--- data-engineer 
+PATH: skills/data-engineer 
+DESC: Build scalable data pipelines, modern data warehouses, and real-time streaming architectures. Implements Apache Spark, dbt, Airflow, and cloud-native data platforms. Use PROACTIVELY for data pipeline design, analytics infrastructure, or modern data stack implementation.
+
+--- data-engineering-data-pipeline 
+PATH: skills/data-engineering-data-pipeline 
+DESC: You are a data pipeline architecture expert specializing in scalable, reliable, and cost-effective data pipelines for batch and streaming data processing.
+
+--- database-admin 
+PATH: skills/database-admin 
+DESC: Expert database administrator specializing in modern cloud databases, automation, and reliability engineering. Masters AWS/Azure/GCP database services, Infrastructure as Code, high availability, disaster recovery, performance optimization, and compliance. Handles multi-cloud strategies, container databases, and cost optimization. Use PROACTIVELY for database architecture, operations, or reliability engineering.
+
+--- database-architect 
+PATH: skills/database-architect 
+DESC: Expert database architect specializing in data layer design from scratch, technology selection, schema modeling, and scalable database architectures. Masters SQL/NoSQL/TimeSeries database selection, normalization strategies, migration planning, and performance-first design. Handles both greenfield architectures and re-architecture of existing systems. Use PROACTIVELY for database architecture, technology selection, or data modeling decisions.
+
+--- database-cloud-optimization-cost-optimize 
+PATH: skills/database-cloud-optimization-cost-optimize 
+DESC: You are a cloud cost optimization expert specializing in reducing infrastructure expenses while maintaining performance and reliability. Analyze cloud spending, identify savings opportunities, and implement cost-effective architectures across AWS, Azure, and GCP.
+
+--- database-design 
+PATH: skills/database-design 
+DESC: Database design principles and decision-making. Schema design, indexing strategy, ORM selection, serverless databases.
+
+--- database-migration 
+PATH: skills/database-migration 
+DESC: Execute database migrations across ORMs and platforms with zero-downtime strategies, data transformation, and rollback procedures. Use when migrating databases, changing schemas, performing data transformations, or implementing zero-downtime deployment strategies.
+
+--- database-migrations-migration-observability 
+PATH: skills/database-migrations-migration-observability 
+DESC: Migration monitoring, CDC, and observability infrastructure
+
+--- database-migrations-sql-migrations 
+PATH: skills/database-migrations-sql-migrations 
+DESC: SQL database migrations with zero-downtime strategies for PostgreSQL, MySQL, SQL Server
+
+--- database-optimizer 
+PATH: skills/database-optimizer 
+DESC: Expert database optimizer specializing in modern performance tuning, query optimization, and scalable architectures. Masters advanced indexing, N+1 resolution, multi-tier caching, partitioning strategies, and cloud database optimization. Handles complex query analysis, migration strategies, and performance monitoring. Use PROACTIVELY for database optimization, performance issues, or scalability challenges.
+
+--- dbt-transformation-patterns 
+PATH: skills/dbt-transformation-patterns 
+DESC: Master dbt (data build tool) for analytics engineering with model organization, testing, documentation, and incremental strategies. Use when building data transformations, creating data models, or implementing analytics engineering best practices.
+
+--- dependency-management-deps-audit 
+PATH: skills/dependency-management-deps-audit 
+DESC: You are a dependency security expert specializing in vulnerability scanning, license compliance, and supply chain security. Analyze project dependencies for known vulnerabilities, licensing issues, outdated packages, and provide actionable remediation strategies.
+
+--- django-pro 
+PATH: skills/django-pro 
+DESC: Master Django 5.x with async views, DRF, Celery, and Django Channels. Build scalable web applications with proper architecture, testing, and deployment. Use PROACTIVELY for Django development, ORM optimization, or complex Django patterns.
+
+--- docs-architect 
+PATH: skills/docs-architect 
+DESC: Creates comprehensive technical documentation from existing codebases. Analyzes architecture, design patterns, and implementation details to produce long-form technical manuals and ebooks. Use PROACTIVELY for system documentation, architecture guides, or technical deep-dives.
+
+--- documentation-generation-doc-generate 
+PATH: skills/documentation-generation-doc-generate 
+DESC: You are a documentation expert specializing in creating comprehensive, maintainable documentation from code. Generate API docs, architecture diagrams, user guides, and technical references using AI-powered analysis and industry best practices.
+
+--- dotnet-architect 
+PATH: skills/dotnet-architect 
+DESC: Expert .NET backend architect specializing in C#, ASP.NET Core, Entity Framework, Dapper, and enterprise application patterns. Masters async/await, dependency injection, caching strategies, and performance optimization. Use PROACTIVELY for .NET API development, code review, or architecture decisions.
+
+--- dotnet-backend-patterns 
+PATH: skills/dotnet-backend-patterns 
+DESC: Master C#/.NET backend development patterns for building robust APIs, MCP servers, and enterprise applications. Covers async/await, dependency injection, Entity Framework Core, Dapper, configuration, caching, and testing with xUnit. Use when developing .NET backends, reviewing C# code, or designing API architectures.
+
+--- employment-contract-templates 
+PATH: skills/employment-contract-templates 
+DESC: Create employment contracts, offer letters, and HR policy documents following legal best practices. Use when drafting employment agreements, creating HR policies, or standardizing employment documentation.
+
+--- event-sourcing-architect 
+PATH: skills/event-sourcing-architect 
+DESC: Expert in event sourcing, CQRS, and event-driven architecture patterns. Masters event store design, projection building, saga orchestration, and eventual consistency patterns. Use PROACTIVELY for event-sourced systems, audit trails, or temporal queries.
+
+--- fastapi-pro 
+PATH: skills/fastapi-pro 
+DESC: Build high-performance async APIs with FastAPI, SQLAlchemy 2.0, and Pydantic V2. Master microservices, WebSockets, and modern Python async patterns. Use PROACTIVELY for FastAPI development, async optimization, or API architecture.
+
+--- find-bugs 
+PATH: skills/find-bugs 
+DESC: Find bugs, security vulnerabilities, and code quality issues in local branch changes. Use when asked to review changes, find bugs, security review, or audit code on the current branch.
+
+--- firebase 
+PATH: skills/firebase 
+DESC: Firebase gives you a complete backend in minutes - auth, database, storage, functions, hosting. But the ease of setup hides real complexity. Security rules are your last line of defense, and they're often wrong. Firestore queries are limited, and you learn this after you've designed your data model.  This skill covers Firebase Authentication, Firestore, Realtime Database, Cloud Functions, Cloud Storage, and Firebase Hosting. Key insight: Firebase is optimized for read-heavy, denormalized data. I
+
+--- firmware-analyst 
+PATH: skills/firmware-analyst 
+DESC: Expert firmware analyst specializing in embedded systems, IoT security, and hardware reverse engineering. Masters firmware extraction, analysis, and vulnerability research for routers, IoT devices, automotive systems, and industrial controllers. Use PROACTIVELY for firmware security audits, IoT penetration testing, or embedded systems research.
+
+--- fix-review 
+PATH: skills/fix-review 
+DESC: Verify fix commits address audit findings without new bugs
+
+--- flutter-expert 
+PATH: skills/flutter-expert 
+DESC: Master Flutter development with Dart 3, advanced widgets, and multi-platform deployment. Handles state management, animations, testing, and performance optimization for mobile, web, desktop, and embedded platforms. Use PROACTIVELY for Flutter architecture, UI implementation, or cross-platform features.
+
+--- fp-ts-errors 
+PATH: skills/fp-ts-errors 
+DESC: Handle errors as values using fp-ts Either and TaskEither for cleaner, more predictable TypeScript code. Use when implementing error handling patterns with fp-ts.
+
+--- fp-ts-pragmatic 
+PATH: skills/fp-ts-pragmatic 
+DESC: A practical, jargon-free guide to fp-ts functional programming - the 80/20 approach that gets results without the academic overhead. Use when writing TypeScript with fp-ts library.
+
+--- fp-ts-react 
+PATH: skills/fp-ts-react 
+DESC: Practical patterns for using fp-ts with React - hooks, state, forms, data fetching. Use when building React apps with functional programming patterns. Works with React 18/19, Next.js 14/15.
+
+--- frontend-design 
+PATH: skills/frontend-design 
+DESC: Create distinctive, production-grade frontend interfaces with intentional aesthetics, high craft, and non-generic visual identity. Use when building or styling web UIs, components, pages, dashboards, or frontend applications.
+
+--- frontend-dev-guidelines 
+PATH: skills/frontend-dev-guidelines 
+DESC: Opinionated frontend development standards for modern React + TypeScript applications. Covers Suspense-first data fetching, lazy loading, feature-based architecture, MUI v7 styling, TanStack Router, performance optimization, and strict TypeScript practices.
+
+--- frontend-developer 
+PATH: skills/frontend-developer 
+DESC: Build React components, implement responsive layouts, and handle client-side state management. Masters React 19, Next.js 15, and modern frontend architecture. Optimizes performance and ensures accessibility. Use PROACTIVELY when creating UI components or fixing frontend issues.
+
+--- frontend-mobile-development-component-scaffold 
+PATH: skills/frontend-mobile-development-component-scaffold 
+DESC: You are a React component architecture expert specializing in scaffolding production-ready, accessible, and performant components. Generate complete component implementations with TypeScript, tests, s
+
+--- frontend-mobile-security-xss-scan 
+PATH: skills/frontend-mobile-security-xss-scan 
+DESC: You are a frontend security specialist focusing on Cross-Site Scripting (XSS) vulnerability detection and prevention. Analyze React, Vue, Angular, and vanilla JavaScript code to identify injection poi
+
+--- frontend-patterns 
+PATH: skills/cc-skill-frontend-patterns 
+DESC: Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.
+
+--- frontend-security-coder 
+PATH: skills/frontend-security-coder 
+DESC: Expert in secure frontend coding practices specializing in XSS prevention, output sanitization, and client-side security patterns. Use PROACTIVELY for frontend security implementations or client-side security code reviews.
+
+--- frontend-slides 
+PATH: skills/frontend-slides 
+DESC: Create stunning, animation-rich HTML presentations from scratch or by converting PowerPoint files. Use when the user wants to build a presentation, convert a PPT/PPTX to web, or create slides for a talk/pitch. Helps non-designers discover their aesthetic through visual exploration rather than abstract choices.
+
+--- gcp-cloud-run 
+PATH: skills/gcp-cloud-run 
+DESC: Specialized skill for building production-ready serverless applications on GCP. Covers Cloud Run services (containerized), Cloud Run Functions (event-driven), cold start optimization, and event-driven architecture with Pub/Sub.
+
+--- godot-gdscript-patterns 
+PATH: skills/godot-gdscript-patterns 
+DESC: Master Godot 4 GDScript patterns including signals, scenes, state machines, and optimization. Use when building Godot games, implementing game systems, or learning GDScript best practices.
+
+--- golang-pro 
+PATH: skills/golang-pro 
+DESC: Master Go 1.21+ with modern patterns, advanced concurrency, performance optimization, and production-ready microservices. Expert in the latest Go ecosystem including generics, workspaces, and cutting-edge frameworks. Use PROACTIVELY for Go development, architecture design, or performance optimization.
+
+--- graphql-architect 
+PATH: skills/graphql-architect 
+DESC: Master modern GraphQL with federation, performance optimization, and enterprise security. Build scalable schemas, implement advanced caching, and design real-time systems. Use PROACTIVELY for GraphQL architecture or performance optimization.
+
+--- haskell-pro 
+PATH: skills/haskell-pro 
+DESC: Expert Haskell engineer specializing in advanced type systems, pure functional design, and high-reliability software. Use PROACTIVELY for type-level programming, concurrency, and architecture guidance.
+
+--- hybrid-cloud-architect 
+PATH: skills/hybrid-cloud-architect 
+DESC: Expert hybrid cloud architect specializing in complex multi-cloud solutions across AWS/Azure/GCP and private clouds (OpenStack/VMware). Masters hybrid connectivity, workload placement optimization, edge computing, and cross-cloud automation. Handles compliance, cost optimization, disaster recovery, and migration strategies. Use PROACTIVELY for hybrid architecture, multi-cloud strategy, or complex infrastructure integration.
+
+--- hybrid-cloud-networking 
+PATH: skills/hybrid-cloud-networking 
+DESC: Configure secure, high-performance connectivity between on-premises infrastructure and cloud platforms using VPN and dedicated connections. Use when building hybrid cloud architectures, connecting data centers to cloud, or implementing secure cross-premises networking.
+
+--- imagen 
+PATH: skills/imagen 
+DESC: This skill generates images using Google Gemini's image generation model (`gemini-3-pro-image-preview`). It enables seamless image creation during any Claude Code session - whether you're building frontend UIs, creating documentation, or need visual
+
+--- java-pro 
+PATH: skills/java-pro 
+DESC: Master Java 21+ with modern features like virtual threads, pattern matching, and Spring Boot 3.x. Expert in the latest Java ecosystem including GraalVM, Project Loom, and cloud-native patterns. Use PROACTIVELY for Java development, microservices architecture, or performance optimization.
+
+--- javascript-testing-patterns 
+PATH: skills/javascript-testing-patterns 
+DESC: Implement comprehensive testing strategies using Jest, Vitest, and Testing Library for unit tests, integration tests, and end-to-end testing with mocking, fixtures, and test-driven development. Use when writing JavaScript/TypeScript tests, setting up test infrastructure, or implementing TDD/BDD workflows.
+
+--- javascript-typescript-typescript-scaffold 
+PATH: skills/javascript-typescript-typescript-scaffold 
+DESC: You are a TypeScript project architecture expert specializing in scaffolding production-ready Node.js and frontend applications. Generate complete project structures with modern tooling (pnpm, Vite, N
+
+--- k8s-manifest-generator 
+PATH: skills/k8s-manifest-generator 
+DESC: Create production-ready Kubernetes manifests for Deployments, Services, ConfigMaps, and Secrets following best practices and security standards. Use when generating Kubernetes YAML manifests, creating K8s resources, or implementing production-grade Kubernetes configurations.
+
+--- kpi-dashboard-design 
+PATH: skills/kpi-dashboard-design 
+DESC: Design effective KPI dashboards with metrics selection, visualization best practices, and real-time monitoring patterns. Use when building business dashboards, selecting metrics, or designing data visualization layouts.
+
+--- kubernetes-architect 
+PATH: skills/kubernetes-architect 
+DESC: Expert Kubernetes architect specializing in cloud-native infrastructure, advanced GitOps workflows (ArgoCD/Flux), and enterprise container orchestration. Masters EKS/AKS/GKE, service mesh (Istio/Linkerd), progressive delivery, multi-tenancy, and platform engineering. Handles security, observability, cost optimization, and developer experience. Use PROACTIVELY for K8s architecture, GitOps implementation, or cloud-native platform design.
+
+--- langchain-architecture 
+PATH: skills/langchain-architecture 
+DESC: Design LLM applications using the LangChain framework with agents, memory, and tool integration patterns. Use when building LangChain applications, implementing AI agents, or creating complex LLM workflows.
+
+--- langgraph 
+PATH: skills/langgraph 
+DESC: Expert in LangGraph - the production-grade framework for building stateful, multi-actor AI applications. Covers graph construction, state management, cycles and branches, persistence with checkpointers, human-in-the-loop patterns, and the ReAct agent pattern. Used in production at LinkedIn, Uber, and 400+ companies. This is LangChain's recommended approach for building agents. Use when: langgraph, langchain agent, stateful agent, agent graph, react agent.
+
+--- llm-app-patterns 
+PATH: skills/llm-app-patterns 
+DESC: Production-ready patterns for building LLM applications. Covers RAG pipelines, agent architectures, prompt IDEs, and LLMOps monitoring. Use when designing AI applications, implementing RAG, building agents, or setting up LLM observability.
+
+--- mcp-builder 
+PATH: skills/mcp-builder 
+DESC: Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).
+
+--- memory-systems 
+PATH: skills/memory-systems 
+DESC: Design short-term, long-term, and graph-based memory architectures
+
+--- mermaid-expert 
+PATH: skills/mermaid-expert 
+DESC: Create Mermaid diagrams for flowcharts, sequences, ERDs, and architectures. Masters syntax for all diagram types and styling. Use PROACTIVELY for visual documentation, system diagrams, or process flows.
+
+--- microservices-patterns 
+PATH: skills/microservices-patterns 
+DESC: Design microservices architectures with service boundaries, event-driven communication, and resilience patterns. Use when building distributed systems, decomposing monoliths, or implementing microservices.
+
+--- minecraft-bukkit-pro 
+PATH: skills/minecraft-bukkit-pro 
+DESC: Master Minecraft server plugin development with Bukkit, Spigot, and Paper APIs. Specializes in event-driven architecture, command systems, world manipulation, player management, and performance optimization. Use PROACTIVELY for plugin architecture, gameplay mechanics, server-side features, or cross-version compatibility.
+
+--- mobile-design 
+PATH: skills/mobile-design 
+DESC: Mobile-first design and engineering doctrine for iOS and Android apps. Covers touch interaction, performance, platform conventions, offline behavior, and mobile-specific decision-making. Teaches principles and constraints, not fixed layouts. Use for React Native, Flutter, or native mobile apps.
+
+--- mobile-developer 
+PATH: skills/mobile-developer 
+DESC: Develop React Native, Flutter, or native mobile apps with modern architecture patterns. Masters cross-platform development, native integrations, offline sync, and app store optimization. Use PROACTIVELY for mobile features, cross-platform code, or app optimization.
+
+--- monorepo-architect 
+PATH: skills/monorepo-architect 
+DESC: Expert in monorepo architecture, build systems, and dependency management at scale. Masters Nx, Turborepo, Bazel, and Lerna for efficient multi-project development. Use PROACTIVELY for monorepo setup,
+
+--- moodle-external-api-development 
+PATH: skills/moodle-external-api-development 
+DESC: Create custom external web service APIs for Moodle LMS. Use when implementing web services for course management, user tracking, quiz operations, or custom plugin functionality. Covers parameter validation, database operations, error handling, service registration, and Moodle coding standards.
+
+--- multi-agent-patterns 
+PATH: skills/multi-agent-patterns 
+DESC: Master orchestrator, peer-to-peer, and hierarchical multi-agent architectures
+
+--- multi-cloud-architecture 
+PATH: skills/multi-cloud-architecture 
+DESC: Design multi-cloud architectures using a decision framework to select and integrate services across AWS, Azure, and GCP. Use when building multi-cloud systems, avoiding vendor lock-in, or leveraging best-of-breed services from multiple providers.
+
+--- multi-platform-apps-multi-platform 
+PATH: skills/multi-platform-apps-multi-platform 
+DESC: Build and deploy the same feature consistently across web, mobile, and desktop platforms using API-first architecture and parallel implementation strategies.
+
+--- multiplayer 
+PATH: skills/game-development/multiplayer 
+DESC: Multiplayer game development principles. Architecture, networking, synchronization.
+
+--- neon-postgres 
+PATH: skills/neon-postgres 
+DESC: Expert patterns for Neon serverless Postgres, branching, connection pooling, and Prisma/Drizzle integration Use when: neon database, serverless postgres, database branching, neon postgres, postgres serverless.
+
+--- nestjs-expert 
+PATH: skills/nestjs-expert 
+DESC: Nest.js framework expert specializing in module architecture, dependency injection, middleware, guards, interceptors, testing with Jest/Supertest, TypeORM/Mongoose integration, and Passport.js authentication. Use PROACTIVELY for any Nest.js application issues including architecture decisions, testing strategies, performance optimization, or debugging complex dependency injection problems. If a specialized expert is a better fit, I will recommend switching and stop.
+
+--- network-engineer 
+PATH: skills/network-engineer 
+DESC: Expert network engineer specializing in modern cloud networking, security architectures, and performance optimization. Masters multi-cloud connectivity, service mesh, zero-trust networking, SSL/TLS, global load balancing, and advanced troubleshooting. Handles CDN optimization, network automation, and compliance. Use PROACTIVELY for network design, connectivity issues, or performance optimization.
+
+--- nextjs-app-router-patterns 
+PATH: skills/nextjs-app-router-patterns 
+DESC: Master Next.js 14+ App Router with Server Components, streaming, parallel routes, and advanced data fetching. Use when building Next.js applications, implementing SSR/SSG, or optimizing React Server Components.
+
+--- nodejs-backend-patterns 
+PATH: skills/nodejs-backend-patterns 
+DESC: Build production-ready Node.js backend services with Express/Fastify, implementing middleware patterns, error handling, authentication, database integration, and API design best practices. Use when creating Node.js servers, REST APIs, GraphQL backends, or microservices architectures.
+
+--- nodejs-best-practices 
+PATH: skills/nodejs-best-practices 
+DESC: Node.js development principles and decision-making. Framework selection, async patterns, security, and architecture. Teaches thinking, not copying.
+
+--- nosql-expert 
+PATH: skills/nosql-expert 
+DESC: Expert guidance for distributed NoSQL databases (Cassandra, DynamoDB). Focuses on mental models, query-first modeling, single-table design, and avoiding hot partitions in high-scale systems.
+
+--- Pentest Checklist 
+PATH: skills/pentest-checklist 
+DESC: This skill should be used when the user asks to "plan a penetration test", "create a security assessment checklist", "prepare for penetration testing", "define pentest scope", "follow security testing best practices", or needs a structured methodology for penetration testing engagements.
+
+--- plaid-fintech 
+PATH: skills/plaid-fintech 
+DESC: Expert patterns for Plaid API integration including Link token flows, transactions sync, identity verification, Auth for ACH, balance checks, webhook handling, and fintech compliance best practices. Use when: plaid, bank account linking, bank connection, ach, account aggregation.
+
+--- prisma-expert 
+PATH: skills/prisma-expert 
+DESC: Prisma ORM expert for schema design, migrations, query optimization, relations modeling, and database operations. Use PROACTIVELY for Prisma schema issues, migration problems, query performance, relation design, or database connection issues.
+
+--- production-code-audit 
+PATH: skills/production-code-audit 
+DESC: Autonomously deep-scan entire codebase line-by-line, understand architecture and patterns, then systematically transform it to production-grade, corporate-level professional quality with optimizations
+
+--- prompt-engineering 
+PATH: skills/prompt-engineering 
+DESC: Expert guide on prompt engineering patterns, best practices, and optimization techniques. Use when user wants to improve prompts, learn prompting strategies, or debug agent behavior.
+
+--- python-development-python-scaffold 
+PATH: skills/python-development-python-scaffold 
+DESC: You are a Python project architecture expert specializing in scaffolding production-ready Python applications. Generate complete project structures with modern tooling (uv, FastAPI, Django), type hint
+
+--- python-performance-optimization 
+PATH: skills/python-performance-optimization 
+DESC: Profile and optimize Python code using cProfile, memory profilers, and performance best practices. Use when debugging slow Python code, optimizing bottlenecks, or improving application performance.
+
+--- python-testing-patterns 
+PATH: skills/python-testing-patterns 
+DESC: Implement comprehensive testing strategies with pytest, fixtures, mocking, and test-driven development. Use when writing Python tests, setting up test suites, or implementing testing best practices.
+
+--- rag-engineer 
+PATH: skills/rag-engineer 
+DESC: Expert in building Retrieval-Augmented Generation systems. Masters embedding models, vector databases, chunking strategies, and retrieval optimization for LLM applications. Use when: building RAG, vector search, embeddings, semantic search, document retrieval.
+
+--- rag-implementation 
+PATH: skills/rag-implementation 
+DESC: Build Retrieval-Augmented Generation (RAG) systems for LLM applications with vector databases and semantic search. Use when implementing knowledge-grounded AI, building document Q&A systems, or integrating LLMs with external knowledge bases.
+
+--- react-modernization 
+PATH: skills/react-modernization 
+DESC: Upgrade React applications to latest versions, migrate from class components to hooks, and adopt concurrent features. Use when modernizing React codebases, migrating to React Hooks, or upgrading to latest React versions.
+
+--- react-native-architecture 
+PATH: skills/react-native-architecture 
+DESC: Build production React Native apps with Expo, navigation, native modules, offline sync, and cross-platform patterns. Use when developing mobile apps, implementing native integrations, or architecting React Native projects.
+
+--- react-patterns 
+PATH: skills/react-patterns 
+DESC: Modern React patterns and principles. Hooks, composition, performance, TypeScript best practices.
+
+--- react-state-management 
+PATH: skills/react-state-management 
+DESC: Master modern React state management with Redux Toolkit, Zustand, Jotai, and React Query. Use when setting up global state, managing server state, or choosing between state management solutions.
+
+--- react-ui-patterns 
+PATH: skills/react-ui-patterns 
+DESC: Modern React UI patterns for loading states, error handling, and data fetching. Use when building UI components, handling async data, or managing UI states.
+
+--- remotion-best-practices 
+PATH: skills/remotion-best-practices 
+DESC: Best practices for Remotion - Video creation in React
+
+--- scala-pro 
+PATH: skills/scala-pro 
+DESC: Master enterprise-grade Scala development with functional programming, distributed systems, and big data processing. Expert in Apache Pekko, Akka, Spark, ZIO/Cats Effect, and reactive architectures. Use PROACTIVELY for Scala system design, performance optimization, or enterprise integration.
+
+--- schema-markup 
+PATH: skills/schema-markup 
+DESC: Design, validate, and optimize schema.org structured data for eligibility, correctness, and measurable SEO impact. Use when the user wants to add, fix, audit, or scale schema markup (JSON-LD) for rich results. This skill evaluates whether schema should be implemented, what types are valid, and how to deploy safely according to Google guidelines.
+
+
+--- security-auditor 
+PATH: skills/security-auditor 
+DESC: Expert security auditor specializing in DevSecOps, comprehensive cybersecurity, and compliance frameworks. Masters vulnerability assessment, threat modeling, secure authentication (OAuth2/OIDC), OWASP standards, cloud security, and security automation. Handles DevSecOps integration, compliance (GDPR/HIPAA/SOC2), and incident response. Use PROACTIVELY for security audits, DevSecOps, or compliance implementation.
+
+--- security-compliance-compliance-check 
+PATH: skills/security-compliance-compliance-check 
+DESC: You are a compliance expert specializing in regulatory requirements for software systems including GDPR, HIPAA, SOC2, PCI-DSS, and other industry standards. Perform compliance audits and provide implementation guidance.
+
+--- segment-cdp 
+PATH: skills/segment-cdp 
+DESC: Expert patterns for Segment Customer Data Platform including Analytics.js, server-side tracking, tracking plans with Protocols, identity resolution, destinations configuration, and data governance best practices. Use when: segment, analytics.js, customer data platform, cdp, tracking plan.
+
+--- senior-architect 
+PATH: skills/senior-architect 
+DESC: Comprehensive software architecture skill for designing scalable, maintainable systems using ReactJS, NextJS, NodeJS, Express, React Native, Swift, Kotlin, Flutter, Postgres, GraphQL, Go, Python. Includes architecture diagram generation, system design patterns, tech stack decision frameworks, and dependency analysis. Use when designing system architecture, making technical decisions, creating architecture diagrams, evaluating trade-offs, or defining integration patterns.
+
+--- senior-fullstack 
+PATH: skills/senior-fullstack 
+DESC: Comprehensive fullstack development skill for building complete web applications with React, Next.js, Node.js, GraphQL, and PostgreSQL. Includes project scaffolding, code quality analysis, architecture patterns, and complete tech stack guidance. Use when building new projects, analyzing code quality, implementing design patterns, or setting up development workflows.
+
+--- seo-audit 
+PATH: skills/seo-audit 
+DESC: Diagnose and audit SEO issues affecting crawlability, indexation, rankings, and organic performance. Use when the user asks for an SEO audit, technical SEO review, ranking diagnosis, on-page SEO review, meta tag audit, or SEO health check. This skill identifies issues and prioritizes actions but does not execute changes. For large-scale page creation, use programmatic-seo. For structured data, use schema-markup.
+
+--- seo-content-auditor 
+PATH: skills/seo-content-auditor 
+DESC: Analyzes provided content for quality, E-E-A-T signals, and SEO best practices. Scores content and provides improvement recommendations based on established guidelines. Use PROACTIVELY for content review.
+
+--- seo-content-writer 
+PATH: skills/seo-content-writer 
+DESC: Writes SEO-optimized content based on provided keywords and topic briefs. Creates engaging, comprehensive content following best practices. Use PROACTIVELY for content creation tasks.
+
+--- seo-meta-optimizer 
+PATH: skills/seo-meta-optimizer 
+DESC: Creates optimized meta titles, descriptions, and URL suggestions based on character limits and best practices. Generates compelling, keyword-rich metadata. Use PROACTIVELY for new content.
+
+--- seo-snippet-hunter 
+PATH: skills/seo-snippet-hunter 
+DESC: Formats content to be eligible for featured snippets and SERP features. Creates snippet-optimized content blocks based on best practices. Use PROACTIVELY for question-based content.
+
+--- shopify-apps 
+PATH: skills/shopify-apps 
+DESC: Expert patterns for Shopify app development including Remix/React Router apps, embedded apps with App Bridge, webhook handling, GraphQL Admin API, Polaris components, billing, and app extensions. Use when: shopify app, shopify, embedded app, polaris, app bridge.
+
+--- similarity-search-patterns 
+PATH: skills/similarity-search-patterns 
+DESC: Implement efficient similarity search with vector databases. Use when building semantic search, implementing nearest neighbor queries, or optimizing retrieval performance.
+
+--- skill-developer 
+PATH: skills/skill-developer 
+DESC: Create and manage Claude Code skills following Anthropic best practices. Use when creating new skills, modifying skill-rules.json, understanding trigger patterns, working with hooks, debugging skill activation, or implementing progressive disclosure. Covers skill structure, YAML frontmatter, trigger types (keywords, intent patterns, file paths, content patterns), enforcement levels (block, suggest, warn), hook mechanisms (UserPromptSubmit, PreToolUse), session tracking, and the 500-line rule.
+
+--- slack-bot-builder 
+PATH: skills/slack-bot-builder 
+DESC: Build Slack apps using the Bolt framework across Python, JavaScript, and Java. Covers Block Kit for rich UIs, interactive components, slash commands, event handling, OAuth installation flows, and Workflow Builder integration. Focus on best practices for production-ready Slack apps. Use when: slack bot, slack app, bolt framework, block kit, slash command.
+
+--- software-architecture 
+PATH: skills/software-architecture 
+DESC: Guide for quality focused software architecture. This skill should be used when users want to write code, design architecture, analyze code, in any case that relates to software development.
+
+--- solidity-security 
+PATH: skills/solidity-security 
+DESC: Master smart contract security best practices to prevent common vulnerabilities and implement secure Solidity patterns. Use when writing smart contracts, auditing existing contracts, or implementing security measures for blockchain applications.
+
+--- SQL Injection Testing 
+PATH: skills/sql-injection-testing 
+DESC: This skill should be used when the user asks to "test for SQL injection vulnerabilities", "perform SQLi attacks", "bypass authentication using SQL injection", "extract database information through injection", "detect SQL injection flaws", or "exploit database query vulnerabilities". It provides comprehensive techniques for identifying, exploiting, and understanding SQL injection attack vectors across different database systems.
+
+--- sql-optimization-patterns 
+PATH: skills/sql-optimization-patterns 
+DESC: Master SQL query optimization, indexing strategies, and EXPLAIN analysis to dramatically improve database performance and eliminate slow queries. Use when debugging slow queries, designing database schemas, or optimizing application performance.
+
+--- sql-pro 
+PATH: skills/sql-pro 
+DESC: Master modern SQL with cloud-native databases, OLTP/OLAP optimization, and advanced query techniques. Expert in performance tuning, data modeling, and hybrid analytical systems. Use PROACTIVELY for database optimization or complex analysis.
+
+--- SQLMap Database Penetration Testing 
+PATH: skills/sqlmap-database-pentesting 
+DESC: This skill should be used when the user asks to "automate SQL injection testing," "enumerate database structure," "extract database credentials using sqlmap," "dump tables and columns from a vulnerable database," or "perform automated database penetration testing." It provides comprehensive guidance for using SQLMap to detect and exploit SQL injection vulnerabilities.
+
+--- SSH Penetration Testing 
+PATH: skills/ssh-penetration-testing 
+DESC: This skill should be used when the user asks to "pentest SSH services", "enumerate SSH configurations", "brute force SSH credentials", "exploit SSH vulnerabilities", "perform SSH tunneling", or "audit SSH security". It provides comprehensive SSH penetration testing methodologies and techniques.
+
+--- supabase-postgres-best-practices 
+PATH: skills/postgres-best-practices 
+DESC: Postgres performance optimization and best practices from Supabase. Use this skill when writing, reviewing, or optimizing Postgres queries, schema designs, or database configurations.
+
+--- swiftui-expert-skill 
+PATH: skills/swiftui-expert-skill 
+DESC: Write, review, or improve SwiftUI code following best practices for state management, view composition, performance, modern APIs, Swift concurrency, and iOS 26+ Liquid Glass adoption. Use when building new SwiftUI features, refactoring existing views, reviewing code quality, or adopting modern SwiftUI patterns.
+
+--- systems-programming-rust-project 
+PATH: skills/systems-programming-rust-project 
+DESC: You are a Rust project architecture expert specializing in scaffolding production-ready Rust applications. Generate complete project structures with cargo tooling, proper module organization, testing
+
+--- tailwind-patterns 
+PATH: skills/tailwind-patterns 
+DESC: Tailwind CSS v4 principles. CSS-first configuration, container queries, modern patterns, design token architecture.
+
+--- tdd-orchestrator 
+PATH: skills/tdd-orchestrator 
+DESC: Master TDD orchestrator specializing in red-green-refactor discipline, multi-agent workflow coordination, and comprehensive test-driven development practices. Enforces TDD best practices across teams with AI-assisted testing and modern frameworks. Use PROACTIVELY for TDD implementation and governance.
+
+--- telegram-bot-builder 
+PATH: skills/telegram-bot-builder 
+DESC: Expert in building Telegram bots that solve real problems - from simple automation to complex AI-powered bots. Covers bot architecture, the Telegram Bot API, user experience, monetization strategies, and scaling bots to thousands of users. Use when: telegram bot, bot api, telegram automation, chat bot telegram, tg bot.
+
+--- terraform-module-library 
+PATH: skills/terraform-module-library 
+DESC: Build reusable Terraform modules for AWS, Azure, and GCP infrastructure following infrastructure-as-code best practices. Use when creating infrastructure modules, standardizing cloud provisioning, or implementing reusable IaC components.
+
+--- terraform-skill 
+PATH: skills/terraform-skill 
+DESC: Terraform infrastructure as code best practices
+
+--- terraform-specialist 
+PATH: skills/terraform-specialist 
+DESC: Expert Terraform/OpenTofu specialist mastering advanced IaC automation, state management, and enterprise infrastructure patterns. Handles complex module design, multi-cloud deployments, GitOps workflows, policy as code, and CI/CD integration. Covers migration strategies, security best practices, and modern IaC ecosystems. Use PROACTIVELY for advanced IaC, state management, or infrastructure automation.
+
+--- threat-modeling-expert 
+PATH: skills/threat-modeling-expert 
+DESC: Expert in threat modeling methodologies, security architecture review, and risk assessment. Masters STRIDE, PASTA, attack trees, and security requirement extraction. Use for security architecture reviews, threat identification, and secure-by-design planning.
+
+--- trigger-dev 
+PATH: skills/trigger-dev 
+DESC: Trigger.dev expert for background jobs, AI workflows, and reliable async execution with excellent developer experience and TypeScript-first design. Use when: trigger.dev, trigger dev, background task, ai background job, long running task.
+
+--- typescript-advanced-types 
+PATH: skills/typescript-advanced-types 
+DESC: Master TypeScript's advanced type system including generics, conditional types, mapped types, template literals, and utility types for building type-safe applications. Use when implementing complex type logic, creating reusable type utilities, or ensuring compile-time type safety in TypeScript projects.
+
+--- typescript-expert 
+PATH: skills/typescript-expert 
+DESC: TypeScript and JavaScript expert with deep knowledge of type-level programming, performance optimization, monorepo management, migration strategies, and modern tooling. Use PROACTIVELY for any TypeScript/JavaScript issues including complex type gymnastics, build performance, debugging, and architectural decisions. If a specialized expert is a better fit, I will recommend switching and stop.
+
+--- typescript-pro 
+PATH: skills/typescript-pro 
+DESC: Master TypeScript with advanced types, generics, and strict type safety. Handles complex type systems, decorators, and enterprise-grade patterns. Use PROACTIVELY for TypeScript architecture, type inference optimization, or advanced typing patterns.
+
+--- ui-ux-pro-max 
+PATH: skills/ui-ux-pro-max 
+DESC: UI/UX design intelligence. 50 styles, 21 palettes, 50 font pairings, 20 charts, 9 stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Actions: plan, build, create, design, implement, review, fix, improve, optimize, enhance, refactor, check UI/UX code. Projects: website, landing page, dashboard, admin panel, e-commerce, SaaS, portfolio, blog, mobile app, .html, .tsx, .vue, .svelte. Elements: button, modal, navbar, sidebar, card, table, form, chart. Styles: glassmorphism, claymorphism, minimalism, brutalism, neumorphism, bento grid, dark mode, responsive, skeuomorphism, flat design. Topics: color palette, accessibility, animation, layout, typography, font pairing, spacing, hover, shadow, gradient. Integrations: shadcn/ui MCP for component search and examples.
+
+--- unreal-engine-cpp-pro 
+PATH: skills/unreal-engine-cpp-pro 
+DESC: Expert guide for Unreal Engine 5.x C++ development, covering UObject hygiene, performance patterns, and best practices.
+
+--- using-neon 
+PATH: skills/using-neon 
+DESC: Guides and best practices for working with Neon Serverless Postgres. Covers getting started, local development with Neon, choosing a connection method, Neon features, authentication (@neondatabase/auth), PostgREST-style data API (@neondatabase/neon-js), Neon CLI, and Neon's Platform API/SDKs. Use for any Neon-related questions.
+
+--- vector-database-engineer 
+PATH: skills/vector-database-engineer 
+DESC: Expert in vector databases, embedding strategies, and semantic search implementation. Masters Pinecone, Weaviate, Qdrant, Milvus, and pgvector for RAG applications, recommendation systems, and similar
+
+--- vercel-react-best-practices 
+PATH: skills/react-best-practices 
+DESC: React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance patterns. Triggers on tasks involving React components, Next.js pages, data fetching, bundle optimization, or performance improvements.
+
+--- voice-agents 
+PATH: skills/voice-agents 
+DESC: Voice agents represent the frontier of AI interaction - humans speaking naturally with AI systems. The challenge isn't just speech recognition and synthesis, it's achieving natural conversation flow with sub-800ms latency while handling interruptions, background noise, and emotional nuance.  This skill covers two architectures: speech-to-speech (OpenAI Realtime API, lowest latency, most natural) and pipeline (STT→LLM→TTS, more control, easier to debug). Key insight: latency is the constraint. Hu
+
+--- wcag-audit-patterns 
+PATH: skills/wcag-audit-patterns 
+DESC: Conduct WCAG 2.2 accessibility audits with automated testing, manual verification, and remediation guidance. Use when auditing websites for accessibility, fixing WCAG violations, or implementing accessible design patterns.
+
+--- web-artifacts-builder 
+PATH: skills/web-artifacts-builder 
+DESC: Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX artifacts.
+
+--- web-design-guidelines 
+PATH: skills/web-design-guidelines 
+DESC: Review UI code for Web Interface Guidelines compliance. Use when asked to "review my UI", "check accessibility", "audit design", "review UX", or "check my site against best practices".
+
+--- webapp-testing 
+PATH: skills/webapp-testing 
+DESC: Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.

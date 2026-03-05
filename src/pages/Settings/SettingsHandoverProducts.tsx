@@ -4,15 +4,18 @@ import type { HandoverProduct } from '../../types/shift';
 import { HandoverService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
+import type { Store } from '../../types';
+
 interface SettingsHandoverProductsProps {
     toast: ToastContextType;
-    storeId?: string;
+    stores: Store[];
 }
 
-export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> = ({ toast, storeId }) => {
+export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> = ({ toast, stores }) => {
     const [products, setProducts] = useState<HandoverProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [filterStore, setFilterStore] = useState<string>('ALL');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [draft, setDraft] = useState<Partial<HandoverProduct>>({});
     const [isAdding, setIsAdding] = useState(false);
@@ -25,7 +28,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
     const loadProducts = async () => {
         setLoading(true);
         try {
-            const data = await HandoverService.getProductTemplates(storeId);
+            const data = await HandoverService.getProductTemplates();
             setProducts(data);
         } catch (err: unknown) {
             toast.error('Lỗi tải SP giao ca: ' + (err instanceof Error ? err.message : String(err)));
@@ -34,15 +37,19 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
         }
     };
 
+    const filtered = products.filter(p => {
+        return filterStore === 'ALL' || (p.store_ids === null) || p.store_ids.includes(filterStore);
+    });
+
     const handleAdd = () => {
         if (isAdding || editingId) return;
         setIsAdding(true);
         setDraft({
             product_name: '',
             barcode: '',
-            sort_order: products.length + 1,
+            sort_order: (filtered.length || products.length) + 1,
             is_active: true,
-            store_id: storeId || null,
+            store_ids: filterStore !== 'ALL' ? [filterStore] : null,
         });
     };
 
@@ -122,6 +129,19 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                             </span>
                         </div>
                         <div className="stg-toolbar-right">
+                            {/* Store filter */}
+                            <select
+                                className="stg-input stg-input-mono"
+                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120, marginRight: 8 }}
+                                value={filterStore}
+                                onChange={e => setFilterStore(e.target.value)}
+                            >
+                                <option value="ALL">Tất cả cửa hàng</option>
+                                {stores.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+
                             <button onClick={handleAdd} className="stg-btn stg-btn-primary" disabled={saving || isAdding || !!editingId}>
                                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
                                 Thêm SP
@@ -132,8 +152,9 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                     <table className="stg-table stg-table-fixed">
                         <colgroup>
                             <col style={{ width: '6%' }} />
-                            <col style={{ width: '48%' }} />
                             <col style={{ width: '30%' }} />
+                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '26%' }} />
                             <col style={{ width: '16%' }} />
                         </colgroup>
                         <thead>
@@ -141,6 +162,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                 <th>STT</th>
                                 <th>TÊN SẢN PHẨM</th>
                                 <th>BARCODE</th>
+                                <th>CỬA HÀNG</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -153,7 +175,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                 </td></tr>
                             ) : (
                                 <>
-                                    {products.map((product, idx) => {
+                                    {filtered.map((product, idx) => {
                                         const isEditing = editingId === product.id;
                                         return (
                                             <tr key={product.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}>
@@ -170,6 +192,42 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                                         <input type="text" className="stg-input stg-input-mono" value={draft.barcode || ''} onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))} placeholder="Mã barcode" />
                                                     ) : (
                                                         <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--stg-text-muted)' }}>{product.barcode || '—'}</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                                                            {stores.map(s => (
+                                                                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
+                                                                        onChange={e => {
+                                                                            let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
+                                                                            if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
+                                                                            else { sIds = sIds.filter(x => x !== s.id); }
+                                                                            setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
+                                                                        }}
+                                                                    />
+                                                                    {s.code}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                            {product.store_ids === null ? (
+                                                                <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#dbeafe', color: '#1e40af' }}>Tất cả CH</span>
+                                                            ) : (
+                                                                product.store_ids.map(sid => {
+                                                                    const store = stores.find(s => s.id === sid);
+                                                                    return store ? (
+                                                                        <span key={sid} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px', background: '#fef3c7', color: '#b45309' }}>
+                                                                            {store.code}
+                                                                        </span>
+                                                                    ) : null;
+                                                                })
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td>
@@ -206,6 +264,25 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                             </td>
                                             <td>
                                                 <input type="text" className="stg-input stg-input-mono" value={draft.barcode || ''} onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))} placeholder="Barcode" />
+                                            </td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                                                    {stores.map(s => (
+                                                        <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
+                                                                onChange={e => {
+                                                                    let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
+                                                                    if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
+                                                                    else { sIds = sIds.filter(x => x !== s.id); }
+                                                                    setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
+                                                                }}
+                                                            />
+                                                            {s.code}
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </td>
                                             <td>
                                                 <div className="stg-row-actions" style={{ opacity: 1 }}>

@@ -410,3 +410,121 @@ export interface GeneralSettings {
     system_name: string;
     timezone: string;
 }
+
+// ─── Data Lifecycle Service ───────────────────────────
+export interface LifecycleResult {
+    status: string;
+    cutoff_date?: string;
+    deleted?: Record<string, number>;
+    items_archived?: number;
+    items_deleted?: number;
+    dates_processed?: number;
+    message?: string;
+}
+
+export interface FullLifecycleResult {
+    executed_at: string;
+    retention_days: number;
+    shift_cleanup: LifecycleResult;
+    inventory_archive: LifecycleResult;
+}
+
+export interface ArchiveLogEntry {
+    id: string;
+    archive_date: string;
+    file_path: string;
+    total_items: number;
+    total_stores: number;
+    file_size_bytes?: number;
+    archived_at: string;
+    purged_at?: string;
+    status: 'ARCHIVED' | 'PURGED' | 'FAILED';
+    error_message?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface InventoryHistoryItem {
+    id: string;
+    store_id: string;
+    product_id: string;
+    shift: number;
+    check_date: string;
+    system_stock: number;
+    actual_stock: number | null;
+    diff: number | null;
+    status: string;
+    note?: string;
+    checked_by?: string;
+    created_at: string;
+    diff_reason?: string;
+    // Joined fields
+    store?: { code: string; name: string };
+    product?: { barcode: string; name: string };
+    checker?: { name: string };
+}
+
+export const DataLifecycleService = {
+    async runCleanup(retentionDays = 30): Promise<LifecycleResult> {
+        if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+        const { data, error } = await supabase.rpc('cleanup_old_shift_data', {
+            retention_days: retentionDays
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async runArchive(retentionDays = 30): Promise<LifecycleResult> {
+        if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+        const { data, error } = await supabase.rpc('archive_old_inventory_data', {
+            retention_days: retentionDays
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async runFull(retentionDays = 30): Promise<FullLifecycleResult> {
+        if (!isSupabaseConfigured()) throw new Error('Supabase not configured');
+        const { data, error } = await supabase.rpc('run_data_lifecycle', {
+            retention_days: retentionDays
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async getArchiveLogs(): Promise<ArchiveLogEntry[]> {
+        if (!isSupabaseConfigured()) return [];
+        const { data, error } = await supabase
+            .from('inventory_archive_log')
+            .select('*')
+            .order('archive_date', { ascending: false })
+            .limit(100);
+        if (error) throw error;
+        return data || [];
+    },
+
+    async getInventoryHistory(
+        storeId?: string,
+        fromDate?: string,
+        toDate?: string
+    ): Promise<InventoryHistoryItem[]> {
+        if (!isSupabaseConfigured()) return [];
+        let query = supabase
+            .from('inventory_history')
+            .select(`
+                *,
+                store:stores!inventory_history_store_id_fkey(code, name),
+                product:products!inventory_history_product_id_fkey(barcode, name),
+                checker:users!inventory_history_checked_by_fkey(name)
+            `)
+            .order('check_date', { ascending: false })
+            .order('shift', { ascending: true });
+
+        if (storeId) query = query.eq('store_id', storeId);
+        if (fromDate) query = query.gte('check_date', fromDate);
+        if (toDate) query = query.lte('check_date', toDate);
+
+        const { data, error } = await query.limit(500);
+        if (error) throw error;
+        return data || [];
+    },
+};

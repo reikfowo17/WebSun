@@ -10,9 +10,7 @@ export const AssetService = {
             .order('sort_order');
 
         if (storeId) {
-            query = query.or(`store_id.eq.${storeId},store_id.is.null`);
-        } else {
-            query = query.is('store_id', null);
+            query = query.or(`store_ids.cs.{${storeId}},store_ids.is.null`);
         }
 
         const { data } = await query;

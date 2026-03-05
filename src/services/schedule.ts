@@ -522,6 +522,54 @@ export const ScheduleService = {
             return [];
         }
     },
+
+    async getTodayAssignments(userId: string, storeId: string, date?: string): Promise<ScheduleAssignment[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const today = date || formatLocalDate(new Date());
+            const { data, error } = await supabase
+                .from('schedule_assignments')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('store_id', storeId)
+                .eq('work_date', today);
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('[Schedule] getTodayAssignments error:', err);
+            return [];
+        }
+    },
+
+    async registerSupportShift(
+        storeId: string,
+        shiftConfigId: number,
+        note?: string
+    ): Promise<ServiceResult> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const userId = await getCurrentUserId();
+            const today = formatLocalDate(new Date());
+            const { error } = await supabase
+                .from('schedule_registrations')
+                .insert({
+                    user_id: userId,
+                    store_id: storeId,
+                    work_date: today,
+                    shift: shiftConfigId,
+                    note: note || 'Đăng ký hỗ trợ từ trang ca làm',
+                });
+            if (error) {
+                if (error.code === '23505') return { success: false, message: 'Bạn đã đăng ký ca này rồi' };
+                throw error;
+            }
+            return { success: true, message: 'Đã đăng ký hỗ trợ thành công! Vui lòng chờ admin duyệt.' };
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('[Schedule] registerSupportShift error:', err);
+            return { success: false, message: msg };
+        }
+    },
 };
 
 export default ScheduleService;

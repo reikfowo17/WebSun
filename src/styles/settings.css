@@ -109,10 +109,22 @@
     color: #6B7280;
 }
 
+.stg-btn-danger {
+    background: #FEE2E2;
+    color: #DC2626;
+    border: 1px solid #FECACA;
+}
+
 .stg-btn-danger:hover {
     background: #FEF2F2 !important;
     color: #DC2626 !important;
     border-color: #FECACA !important;
+}
+
+.stg-btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .stg-btn-save {

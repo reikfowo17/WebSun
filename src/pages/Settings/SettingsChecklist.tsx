@@ -5,18 +5,21 @@ import { CHECKLIST_LABELS, CHECKLIST_ICONS, DAY_LABELS } from '../../types/shift
 import { ChecklistService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
+import type { Store } from '../../types';
+
 interface SettingsChecklistProps {
     toast: ToastContextType;
-    storeId?: string; // undefined = show global items only
+    stores: Store[];
 }
 
 const CATEGORIES: ChecklistCategory[] = ['HANDOVER', 'NOTE', 'START_SHIFT', 'MID_SHIFT', 'END_SHIFT'];
 
-export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, storeId }) => {
+export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, stores }) => {
     const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [filterCategory, setFilterCategory] = useState<ChecklistCategory | 'ALL'>('ALL');
+    const [filterStore, setFilterStore] = useState<string>('ALL');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [draft, setDraft] = useState<Partial<ChecklistTemplate>>({});
     const [isAdding, setIsAdding] = useState(false);
@@ -29,7 +32,7 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
     const loadTemplates = async () => {
         setLoading(true);
         try {
-            const data = await ChecklistService.getTemplates(storeId);
+            const data = await ChecklistService.getTemplates();
             setTemplates(data);
         } catch (err: unknown) {
             toast.error('Lỗi tải checklist: ' + (err instanceof Error ? err.message : String(err)));
@@ -38,9 +41,11 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
         }
     };
 
-    const filtered = filterCategory === 'ALL'
-        ? templates
-        : templates.filter(t => t.category === filterCategory);
+    const filtered = templates.filter(t => {
+        const matchCat = filterCategory === 'ALL' || t.category === filterCategory;
+        const matchStore = filterStore === 'ALL' || (t.store_ids === null) || t.store_ids.includes(filterStore);
+        return matchCat && matchStore;
+    });
 
     // ─── Add ───
     const handleAdd = () => {
@@ -51,11 +56,11 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
             title: '',
             requires_note: false,
             requires_photo: false,
-            sort_order: templates.length + 1,
+            sort_order: (filtered.length || templates.length) + 1,
             shift_types: ['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[],
-            day_of_week: null, // null = tất cả ngày
+            day_of_week: null,
+            store_ids: filterStore !== 'ALL' ? [filterStore] : null,
             is_active: true,
-            store_id: storeId || null, // gán store nếu đang filter cửa hàng
         });
     };
 
@@ -140,9 +145,22 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                 value={filterCategory}
                                 onChange={e => setFilterCategory(e.target.value as ChecklistCategory | 'ALL')}
                             >
-                                <option value="ALL">Tất cả</option>
+                                <option value="ALL">Tất cả mục</option>
                                 {CATEGORIES.map(cat => (
                                     <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
+                                ))}
+                            </select>
+
+                            {/* Store filter */}
+                            <select
+                                className="stg-input stg-input-mono"
+                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120 }}
+                                value={filterStore}
+                                onChange={e => setFilterStore(e.target.value)}
+                            >
+                                <option value="ALL">Tất cả cửa hàng</option>
+                                {stores.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -163,9 +181,10 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                         <colgroup>
                             <col style={{ width: '4%' }} />
                             <col style={{ width: '12%' }} />
-                            <col style={{ width: '38%' }} />
+                            <col style={{ width: '28%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '14%' }} />
                             <col style={{ width: '16%' }} />
-                            <col style={{ width: '18%' }} />
                             <col style={{ width: '12%' }} />
                         </colgroup>
                         <thead>
@@ -175,6 +194,7 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                 <th>NỘI DUNG CÔNG VIỆC</th>
                                 <th>ÁP DỤNG CA</th>
                                 <th>NGÀY ÁP DỤNG</th>
+                                <th>CỬA HÀNG</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -292,6 +312,43 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                                         {DAY_LABELS[d as DayOfWeek]}
                                                                     </span>
                                                                 ))
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                {/* Multi-Store Selection Column */}
+                                                <td>
+                                                    {isEditing ? (
+                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                                                            {stores.map(s => (
+                                                                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
+                                                                        onChange={e => {
+                                                                            let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
+                                                                            if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
+                                                                            else { sIds = sIds.filter(x => x !== s.id); }
+                                                                            setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
+                                                                        }}
+                                                                    />
+                                                                    {s.code}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                            {template.store_ids === null ? (
+                                                                <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#dbeafe', color: '#1e40af' }}>Tất cả CH</span>
+                                                            ) : (
+                                                                template.store_ids.map(sid => {
+                                                                    const store = stores.find(s => s.id === sid);
+                                                                    return store ? (
+                                                                        <span key={sid} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px', background: '#fef3c7', color: '#b45309' }}>
+                                                                            {store.code}
+                                                                        </span>
+                                                                    ) : null;
+                                                                })
                                                             )}
                                                         </div>
                                                     )}

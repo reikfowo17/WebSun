@@ -9,10 +9,6 @@ import { supabase } from '../../lib/supabase';
 import '../../styles/hq-sidebar.css';
 import '../../styles/shift.css';
 
-/* ═══════════════════════════════════════════════
-   CASH HQ — Quản Lý Két (Admin Dashboard)
-   ═══════════════════════════════════════════════ */
-
 type SettlementWithShift = CashSettlement & {
     shift?: {
         id: string;
@@ -327,9 +323,6 @@ const CashHQ: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-/* ═══════════════════════════════════════════════
-   CASH DETAIL PANEL
-   ═══════════════════════════════════════════════ */
 interface CashDetailPanelProps {
     settlement: SettlementWithShift;
     onClose: () => void;

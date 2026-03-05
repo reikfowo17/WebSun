@@ -12,6 +12,10 @@ import {
     AssetService, HandoverService, QuickReportService,
     computeDenomTotal, computeCashExpected,
 } from '../../services/shift';
+import { ScheduleService } from '../../services/schedule';
+import type { ScheduleAssignment } from '../../services/schedule';
+import { SystemService } from '../../services/system';
+import type { ShiftConfig } from '../../services/system';
 import { useToast } from '../../contexts';
 import { supabase } from '../../lib/supabase';
 
@@ -69,6 +73,13 @@ interface ShiftContextType {
     quickReports: ShiftQuickReport[];
     setQuickReports: React.Dispatch<React.SetStateAction<ShiftQuickReport[]>>;
 
+    // Schedule
+    todayAssignments: ScheduleAssignment[];
+    assignedShiftIds: Set<number>;
+    shiftConfigs: ShiftConfig[];
+    isAssignedToday: boolean;
+    registerSupportShift: (shiftConfigId: number) => Promise<void>;
+
     // Actions
     handleStartShift: () => Promise<void>;
     handleEndShift: () => Promise<void>;
@@ -82,7 +93,7 @@ export type ShiftTab = 'tasks' | 'cash' | 'handover' | 'assets';
 export const TAB_LABELS: Record<ShiftTab, string> = {
     tasks: 'Nhiệm Vụ',
     cash: 'Kiểm Két',
-    handover: 'Giao Ca',
+    handover: 'Tồn Giao Ca',
     assets: 'Vật Tư',
 };
 
@@ -128,6 +139,14 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
 
     // Quick Reports
     const [quickReports, setQuickReports] = useState<ShiftQuickReport[]>([]);
+
+    // Schedule assignments
+    const [todayAssignments, setTodayAssignments] = useState<ScheduleAssignment[]>([]);
+    const [shiftConfigs, setShiftConfigs] = useState<ShiftConfig[]>([]);
+
+    const assignedShiftIds = useMemo(() => new Set(todayAssignments.map(a => a.shift)), [todayAssignments]);
+    const isAdmin = user.role === 'ADMIN';
+    const isAssignedToday = isAdmin || assignedShiftIds.size > 0;
 
     const isCompleted = shift?.status === 'COMPLETED' || shift?.status === 'LOCKED';
 
@@ -187,7 +206,16 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
                 else if (hour >= 20 || hour < 6) autoType = 'EVENING';
                 setSelectedType(autoType);
 
-                const existing = await ShiftService.getTodayShift(storeId, autoType);
+                // Load shift + schedule assignments + shift configs in parallel
+                const [existing, assignments, configs] = await Promise.all([
+                    ShiftService.getTodayShift(storeId, autoType),
+                    ScheduleService.getTodayAssignments(user.id, storeId),
+                    SystemService.getShifts(),
+                ]);
+
+                setTodayAssignments(assignments);
+                setShiftConfigs(configs);
+
                 if (existing) {
                     setShift(existing);
                     await loadShiftData(existing.id, autoType);
@@ -249,6 +277,22 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
             setStarting(false);
         }
     }, [selectedType, storeId, starting, user.id, toast]);
+
+    // ── Register for support shift ──
+    const registerSupportShift = useCallback(async (shiftConfigId: number) => {
+        try {
+            const result = await ScheduleService.registerSupportShift(storeId, shiftConfigId);
+            if (result.success) {
+                toast.success(result.message || 'Đã đăng ký hỗ trợ!');
+                const assignments = await ScheduleService.getTodayAssignments(user.id, storeId);
+                setTodayAssignments(assignments);
+            } else {
+                toast.error(result.message || 'Lỗi đăng ký');
+            }
+        } catch {
+            toast.error('Lỗi hệ thống');
+        }
+    }, [storeId, user.id, toast]);
 
     const handleEndShift = useCallback(async () => {
         if (!shift || ending) return;
@@ -372,6 +416,7 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         assets, assetChecks, handleAssetCheck,
         handoverItems, handleHandoverUpdate,
         quickReports, setQuickReports,
+        todayAssignments, assignedShiftIds, shiftConfigs, isAssignedToday, registerSupportShift,
         handleStartShift, handleEndShift,
         fmt,
     }), [
@@ -383,6 +428,7 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         assets, assetChecks, handleAssetCheck,
         handoverItems, handleHandoverUpdate,
         quickReports,
+        todayAssignments, assignedShiftIds, shiftConfigs, isAssignedToday, registerSupportShift,
         handleStartShift, handleEndShift,
     ]);
 

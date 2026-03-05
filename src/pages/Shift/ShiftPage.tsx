@@ -26,6 +26,7 @@ const ShiftPageInner: React.FC = () => {
         autoSaveStatus, checkProgress, getDenomTotal,
         assets, handoverItems,
         handleStartShift, handleEndShift, fmt, user,
+        todayAssignments, assignedShiftIds, shiftConfigs, isAssignedToday, registerSupportShift,
     } = useShiftContext();
 
     const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
@@ -36,6 +37,28 @@ const ShiftPageInner: React.FC = () => {
         if (titleFallback) titleFallback.style.display = 'none';
         return () => { if (titleFallback) titleFallback.style.display = 'flex'; };
     }, []);
+
+    // Map ShiftType to config ID for assignment checking
+    const SHIFT_TYPE_TO_CONFIG: Record<ShiftType, number> = {
+        MORNING: 1,
+        AFTERNOON: 2,
+        EVENING: 3,
+    };
+
+    // Also check shiftConfigs for a more accurate mapping
+    const getConfigIdForType = (type: ShiftType): number => {
+        const fallback = SHIFT_TYPE_TO_CONFIG[type];
+        if (shiftConfigs.length === 0) return fallback;
+        // Try to match by index order of MAIN shifts
+        const mainShifts = shiftConfigs.filter(s => (s.type || 'MAIN') === 'MAIN');
+        const typeIndex = type === 'MORNING' ? 0 : type === 'AFTERNOON' ? 1 : 2;
+        return mainShifts[typeIndex]?.id ?? fallback;
+    };
+
+    const isAdminUser = user.role === 'ADMIN';
+
+    // Get support shifts for registration
+    const supportShifts = shiftConfigs.filter(s => s.type === 'SUPPORT');
 
     if (loading) {
         return (
@@ -64,22 +87,78 @@ const ShiftPageInner: React.FC = () => {
                             <span className="material-symbols-outlined material-symbols-fill">store</span>
                         </div>
                         <h2 className="sp-start-title">Bắt đầu Ca Làm Việc</h2>
-                        <p className="sp-start-desc">Chọn ca để bắt đầu nhập liệu và báo cáo</p>
+                        <p className="sp-start-desc">
+                            {isAdminUser
+                                ? 'Chọn ca để bắt đầu nhập liệu và báo cáo'
+                                : isAssignedToday
+                                    ? 'Chọn ca đã được phân để bắt đầu'
+                                    : 'Bạn chưa được phân ca hôm nay. Hãy đăng ký hoặc liên hệ admin.'
+                            }
+                        </p>
                         <div className="sp-type-list">
-                            {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map(type => (
-                                <button
-                                    key={type}
-                                    className={`sp-type-btn ${selectedType === type ? 'active' : ''}`}
-                                    onClick={() => setSelectedType(type)}
-                                >
-                                    <div className={`sp-type-icon ${type.toLowerCase()}`}>
-                                        <span className="material-symbols-outlined material-symbols-fill">{SHIFT_ICONS[type]}</span>
-                                    </div>
-                                    <span className="sp-type-label">{SHIFT_LABELS[type]}</span>
-                                </button>
-                            ))}
+                            {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map(type => {
+                                const configId = getConfigIdForType(type);
+                                const isAssigned = isAdminUser || assignedShiftIds.has(configId);
+                                return (
+                                    <button
+                                        key={type}
+                                        className={`sp-type-btn ${selectedType === type ? 'active' : ''} ${!isAssigned ? 'disabled' : ''}`}
+                                        onClick={() => isAssigned && setSelectedType(type)}
+                                        disabled={!isAssigned}
+                                        title={isAssigned ? SHIFT_LABELS[type] : 'Chưa được phân ca này'}
+                                    >
+                                        <div className={`sp-type-icon ${type.toLowerCase()}`}>
+                                            <span className="material-symbols-outlined material-symbols-fill">{SHIFT_ICONS[type]}</span>
+                                        </div>
+                                        <span className="sp-type-label">{SHIFT_LABELS[type]}</span>
+                                        {isAssigned ? (
+                                            <span className="sp-type-badge assigned">
+                                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>
+                                            </span>
+                                        ) : (
+                                            <span className="sp-type-badge unassigned">Chưa phân ca</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <button className="sp-start-btn" onClick={handleStartShift} disabled={!selectedType || starting}>
+
+                        {/* Support shifts registration */}
+                        {!isAdminUser && supportShifts.length > 0 && (
+                            <div className="sp-support-section">
+                                <p className="sp-support-title">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>volunteer_activism</span>
+                                    Ca hỗ trợ — Đăng ký để chờ admin duyệt
+                                </p>
+                                <div className="sp-support-list">
+                                    {supportShifts.map(sc => {
+                                        const isRegistered = todayAssignments.some(a => a.shift === sc.id);
+                                        return (
+                                            <button
+                                                key={sc.id}
+                                                className={`sp-support-btn ${isRegistered ? 'registered' : ''}`}
+                                                onClick={() => !isRegistered && registerSupportShift(sc.id)}
+                                                disabled={isRegistered}
+                                            >
+                                                <span className="material-symbols-outlined" style={{ fontSize: 16, color: sc.color }}>{sc.icon}</span>
+                                                <span>{sc.name} ({sc.time})</span>
+                                                {isRegistered ? (
+                                                    <span className="sp-support-status">✓ Đã đăng ký</span>
+                                                ) : (
+                                                    <span className="sp-support-status register">Đăng ký</span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            className="sp-start-btn"
+                            onClick={handleStartShift}
+                            disabled={!selectedType || starting || (!isAdminUser && !assignedShiftIds.has(getConfigIdForType(selectedType || 'MORNING')))}
+                        >
                             <span className="material-symbols-outlined">play_arrow</span>
                             {starting ? 'Đang tạo ca...' : 'Bắt đầu ca'}
                         </button>
@@ -105,7 +184,7 @@ const ShiftPageInner: React.FC = () => {
         {
             label: 'GIAO NHẬN',
             items: [
-                { id: 'handover', label: 'Giao Ca', badge: handoverItems.length > 0 ? handoverItems.length : undefined, badgeColor: 'muted' },
+                { id: 'handover', label: 'Tồn Giao Ca', badge: handoverItems.length > 0 ? handoverItems.length : undefined, badgeColor: 'muted' },
                 { id: 'assets', label: 'Vật Tư', badge: assets.length > 0 ? assets.length : undefined, badgeColor: 'muted' },
             ],
         },
