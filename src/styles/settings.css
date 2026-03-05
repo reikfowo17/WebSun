@@ -196,6 +196,15 @@
     background: #FEFCE8;
 }
 
+.stg-table-row .stg-row-actions {
+    opacity: 0;
+    transition: opacity 200ms ease;
+}
+
+.stg-table-row:hover .stg-row-actions {
+    opacity: 1;
+}
+
 .stg-table-row:last-child td {
     border-bottom: none;
 }

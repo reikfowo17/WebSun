@@ -151,8 +151,8 @@ export const CashService = {
             .from('cash_settlements')
             .select(`
                 *,
-                shift:shifts!cash_settlements_shift_id_fkey(
-                    id, shift_type, shift_date, status,
+                shift:shifts!inner(
+                    id, shift_type, shift_date, status, store_id,
                     store:stores(id, code, name),
                     started_by_user:users!shifts_started_by_fkey(id, name)
                 )
@@ -160,6 +160,9 @@ export const CashService = {
             .order('created_at', { ascending: false });
 
         if (filters.status) query = query.eq('status', filters.status);
+        if (filters.storeId) query = query.eq('shift.store_id', filters.storeId);
+        if (filters.startDate) query = query.gte('shift.shift_date', filters.startDate);
+        if (filters.endDate) query = query.lte('shift.shift_date', filters.endDate);
         if (filters.limit) query = query.limit(filters.limit);
 
         const { data, error } = await query;
@@ -168,18 +171,7 @@ export const CashService = {
             return [];
         }
 
-        let results = data || [];
-        if (filters.storeId) {
-            results = results.filter((r: any) => r.shift?.store?.id === filters.storeId);
-        }
-        if (filters.startDate) {
-            results = results.filter((r: any) => r.shift?.shift_date >= filters.startDate!);
-        }
-        if (filters.endDate) {
-            results = results.filter((r: any) => r.shift?.shift_date <= filters.endDate!);
-        }
-
-        return results;
+        return data || [];
     },
 
     async getStats(storeId?: string, startDate?: string, endDate?: string): Promise<{
@@ -192,7 +184,7 @@ export const CashService = {
         totalDifference: number;
         settlementsWithDifference: number;
     }> {
-        const all = await this.listSettlements({ storeId, startDate, endDate, limit: 500 });
+        const all = await this.listSettlements({ storeId, startDate, endDate });
 
         let submitted = 0, approved = 0, rejected = 0, draft = 0;
         let totalRevenue = 0, totalDifference = 0, settlementsWithDifference = 0;

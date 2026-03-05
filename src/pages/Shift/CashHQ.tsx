@@ -47,6 +47,7 @@ const CashHQ: React.FC<{ user: User }> = ({ user }) => {
     const [rejectReason, setRejectReason] = useState('');
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
+    const [loadLimit, setLoadLimit] = useState(50);
 
     useEffect(() => {
         setTopbarNode(document.getElementById('topbar-left'));
@@ -63,7 +64,7 @@ const CashHQ: React.FC<{ user: User }> = ({ user }) => {
                     startDate: dateRange.start,
                     endDate: dateRange.end,
                     status: statusFilter !== 'all' ? statusFilter : undefined,
-                    limit: 200,
+                    limit: loadLimit,
                 }),
             ]);
             setStores((storeData.data as Store[]) || []);
@@ -76,7 +77,7 @@ const CashHQ: React.FC<{ user: User }> = ({ user }) => {
         }
     };
 
-    useEffect(() => { loadData(); }, [selectedStore, dateRange, statusFilter]);
+    useEffect(() => { loadData(); }, [selectedStore, dateRange, statusFilter, loadLimit]);
 
     // ─── Stats ───
     const stats = useMemo(() => {
@@ -148,138 +149,139 @@ const CashHQ: React.FC<{ user: User }> = ({ user }) => {
                 topbarNode
             )}
 
-            <div className="cashhq-container">
-                {/* Stats Cards */}
-                <div className="cashhq-stats">
-                    {[
-                        { label: 'Tổng két', value: stats.total, icon: 'receipt_long', color: '#3b82f6', bg: '#dbeafe' },
-                        { label: 'Chờ duyệt', value: stats.submitted, icon: 'hourglass_top', color: '#f59e0b', bg: '#fef3c7' },
-                        { label: 'Đã duyệt', value: stats.approved, icon: 'check_circle', color: '#10b981', bg: '#d1fae5' },
-                        { label: 'Từ chối', value: stats.rejected, icon: 'cancel', color: '#ef4444', bg: '#fee2e2' },
-                        { label: 'Có CL', value: stats.withDiff, icon: 'warning', color: '#f97316', bg: '#fff7ed' },
-                    ].map(card => (
-                        <div key={card.label} className="cashhq-stat-card card">
-                            <div className="cashhq-stat-icon" style={{ background: card.bg }}>
-                                <span className="material-symbols-outlined" style={{ color: card.color, fontSize: 20 }}>{card.icon}</span>
+            <div className="cashhq-container" style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
+                {/* Main Content Area */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {/* Table Section */}
+                    <div className="stg-table-wrap" style={{ border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                        <div className="stg-toolbar" style={{ flexWrap: 'wrap', borderBottom: '1px solid #e5e7eb', padding: '16px 20px', borderRadius: '14px 14px 0 0' }}>
+                            <div className="stg-toolbar-left" style={{ gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af' }}>storefront</span>
+                                    <select style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer' }} value={selectedStore} onChange={e => setSelectedStore(e.target.value)}>
+                                        <option value="all">Tất cả cửa hàng</option>
+                                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af' }}>filter_list</span>
+                                    <select style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                                        <option value="all">Tất cả trạng thái</option>
+                                        <option value="SUBMITTED">Chờ duyệt</option>
+                                        <option value="APPROVED">Đã duyệt</option>
+                                        <option value="REJECTED">Từ chối</option>
+                                        <option value="DRAFT">Nháp</option>
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af' }}>date_range</span>
+                                    <input type="date" style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer' }} value={dateRange.start} onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))} />
+                                    <span style={{ color: '#d1d5db', margin: '0 4px' }}>→</span>
+                                    <input type="date" style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer' }} value={dateRange.end} onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))} />
+                                </div>
                             </div>
-                            <div>
-                                <div className="cashhq-stat-label">{card.label}</div>
-                                <div className="cashhq-stat-value">{card.value}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
 
-                {/* Filters */}
-                <div className="cashhq-filters card">
-                    <select className="cashhq-select" value={selectedStore} onChange={e => setSelectedStore(e.target.value)}>
-                        <option value="all">Tất cả cửa hàng</option>
-                        {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    <select className="cashhq-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="SUBMITTED">Chờ duyệt</option>
-                        <option value="APPROVED">Đã duyệt</option>
-                        <option value="REJECTED">Từ chối</option>
-                        <option value="DRAFT">Nháp</option>
-                    </select>
-                    <input type="date" className="cashhq-date" value={dateRange.start} onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))} />
-                    <span className="cashhq-arrow">→</span>
-                    <input type="date" className="cashhq-date" value={dateRange.end} onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))} />
-                </div>
-
-                {/* Revenue Summary */}
-                {stats.total > 0 && (
-                    <div className="cashhq-revenue-summary card">
-                        <div className="cashhq-revenue-summary-item">
-                            <span className="material-symbols-outlined" style={{ color: '#10b981', fontSize: 18 }}>account_balance</span>
-                            <span className="cashhq-revenue-summary-label">Tổng két</span>
-                            <span className="cashhq-revenue-summary-value">{fmt(stats.totalRevenue)}</span>
+                            {/* Revenue Summary Banner in Toolbar */}
+                            {stats.total > 0 && (
+                                <div className="stg-toolbar-right" style={{ gap: 16 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                        <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>Tổng thu nộp</span>
+                                        <span style={{ fontSize: 16, fontWeight: 800, color: '#10b981' }}>{fmt(stats.totalRevenue)}</span>
+                                    </div>
+                                    <div style={{ width: 1, height: 32, background: '#e5e7eb' }} />
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                        <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>Chênh lệch</span>
+                                        <span style={{ fontSize: 16, fontWeight: 800, color: stats.totalDiff > 0 ? '#ef4444' : '#10b981' }}>{fmt(stats.totalDiff)}</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div className="cashhq-revenue-summary-divider" />
-                        <div className="cashhq-revenue-summary-item">
-                            <span className="material-symbols-outlined" style={{ color: stats.totalDiff > 0 ? '#ef4444' : '#10b981', fontSize: 18 }}>compare_arrows</span>
-                            <span className="cashhq-revenue-summary-label">Tổng chênh lệch</span>
-                            <span className="cashhq-revenue-summary-value" style={{ color: stats.totalDiff > 0 ? '#ef4444' : '#10b981' }}>{fmt(stats.totalDiff)}</span>
-                        </div>
-                    </div>
-                )}
 
-                {/* Main 2-panel layout */}
-                <div className={`cashhq-panels ${selectedSettlement ? 'with-detail' : ''}`}>
-                    {/* Left: Settlement list */}
-                    <div className="card cashhq-list">
-                        <div className="cashhq-list-scroll">
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ngày</th>
-                                        <th>Ca</th>
-                                        <th>CH</th>
-                                        <th>NV</th>
-                                        <th>Tổng két</th>
-                                        <th>CL</th>
-                                        <th>Trạng thái</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loading ? (
-                                        <tr><td colSpan={8} className="cashhq-loading">
-                                            <div className="cashhq-spinner" />
-                                        </td></tr>
-                                    ) : settlements.length === 0 ? (
-                                        <tr><td colSpan={8} className="cashhq-empty">
-                                            Không có báo cáo két nào trong khoảng thời gian đã chọn
-                                        </td></tr>
-                                    ) : settlements.map(s => {
-                                        const statusInfo = CASH_STATUS_MAP[s.status] || CASH_STATUS_MAP.DRAFT;
-                                        const hasDiff = s.difference && s.difference !== 0;
-                                        return (
-                                            <tr
-                                                key={s.id}
-                                                className={`cashhq-row ${selectedSettlement?.id === s.id ? 'active' : ''}`}
-                                                onClick={() => setSelectedSettlement(s)}
-                                            >
-                                                <td className="cashhq-date-cell">{fmtDate(s.shift?.shift_date || s.created_at)}</td>
-                                                <td>
-                                                    <div className="cashhq-shift-badge">
-                                                        <span className="material-symbols-outlined material-symbols-fill" style={{ fontSize: 14, color: SHIFT_COLORS[s.shift?.shift_type as keyof typeof SHIFT_COLORS] || '#6b7280' }}>
-                                                            {SHIFT_ICONS[s.shift?.shift_type as keyof typeof SHIFT_ICONS] || 'schedule'}
-                                                        </span>
-                                                        <span>{shiftLabel(s.shift?.shift_type || '')}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="cashhq-cell-sm">{s.shift?.store?.name || '—'}</td>
-                                                <td className="cashhq-cell-sm cashhq-cell-bold">{s.shift?.started_by_user?.name || '—'}</td>
-                                                <td style={{ fontWeight: 700, fontSize: '0.8125rem', fontFamily: 'monospace' }}>
-                                                    {fmt(s.total_counted || 0)}
-                                                </td>
-                                                <td style={{ fontWeight: 700, fontSize: '0.75rem', color: hasDiff ? '#ef4444' : '#10b981' }}>
-                                                    {hasDiff ? (
-                                                        <>{(s.difference || 0) > 0 ? '+' : ''}{fmt(s.difference || 0)}</>
-                                                    ) : (
-                                                        <span style={{ color: '#10b981' }}>✓</span>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    <span className={`badge ${statusInfo.class}`}>
-                                                        {statusInfo.label}
+                        <table className="stg-table stg-table-fixed">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: '12%' }}>Ngày</th>
+                                    <th style={{ width: '12%' }}>Ca</th>
+                                    <th style={{ width: '12%' }}>CH</th>
+                                    <th style={{ width: '16%' }}>NV</th>
+                                    <th style={{ width: '18%', textAlign: 'right' }}>Tổng két</th>
+                                    <th style={{ width: '14%', textAlign: 'right' }}>CL</th>
+                                    <th style={{ width: '12%', textAlign: 'center' }}>Trạng thái</th>
+                                    <th style={{ width: '4%' }}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px' }}><div className="cashhq-spinner" /></td></tr>
+                                ) : settlements.length === 0 ? (
+                                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>Không có báo cáo két nào phù hợp</td></tr>
+                                ) : settlements.map(s => {
+                                    const statusInfo = CASH_STATUS_MAP[s.status] || CASH_STATUS_MAP.DRAFT;
+                                    const hasDiff = s.difference && s.difference !== 0;
+                                    return (
+                                        <tr
+                                            key={s.id}
+                                            style={{ cursor: 'pointer', background: selectedSettlement?.id === s.id ? '#f0fdf4' : 'transparent', transition: 'all 0.15s ease' }}
+                                            onClick={() => setSelectedSettlement(s)}
+                                            className="stg-table-row"
+                                        >
+                                            <td style={{ fontWeight: 600, fontSize: 13, color: '#374151' }}>{fmtDate(s.shift?.shift_date || s.created_at)}</td>
+                                            <td>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: '#f3f4f6', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#4b5563' }}>
+                                                    <span className="material-symbols-outlined material-symbols-fill" style={{ fontSize: 14, color: SHIFT_COLORS[s.shift?.shift_type as keyof typeof SHIFT_COLORS] || '#6b7280' }}>
+                                                        {SHIFT_ICONS[s.shift?.shift_type as keyof typeof SHIFT_ICONS] || 'schedule'}
                                                     </span>
-                                                </td>
-                                                <td>
-                                                    <span className="material-symbols-outlined cashhq-chevron">chevron_right</span>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                                    {shiftLabel(s.shift?.shift_type || '')}
+                                                </div>
+                                            </td>
+                                            <td style={{ fontSize: 13 }}>{s.shift?.store?.name || '—'}</td>
+                                            <td style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{s.shift?.started_by_user?.name || '—'}</td>
+                                            <td style={{ fontWeight: 700, fontSize: 14, color: '#111827', textAlign: 'right', fontFamily: 'monospace' }}>
+                                                {fmt(s.total_counted || 0)}
+                                            </td>
+                                            <td style={{ fontWeight: 700, fontSize: 13, color: hasDiff ? '#ef4444' : '#10b981', textAlign: 'right' }}>
+                                                {hasDiff ? (
+                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: (s.difference || 0) > 0 ? '#fef2f2' : '#fee2e2', padding: '2px 8px', borderRadius: 12 }}>
+                                                        {(s.difference || 0) > 0 ? '+' : ''}{fmt(s.difference || 0)}
+                                                    </div>
+                                                ) : (
+                                                    <span className="material-symbols-outlined" style={{ color: '#10b981', fontSize: 16 }}>check</span>
+                                                )}
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span className={`badge ${statusInfo.class}`} style={{ fontSize: 11, padding: '4px 10px' }}>
+                                                    {statusInfo.label}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af', opacity: selectedSettlement?.id === s.id ? 1 : 0.5 }}>chevron_right</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        {!loading && settlements.length >= loadLimit && (
+                            <div style={{ padding: '16px', textAlign: 'center' }}>
+                                <button
+                                    className="cashhq-btn cashhq-btn-secondary"
+                                    onClick={() => setLoadLimit(l => l + 50)}
+                                >
+                                    Tải thêm
+                                </button>
+                            </div>
+                        )}
                     </div>
+                </div>
+            </div>
 
-                    {/* Right: Cash Detail Panel */}
-                    {selectedSettlement && (
+            {/* Detail Modal overlay */}
+            {selectedSettlement && (
+                <div
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={() => setSelectedSettlement(null)}
+                >
+                    <div onClick={e => e.stopPropagation()}>
                         <CashDetailPanel
                             settlement={selectedSettlement}
                             onClose={() => setSelectedSettlement(null)}
@@ -290,9 +292,9 @@ const CashHQ: React.FC<{ user: User }> = ({ user }) => {
                             fmtDate={fmtDate}
                             shiftLabel={shiftLabel}
                         />
-                    )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Reject Modal */}
             {showRejectModal && (
@@ -340,147 +342,174 @@ const CashDetailPanel: React.FC<CashDetailPanelProps> = ({
     const statusInfo = CASH_STATUS_MAP[cash.status] || CASH_STATUS_MAP.DRAFT;
 
     return (
-        <div className="card cashhq-detail">
-            {/* Sticky header */}
-            <div className="cashhq-detail-header">
-                <div>
-                    <h3 className="cashhq-detail-title">
-                        Két Ca {shiftLabel(cash.shift?.shift_type || '')}
-                        <span className={`badge ${statusInfo.class}`} style={{ marginLeft: 8, fontSize: '0.6875rem' }}>
-                            {statusInfo.label}
-                        </span>
-                    </h3>
-                    <p className="cashhq-detail-sub">
-                        {fmtDate(cash.shift?.shift_date || cash.created_at)} • {cash.shift?.store?.name || '—'} • {cash.shift?.started_by_user?.name || '—'}
-                    </p>
+        <div style={{ background: '#fff', borderRadius: 20, display: 'flex', flexDirection: 'column', height: '85vh', maxHeight: 800, width: '100vw', maxWidth: 640, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+            {/* Dark Mode Receipt Header */}
+            <div style={{ padding: '24px 32px', background: 'linear-gradient(135deg, #1f2937, #111827)', color: 'white', position: 'relative', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                            <h3 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#f3f4f6' }}>Két Ca {shiftLabel(cash.shift?.shift_type || '')}</h3>
+                            <span className={`badge ${statusInfo.class}`} style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '4px 10px' }}>{statusInfo.label}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 14, color: '#9ca3af' }}>{fmtDate(cash.shift?.shift_date || cash.created_at)}</p>
+                    </div>
+                    <button style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer', padding: 8, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onClick={onClose} aria-label="Đóng" onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+                    </button>
                 </div>
-                <button className="cashhq-close-btn" onClick={onClose}>
-                    <span className="material-symbols-outlined">close</span>
-                </button>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 32 }}>
+                    <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mức chênh lệch thiết lập</div>
+                        <div style={{ fontSize: 36, fontWeight: 800, color: (cash.difference || 0) > 0 ? '#ef4444' : (cash.difference || 0) < 0 ? '#ef4444' : '#34d399', lineHeight: 1.2, marginTop: 4, fontFamily: 'monospace' }}>
+                            {(cash.difference || 0) > 0 ? '+' : ''}{fmt(cash.difference || 0)}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 24, padding: '16px 20px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}>
+                        <div>
+                            <span style={{ fontSize: 12, color: '#9ca3af' }}>Két Thực Tế</span>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginTop: 4, fontFamily: 'monospace' }}>{fmt(cash.total_counted || 0)}</div>
+                        </div>
+                        <div>
+                            <span style={{ fontSize: 12, color: '#9ca3af' }}>Dự Kiến</span>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginTop: 4, fontFamily: 'monospace' }}>{fmt(cash.cash_end_expected || 0)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Staff / Store Info */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '24px -32px -24px', padding: '16px 32px', background: 'rgba(0,0,0,0.2)' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#9ca3af' }}>storefront</span>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{cash.shift?.store?.name || '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#9ca3af' }}>person</span>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{cash.shift?.started_by_user?.name || '—'}</span>
+                    </div>
+                </div>
             </div>
 
-            <div className="cashhq-detail-body">
+            <div style={{ flex: 1, overflowY: 'auto', padding: '32px', background: '#f9fafb' }}>
+                {cash.difference_reason && (
+                    <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: 16, borderRadius: 12, marginBottom: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', marginBottom: 4 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>campaign</span>
+                            Lý do chênh lệch
+                        </div>
+                        <div style={{ fontSize: 14, color: '#9a3412', lineHeight: 1.5 }}>{cash.difference_reason}</div>
+                    </div>
+                )}
+
                 {/* Denomination */}
-                <section className="cashhq-section">
-                    <h4 className="cashhq-section-title">
-                        <span className="material-symbols-outlined">account_balance_wallet</span>
+                <section style={{ marginBottom: 24 }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.02em', margin: '0 0 12px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af' }}>account_balance_wallet</span>
                         Kiểm két theo mệnh giá
                     </h4>
-                    <div className="cashhq-denom-grid">
-                        {DENOMINATION_VALUES.map(d => {
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                        {DENOMINATION_VALUES.reduce<React.ReactNode[]>((acc, d) => {
                             const qty = (cash as unknown as Record<string, number>)[`denom_${d}`] || 0;
-                            if (qty === 0) return null;
-                            return (
-                                <div key={d} className="cashhq-denom-item">
-                                    <span>{fmt(d)} × {qty}</span>
-                                    <span className="cashhq-denom-total">{fmt(d * qty)}</span>
-                                </div>
-                            );
-                        })}
+                            if (qty > 0) {
+                                acc.push(
+                                    <div key={d} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f3f4f6', alignItems: 'center' }}>
+                                        <span style={{ fontSize: 13, color: '#4b5563', fontFamily: 'monospace' }}>{fmt(d)} × {qty}</span>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: '#111827', fontFamily: 'monospace' }}>{fmt(d * qty)}</span>
+                                    </div>
+                                );
+                            }
+                            return acc;
+                        }, [])}
                     </div>
                 </section>
 
                 {/* Revenue */}
-                <section className="cashhq-section">
-                    <h4 className="cashhq-section-title">
-                        <span className="material-symbols-outlined">receipt_long</span>
+                <section style={{ marginBottom: 24 }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.02em', margin: '0 0 12px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af' }}>receipt_long</span>
                         Doanh thu & chi phí
                     </h4>
-                    {CASH_REVENUE_FIELDS.map(item => {
-                        const val = (cash as unknown as Record<string, number>)[item.key] || 0;
-                        const note = (cash.item_notes as Record<string, string>)?.[item.key];
-                        if (val === 0 && !note) return null;
-                        return (
-                            <div key={item.key} className="cashhq-revenue-row">
-                                <div>
-                                    <span className="cashhq-revenue-label">{item.label}</span>
-                                    {note && <div className="cashhq-revenue-note">📝 {note}</div>}
-                                </div>
-                                <span className={`cashhq-revenue-value ${item.type === 'expense' ? 'expense' : ''}`}>
-                                    {item.type === 'expense' && val > 0 ? '-' : ''}{fmt(val)}
-                                </span>
-                            </div>
-                        );
-                    })}
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                        {CASH_REVENUE_FIELDS.reduce<React.ReactNode[]>((acc, item) => {
+                            const val = (cash as unknown as Record<string, number>)[item.key] || 0;
+                            const note = (cash.item_notes as Record<string, string>)?.[item.key];
+                            if (val !== 0 || note) {
+                                acc.push(
+                                    <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                                        <div>
+                                            <div style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{item.label}</div>
+                                            {note && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2, fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>edit_note</span> {note}
+                                            </div>}
+                                        </div>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: item.type === 'expense' ? '#ef4444' : '#111827', fontFamily: 'monospace' }}>
+                                            {item.type === 'expense' && val > 0 ? '-' : ''}{fmt(val)}
+                                        </span>
+                                    </div>
+                                );
+                            }
+                            return acc;
+                        }, [])}
+                    </div>
                 </section>
 
                 {/* Payments */}
-                <section className="cashhq-section">
-                    <h4 className="cashhq-section-title">
-                        <span className="material-symbols-outlined">credit_card</span>
+                <section style={{ marginBottom: 24 }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.02em', margin: '0 0 12px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#9ca3af' }}>credit_card</span>
                         Thanh toán không tiền mặt
                     </h4>
-                    {CASH_PAYMENT_FIELDS.map(item => {
-                        const val = (cash as unknown as Record<string, number>)[item.key] || 0;
-                        if (val === 0) return null;
-                        return (
-                            <div key={item.key} className="cashhq-revenue-row">
-                                <span className="cashhq-revenue-label">{item.label}</span>
-                                <span className="cashhq-revenue-value payment">{fmt(val)}</span>
-                            </div>
-                        );
-                    })}
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                        {CASH_PAYMENT_FIELDS.reduce<React.ReactNode[]>((acc, item) => {
+                            const val = (cash as unknown as Record<string, number>)[item.key] || 0;
+                            if (val > 0) {
+                                acc.push(
+                                    <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #f3f4f6', alignItems: 'center' }}>
+                                        <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{item.label}</span>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: '#111827', fontFamily: 'monospace' }}>{fmt(val)}</span>
+                                    </div>
+                                );
+                            }
+                            return acc;
+                        }, [])}
+                    </div>
                 </section>
+            </div>
 
-                {/* Summary */}
-                <div className="cash-summary">
-                    <div className="cash-summary-row">
-                        <span className="cash-summary-label">Tổng kiểm két thực tế</span>
-                        <span className="cash-summary-value">{fmt(cash.total_counted || 0)}</span>
-                    </div>
-                    <div className="cash-summary-row">
-                        <span className="cash-summary-label">Tiền két cuối ca dự kiến</span>
-                        <span className="cash-summary-value">{fmt(cash.cash_end_expected || 0)}</span>
-                    </div>
-                    <div className="cash-summary-row total">
-                        <span className="cash-summary-label">Chênh lệch</span>
-                        <span className={`cash-summary-value ${(cash.difference || 0) > 0 ? 'positive' : (cash.difference || 0) < 0 ? 'negative' : ''}`}>
-                            {(cash.difference || 0) > 0 && '+'}{fmt(cash.difference || 0)}
-                        </span>
-                    </div>
-                </div>
-
-                {cash.difference_reason && (
-                    <div className="cashhq-reason">
-                        <strong>Lý do chênh lệch:</strong> {cash.difference_reason}
-                    </div>
-                )}
-
-                {/* Action Buttons — Only for SUBMITTED status */}
-                {cash.status === 'SUBMITTED' && (
-                    <div className="cashhq-actions">
+            {/* Action Buttons — Only for SUBMITTED status */}
+            <div style={{ background: '#fff', borderTop: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', gap: 12 }}>
+                {cash.status === 'SUBMITTED' ? (
+                    <>
                         <button
-                            className="cashhq-btn cashhq-btn-success"
-                            onClick={onApprove}
-                            disabled={actionLoading}
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span>
-                            {actionLoading ? 'Đang xử lý...' : 'Duyệt'}
-                        </button>
-                        <button
-                            className="cashhq-btn cashhq-btn-danger"
+                            style={{ flex: 1, padding: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s ease' }}
                             onClick={onReject}
                             disabled={actionLoading}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>cancel</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>cancel</span>
                             Từ chối
                         </button>
-                    </div>
-                )}
-
-                {/* Status info for already-processed */}
-                {(cash.status === 'APPROVED' || cash.status === 'REJECTED') && cash.approved_at && (
-                    <div className={`cashhq-status-info ${cash.status === 'APPROVED' ? 'approved' : 'rejected'}`}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                        <button
+                            style={{ flex: 1, padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s ease', boxShadow: '0 4px 6px -1px rgba(16,185,129,0.2)' }}
+                            onClick={onApprove}
+                            disabled={actionLoading}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>check_circle</span>
+                            {actionLoading ? 'Đang xử lý...' : 'Duyệt'}
+                        </button>
+                    </>
+                ) : (cash.approved_at && (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', background: cash.status === 'APPROVED' ? '#ecfdf5' : '#fef2f2', color: cash.status === 'APPROVED' ? '#059669' : '#dc2626', borderRadius: 12, fontSize: 14, fontWeight: 600 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
                             {cash.status === 'APPROVED' ? 'verified' : 'block'}
                         </span>
                         <span>
-                            {cash.status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'} lúc{' '}
-                            {new Date(cash.approved_at).toLocaleString('vi-VN')}
+                            {cash.status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'} lúc {new Date(cash.approved_at).toLocaleString('vi-VN')}
                         </span>
                     </div>
-                )}
+                ))}
             </div>
+            {/* End of content */}
         </div>
     );
 };

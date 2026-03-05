@@ -3,6 +3,7 @@ import { ToastContextType } from '../../contexts/ToastContext';
 import type { HandoverProduct } from '../../types/shift';
 import { HandoverService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { MultiStoreSelect } from '../../components/MultiStoreSelect';
 
 import type { Store } from '../../types';
 
@@ -130,17 +131,20 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                         </div>
                         <div className="stg-toolbar-right">
                             {/* Store filter */}
-                            <select
-                                className="stg-input stg-input-mono"
-                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120, marginRight: 8 }}
-                                value={filterStore}
-                                onChange={e => setFilterStore(e.target.value)}
-                            >
-                                <option value="ALL">Tất cả cửa hàng</option>
-                                {stores.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>storefront</span>
+                                <select
+                                    className="stg-input"
+                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 150, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151', marginRight: 8 }}
+                                    value={filterStore}
+                                    onChange={e => setFilterStore(e.target.value)}
+                                >
+                                    <option value="ALL">Tất cả cửa hàng</option>
+                                    {stores.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
                             <button onClick={handleAdd} className="stg-btn stg-btn-primary" disabled={saving || isAdding || !!editingId}>
                                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
@@ -180,11 +184,11 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                         return (
                                             <tr key={product.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}>
                                                 <td style={{ paddingLeft: 16, fontWeight: 600, color: 'var(--stg-text-muted)' }}>{idx + 1}</td>
-                                                <td>
+                                                <td style={{ fontWeight: 500, color: '#111827', fontSize: 13, lineHeight: '1.4' }}>
                                                     {isEditing ? (
-                                                        <input type="text" className="stg-input" value={draft.product_name || ''} onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))} placeholder="Tên sản phẩm" autoFocus />
+                                                        <input type="text" className="stg-input" value={draft.product_name || ''} onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))} placeholder="Tên sản phẩm" autoFocus style={{ width: '100%', fontSize: 13 }} />
                                                     ) : (
-                                                        <span style={{ fontWeight: 600, color: 'var(--stg-text)' }}>{product.product_name}</span>
+                                                        <div style={{ wordBreak: 'break-word', paddingRight: 16 }}>{product.product_name}</div>
                                                     )}
                                                 </td>
                                                 <td>
@@ -196,23 +200,11 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                                 </td>
                                                 <td>
                                                     {isEditing ? (
-                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
-                                                            {stores.map(s => (
-                                                                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
-                                                                        onChange={e => {
-                                                                            let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
-                                                                            if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
-                                                                            else { sIds = sIds.filter(x => x !== s.id); }
-                                                                            setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
-                                                                        }}
-                                                                    />
-                                                                    {s.code}
-                                                                </label>
-                                                            ))}
-                                                        </div>
+                                                        <MultiStoreSelect
+                                                            stores={stores}
+                                                            selectedStoreIds={draft.store_ids || null}
+                                                            onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
+                                                        />
                                                     ) : (
                                                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                                             {product.store_ids === null ? (
@@ -259,30 +251,18 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                     {isAdding && (
                                         <tr className="stg-table-row stg-row-new">
                                             <td style={{ paddingLeft: 16 }}><span className="stg-row-num">+</span></td>
-                                            <td>
-                                                <input type="text" className="stg-input" value={draft.product_name || ''} onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))} placeholder="Tên sản phẩm (VD: Cuộn in Bill k80x80)" autoFocus />
+                                            <td style={{ fontWeight: 500, color: '#111827', fontSize: 13 }}>
+                                                <input type="text" className="stg-input" value={draft.product_name || ''} onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))} placeholder="Tên sản phẩm (VD: Cuộn in Bill k80x80)" autoFocus style={{ width: '100%', fontSize: 13 }} />
                                             </td>
                                             <td>
                                                 <input type="text" className="stg-input stg-input-mono" value={draft.barcode || ''} onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))} placeholder="Barcode" />
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
-                                                    {stores.map(s => (
-                                                        <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
-                                                                onChange={e => {
-                                                                    let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
-                                                                    if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
-                                                                    else { sIds = sIds.filter(x => x !== s.id); }
-                                                                    setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
-                                                                }}
-                                                            />
-                                                            {s.code}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                <MultiStoreSelect
+                                                    stores={stores}
+                                                    selectedStoreIds={draft.store_ids || null}
+                                                    onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
+                                                />
                                             </td>
                                             <td>
                                                 <div className="stg-row-actions" style={{ opacity: 1 }}>

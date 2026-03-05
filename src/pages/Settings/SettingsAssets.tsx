@@ -3,6 +3,7 @@ import { ToastContextType } from '../../contexts/ToastContext';
 import type { ShiftAsset } from '../../types/shift';
 import { AssetService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { MultiStoreSelect } from '../../components/MultiStoreSelect';
 
 import type { Store } from '../../types';
 
@@ -101,7 +102,6 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
         }
     };
 
-    // ─── Toggle active ───
     const handleToggle = async (asset: ShiftAsset) => {
         try {
             const updated = await AssetService.updateAsset(asset.id, { is_active: !asset.is_active });
@@ -110,6 +110,24 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
         } catch (err: unknown) {
             toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         }
+    };
+
+    const handleDelete = (asset: ShiftAsset) => {
+        if (saving || isAdding || editingId) return;
+        setConfirmDialog({
+            title: 'Xóa vật tư',
+            message: `Bạn có chắc muốn xóa "${asset.name}"? Hành động này không thể hoàn tác.`,
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                try {
+                    await AssetService.deleteAsset(asset.id);
+                    setAssets(prev => prev.filter(a => a.id !== asset.id));
+                    toast.success('Đã xóa vật tư');
+                } catch (err: unknown) {
+                    toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+                }
+            },
+        });
     };
 
     const handleCancel = () => {
@@ -132,17 +150,20 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                         </div>
                         <div className="stg-toolbar-right">
                             {/* Store filter */}
-                            <select
-                                className="stg-input stg-input-mono"
-                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120, marginRight: 8 }}
-                                value={filterStore}
-                                onChange={e => setFilterStore(e.target.value)}
-                            >
-                                <option value="ALL">Tất cả cửa hàng</option>
-                                {stores.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>storefront</span>
+                                <select
+                                    className="stg-input"
+                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 150, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151', marginRight: 8 }}
+                                    value={filterStore}
+                                    onChange={e => setFilterStore(e.target.value)}
+                                >
+                                    <option value="ALL">Tất cả cửa hàng</option>
+                                    {stores.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
                             <button
                                 onClick={handleAdd}
@@ -197,7 +218,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                                 <td style={{ paddingLeft: 16 }}>
                                                     <span className="stg-row-num">{idx + 1}</span>
                                                 </td>
-                                                <td>
+                                                <td style={{ fontWeight: 500, color: '#111827', fontSize: 13, lineHeight: '1.4' }}>
                                                     {isEditing ? (
                                                         <input
                                                             type="text"
@@ -206,11 +227,12 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                                             onChange={e => setDraft(p => ({ ...p, name: e.target.value }))}
                                                             placeholder="Tên vật tư"
                                                             autoFocus
+                                                            style={{ width: '100%', fontSize: 13 }}
                                                         />
                                                     ) : (
-                                                        <span style={{ fontWeight: 600, color: 'var(--stg-text)' }}>
+                                                        <div style={{ wordBreak: 'break-word', paddingRight: 16 }}>
                                                             {asset.name}
-                                                        </span>
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td>
@@ -270,23 +292,11 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                                 </td>
                                                 <td>
                                                     {isEditing ? (
-                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
-                                                            {stores.map(s => (
-                                                                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
-                                                                        onChange={e => {
-                                                                            let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
-                                                                            if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
-                                                                            else { sIds = sIds.filter(x => x !== s.id); }
-                                                                            setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
-                                                                        }}
-                                                                    />
-                                                                    {s.code}
-                                                                </label>
-                                                            ))}
-                                                        </div>
+                                                        <MultiStoreSelect
+                                                            stores={stores}
+                                                            selectedStoreIds={draft.store_ids || null}
+                                                            onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
+                                                        />
                                                     ) : (
                                                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                                             {asset.store_ids === null ? (
@@ -320,6 +330,9 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                                                 <button onClick={() => handleEdit(asset)} className="stg-btn-icon" disabled={saving || !!editingId}>
                                                                     <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
                                                                 </button>
+                                                                <button onClick={() => handleDelete(asset)} className="stg-btn-icon stg-btn-danger" disabled={saving}>
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_outline</span>
+                                                                </button>
                                                             </>
                                                         )}
                                                     </div>
@@ -332,7 +345,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                     {isAdding && (
                                         <tr className="stg-table-row stg-row-new">
                                             <td style={{ paddingLeft: 16 }}><span className="stg-row-num">+</span></td>
-                                            <td>
+                                            <td style={{ fontWeight: 500, color: '#111827', fontSize: 13 }}>
                                                 <input
                                                     type="text"
                                                     className="stg-input"
@@ -340,6 +353,7 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                                     onChange={e => setDraft(p => ({ ...p, name: e.target.value }))}
                                                     placeholder="Tên vật tư (VD: Kéo, Bút bi...)"
                                                     autoFocus
+                                                    style={{ width: '100%', fontSize: 13 }}
                                                 />
                                             </td>
                                             <td>
@@ -372,23 +386,11 @@ export const SettingsAssets: React.FC<SettingsAssetsProps> = ({ toast, stores })
                                                 />
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
-                                                    {stores.map(s => (
-                                                        <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
-                                                                onChange={e => {
-                                                                    let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
-                                                                    if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
-                                                                    else { sIds = sIds.filter(x => x !== s.id); }
-                                                                    setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
-                                                                }}
-                                                            />
-                                                            {s.code}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                <MultiStoreSelect
+                                                    stores={stores}
+                                                    selectedStoreIds={draft.store_ids || null}
+                                                    onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
+                                                />
                                             </td>
                                             <td>
                                                 <div className="stg-row-actions" style={{ opacity: 1 }}>

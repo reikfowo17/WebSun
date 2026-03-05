@@ -1,17 +1,9 @@
-// ===========================================================================
-// CHECKLIST SERVICE (filter by day_of_week)
-// ===========================================================================
-
 import { supabase } from '../../lib/supabase';
 import type {
     ChecklistTemplate, ChecklistResponse, ShiftType, DayOfWeek,
 } from '../../types/shift';
 
 export const ChecklistService = {
-    /**
-     * Get templates filtered by store, shift type, AND day of week
-     * day_of_week = NULL means all days, otherwise filter by current day
-     */
     async getTemplates(storeId?: string, shiftType?: ShiftType, dayOfWeek?: DayOfWeek): Promise<ChecklistTemplate[]> {
         let query = supabase
             .from('shift_checklist_templates')
@@ -20,30 +12,24 @@ export const ChecklistService = {
             .order('category')
             .order('sort_order');
 
-        // store_ids NULL = all stores, or array contains this store
         if (storeId) {
             query = query.or(`store_ids.cs.{${storeId}},store_ids.is.null`);
         }
-        // When no storeId filter, return all templates
-
-        const { data } = await query;
-        let templates = data || [];
-
-        // Filter by shift_type
         if (shiftType) {
-            templates = templates.filter(t => t.shift_types?.includes(shiftType));
+            query = query.contains('shift_types', [shiftType]);
         }
 
-        // Filter by day of week
-        // day_of_week = null → applies to ALL days
-        // day_of_week = [2,4,6] → only applies on Mon/Wed/Fri
         if (dayOfWeek) {
-            templates = templates.filter(t =>
-                t.day_of_week === null || t.day_of_week?.includes(dayOfWeek)
-            );
+            query = query.or(`day_of_week.cs.{${dayOfWeek}},day_of_week.is.null`);
         }
 
-        return templates;
+        const { data, error } = await query;
+        if (error) {
+            console.error('[Checklist] Get templates error:', error.message);
+            return [];
+        }
+
+        return data || [];
     },
 
     async getResponses(shiftId: string): Promise<ChecklistResponse[]> {

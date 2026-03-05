@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ToastContextType } from '../../contexts/ToastContext';
 import type { ChecklistTemplate, ChecklistCategory, ShiftType, DayOfWeek } from '../../types/shift';
+import { MultiStoreSelect } from '../../components/MultiStoreSelect';
 import { CHECKLIST_LABELS, CHECKLIST_ICONS, DAY_LABELS } from '../../types/shift';
 import { ChecklistService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { ShiftPillToggle, DayPillToggle } from '../../components/PillToggle';
 
 import type { Store } from '../../types';
 
@@ -139,30 +141,36 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                         <div className="stg-toolbar-left">
                             <span className="stg-badge">{templates.length} mục</span>
                             {/* Category filter */}
-                            <select
-                                className="stg-input stg-input-mono"
-                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120 }}
-                                value={filterCategory}
-                                onChange={e => setFilterCategory(e.target.value as ChecklistCategory | 'ALL')}
-                            >
-                                <option value="ALL">Tất cả mục</option>
-                                {CATEGORIES.map(cat => (
-                                    <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
-                                ))}
-                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>filter_list</span>
+                                <select
+                                    className="stg-input"
+                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 140, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151' }}
+                                    value={filterCategory}
+                                    onChange={e => setFilterCategory(e.target.value as ChecklistCategory | 'ALL')}
+                                >
+                                    <option value="ALL">Tất cả phân loại</option>
+                                    {CATEGORIES.map(cat => (
+                                        <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
+                                    ))}
+                                </select>
+                            </div>
 
                             {/* Store filter */}
-                            <select
-                                className="stg-input stg-input-mono"
-                                style={{ padding: '4px 8px', fontSize: 12, width: 'auto', minWidth: 120 }}
-                                value={filterStore}
-                                onChange={e => setFilterStore(e.target.value)}
-                            >
-                                <option value="ALL">Tất cả cửa hàng</option>
-                                {stores.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>storefront</span>
+                                <select
+                                    className="stg-input"
+                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 150, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151' }}
+                                    value={filterStore}
+                                    onChange={e => setFilterStore(e.target.value)}
+                                >
+                                    <option value="ALL">Tất cả cửa hàng</option>
+                                    {stores.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="stg-toolbar-right">
                             <button
@@ -237,7 +245,7 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td>
+                                                <td style={{ fontWeight: 500, color: '#111827', fontSize: 13, lineHeight: '1.4' }}>
                                                     {isEditing ? (
                                                         <input
                                                             type="text"
@@ -246,32 +254,19 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                             onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
                                                             placeholder="Nội dung công việc..."
                                                             autoFocus
+                                                            style={{ width: '100%', fontSize: 13 }}
                                                         />
                                                     ) : (
-                                                        <span style={{ fontWeight: 500, color: 'var(--stg-text)', lineHeight: 1.4, fontSize: 13 }}>
-                                                            {template.title}
-                                                        </span>
+                                                        <div style={{ wordBreak: 'break-word', paddingRight: 16 }}>{template.title}</div>
                                                     )}
                                                 </td>
                                                 <td>
                                                     {isEditing ? (
-                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                            {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map(st => (
-                                                                <label key={st} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, cursor: 'pointer' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={draft.shift_types?.includes(st) || false}
-                                                                        onChange={e => {
-                                                                            const types = [...(draft.shift_types || [])];
-                                                                            if (e.target.checked) types.push(st);
-                                                                            else types.splice(types.indexOf(st), 1);
-                                                                            setDraft(p => ({ ...p, shift_types: types }));
-                                                                        }}
-                                                                    />
-                                                                    {st === 'MORNING' ? 'Sáng' : st === 'AFTERNOON' ? 'Chiều' : 'Tối'}
-                                                                </label>
-                                                            ))}
-                                                        </div>
+                                                        <ShiftPillToggle
+                                                            shifts={['MORNING', 'AFTERNOON', 'EVENING']}
+                                                            selected={draft.shift_types === undefined ? (template.shift_types as string[] | null) : (draft.shift_types as string[] | null)}
+                                                            onChange={val => setDraft(p => ({ ...p, shift_types: val as ShiftType[] | null }))}
+                                                        />
                                                     ) : (
                                                         <div style={{ display: 'flex', gap: 4 }}>
                                                             {template.shift_types?.map(st => (
@@ -285,23 +280,12 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                 {/* FIX: Day of week column */}
                                                 <td>
                                                     {isEditing ? (
-                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                                                            {([2, 3, 4, 5, 6, 7, 1] as DayOfWeek[]).map(d => (
-                                                                <label key={d} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, cursor: 'pointer' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={draft.day_of_week === null || draft.day_of_week?.includes(d) || false}
-                                                                        onChange={e => {
-                                                                            let days = draft.day_of_week === null ? [2, 3, 4, 5, 6, 7, 1] as DayOfWeek[] : [...(draft.day_of_week || [])];
-                                                                            if (e.target.checked) { if (!days.includes(d)) days.push(d); }
-                                                                            else { days = days.filter(x => x !== d); }
-                                                                            setDraft(p => ({ ...p, day_of_week: days.length === 7 ? null : days }));
-                                                                        }}
-                                                                    />
-                                                                    {DAY_LABELS[d]}
-                                                                </label>
-                                                            ))}
-                                                        </div>
+                                                        <DayPillToggle
+                                                            days={[2, 3, 4, 5, 6, 7, 1]}
+                                                            labels={DAY_LABELS as Record<number, string>}
+                                                            selected={draft.day_of_week === undefined ? (template.day_of_week as number[] | null) : (draft.day_of_week as number[] | null)}
+                                                            onChange={val => setDraft(p => ({ ...p, day_of_week: val as DayOfWeek[] | null }))}
+                                                        />
                                                     ) : (
                                                         <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                                             {template.day_of_week === null ? (
@@ -319,23 +303,11 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                 {/* Multi-Store Selection Column */}
                                                 <td>
                                                     {isEditing ? (
-                                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxHeight: '100px', overflowY: 'auto' }}>
-                                                            {stores.map(s => (
-                                                                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer', background: 'var(--stg-bg-element)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={draft.store_ids === null || draft.store_ids.includes(s.id)}
-                                                                        onChange={e => {
-                                                                            let sIds = draft.store_ids === null ? stores.map(st => st.id) : [...(draft.store_ids || [])];
-                                                                            if (e.target.checked) { if (!sIds.includes(s.id)) sIds.push(s.id); }
-                                                                            else { sIds = sIds.filter(x => x !== s.id); }
-                                                                            setDraft(p => ({ ...p, store_ids: sIds.length === stores.length ? null : sIds }));
-                                                                        }}
-                                                                    />
-                                                                    {s.code}
-                                                                </label>
-                                                            ))}
-                                                        </div>
+                                                        <MultiStoreSelect
+                                                            stores={stores}
+                                                            selectedStoreIds={draft.store_ids || null}
+                                                            onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
+                                                        />
                                                     ) : (
                                                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                                             {template.store_ids === null ? (
@@ -398,7 +370,7 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                     ))}
                                                 </select>
                                             </td>
-                                            <td>
+                                            <td style={{ fontWeight: 500, color: '#111827', fontSize: 13 }}>
                                                 <input
                                                     type="text"
                                                     className="stg-input"
@@ -406,46 +378,31 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                                                     onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
                                                     placeholder="Nội dung công việc..."
                                                     autoFocus
+                                                    style={{ width: '100%', fontSize: 13 }}
                                                 />
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                    {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map(st => (
-                                                        <label key={st} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, cursor: 'pointer' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={draft.shift_types?.includes(st) || false}
-                                                                onChange={e => {
-                                                                    const types = [...(draft.shift_types || [])];
-                                                                    if (e.target.checked) types.push(st);
-                                                                    else types.splice(types.indexOf(st), 1);
-                                                                    setDraft(p => ({ ...p, shift_types: types }));
-                                                                }}
-                                                            />
-                                                            {st === 'MORNING' ? 'Sáng' : st === 'AFTERNOON' ? 'Chiều' : 'Tối'}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                <ShiftPillToggle
+                                                    shifts={['MORNING', 'AFTERNOON', 'EVENING']}
+                                                    selected={draft.shift_types === undefined ? null : (draft.shift_types as string[] | null)}
+                                                    onChange={val => setDraft(p => ({ ...p, shift_types: val as ShiftType[] | null }))}
+                                                />
                                             </td>
                                             {/* Day of week for new item */}
                                             <td>
-                                                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                                                    {([2, 3, 4, 5, 6, 7, 1] as DayOfWeek[]).map(d => (
-                                                        <label key={d} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, cursor: 'pointer' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={draft.day_of_week === null || draft.day_of_week?.includes(d) || false}
-                                                                onChange={e => {
-                                                                    let days = draft.day_of_week === null ? [2, 3, 4, 5, 6, 7, 1] as DayOfWeek[] : [...(draft.day_of_week || [])];
-                                                                    if (e.target.checked) { if (!days.includes(d)) days.push(d); }
-                                                                    else { days = days.filter(x => x !== d); }
-                                                                    setDraft(p => ({ ...p, day_of_week: days.length === 7 ? null : days }));
-                                                                }}
-                                                            />
-                                                            {DAY_LABELS[d]}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                <DayPillToggle
+                                                    days={[2, 3, 4, 5, 6, 7, 1]}
+                                                    labels={DAY_LABELS as Record<number, string>}
+                                                    selected={draft.day_of_week === undefined ? null : (draft.day_of_week as number[] | null)}
+                                                    onChange={val => setDraft(p => ({ ...p, day_of_week: val as DayOfWeek[] | null }))}
+                                                />
+                                            </td>
+                                            <td>
+                                                <MultiStoreSelect
+                                                    stores={stores}
+                                                    selectedStoreIds={draft.store_ids || null}
+                                                    onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
+                                                />
                                             </td>
                                             <td>
                                                 <div className="stg-row-actions" style={{ opacity: 1 }}>

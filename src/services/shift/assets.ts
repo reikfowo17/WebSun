@@ -101,4 +101,12 @@ export const AssetService = {
         if (error) throw new Error(error.message);
         return data;
     },
+
+    async deleteAsset(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('shift_assets')
+            .delete()
+            .eq('id', id);
+        if (error) throw new Error(error.message);
+    },
 };
