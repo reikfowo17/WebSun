@@ -3,8 +3,10 @@ import { useShiftContext } from '../ShiftContext';
 
 const HandoverTab: React.FC = () => {
     const {
-        handoverItems, isCompleted, handleHandoverUpdate,
+        handoverItems, isCompleted, handleHandoverUpdate, cash
     } = useShiftContext();
+
+    const isLocked = isCompleted && cash?.status !== 'REJECTED';
 
     return (
         <div className="ho-page">
@@ -48,14 +50,14 @@ const HandoverTab: React.FC = () => {
                                                 <input type="number" className="ho-td-input"
                                                     value={item.system_qty || ''}
                                                     onChange={e => handleHandoverUpdate(item, 'system_qty', parseFloat(e.target.value) || 0)}
-                                                    inputMode="numeric" disabled={isCompleted}
+                                                    inputMode="numeric" disabled={isLocked}
                                                 />
                                             </td>
                                             <td style={{ textAlign: 'center' }}>
                                                 <input type="number" className="ho-td-input"
-                                                    value={item.actual_qty || ''}
+                                                    value={item.actual_qty ?? ''}
                                                     onChange={e => handleHandoverUpdate(item, 'actual_qty', parseFloat(e.target.value) || 0)}
-                                                    inputMode="numeric" disabled={isCompleted}
+                                                    inputMode="numeric" disabled={isLocked}
                                                 />
                                             </td>
                                             <td className="ho-td-diff" style={{

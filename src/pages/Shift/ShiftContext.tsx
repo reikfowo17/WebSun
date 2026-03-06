@@ -308,6 +308,21 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
             setActiveTab('cash');
             return;
         }
+
+        const uncheckedHandover = handoverItems.filter(h => h.actual_qty === null);
+        if (uncheckedHandover.length > 0) {
+            toast.error('Vui lòng kiểm đếm toàn bộ Hàng Tồn Giao Ca trước khi kết ca');
+            setActiveTab('handover');
+            return;
+        }
+
+        const uncheckedAssets = assetChecks.filter(a => a.ok_count === null);
+        if (uncheckedAssets.length > 0) {
+            toast.error('Vui lòng kiểm tra tình trạng toàn bộ Vật Tư trước khi kết ca');
+            setActiveTab('assets');
+            return;
+        }
+
         const incomplete = responses.filter(r => !r.is_completed);
         if (incomplete.length > 0) {
             const ok = confirm(`Còn ${incomplete.length} công việc chưa hoàn thành. Bạn vẫn muốn kết thúc ca?`);

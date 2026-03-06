@@ -67,7 +67,7 @@ export const AssetService = {
             return {
                 shift_id: shiftId,
                 asset_id: a.id,
-                ok_count: prev ? prev.ok_count : a.expected_ok,
+                ok_count: null as unknown as number,
                 damaged_count: prev ? prev.damaged_count : 0,
                 checked_by: userId,
             };

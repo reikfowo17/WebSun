@@ -11,6 +11,27 @@ const CashTab: React.FC = () => {
     const diff = getCashDiff();
     const denomTotal = getDenomTotal();
     const [activeNote, setActiveNote] = useState<string | null>(null);
+    const [isResubmitting, setIsResubmitting] = useState(false);
+
+    const isCashLocked = isCompleted && cash.status !== 'REJECTED';
+
+    const handleResubmit = async () => {
+        if (!cash || !cash.difference_reason?.trim() && getCashDiff() !== 0) {
+            alert('Vui lòng nhập lý do chênh lệch trước khi bấm Nộp lại.');
+            return;
+        }
+        setIsResubmitting(true);
+        try {
+            const { CashService } = await import('../../../services/shift/cash');
+            await CashService.submit(cash.shift_id);
+            setCash(prev => prev ? { ...prev, status: 'SUBMITTED' } : null);
+            alert('Nộp lại báo cáo thành công!');
+        } catch (e) {
+            alert('Gặp lỗi khi nộp báo cáo.');
+        } finally {
+            setIsResubmitting(false);
+        }
+    };
 
     return (
         <div className="ck-page">
@@ -61,7 +82,7 @@ const CashTab: React.FC = () => {
                                         type="number" className="ck-report-input"
                                         value={(cash as unknown as Record<string, number>)[item.key] || ''}
                                         onChange={e => handleCashChange(item.key, parseFloat(e.target.value) || 0)}
-                                        placeholder="0" inputMode="numeric" disabled={isCompleted}
+                                        placeholder="0" inputMode="numeric" disabled={isCashLocked}
                                     />
                                     <button
                                         className={`ck-note-toggle ${activeNote === item.key ? 'active' : ''} ${(cash.item_notes as Record<string, string>)?.[item.key] ? 'has-note' : ''}`}
@@ -76,7 +97,7 @@ const CashTab: React.FC = () => {
                                         type="text" className="ck-report-note"
                                         value={(cash.item_notes as Record<string, string>)?.[item.key] || ''}
                                         onChange={e => handleCashNoteChange(item.key, e.target.value)}
-                                        placeholder="Ghi chú..." disabled={isCompleted}
+                                        placeholder="Ghi chú..." disabled={isCashLocked}
                                         autoFocus
                                     />
                                 )}
@@ -93,7 +114,7 @@ const CashTab: React.FC = () => {
                                     type="number" className="ck-report-input sm"
                                     value={(cash as unknown as Record<string, number>)[item.key] || ''}
                                     onChange={e => handleCashChange(item.key, parseFloat(e.target.value) || 0)}
-                                    placeholder="0" inputMode="numeric" disabled={isCompleted}
+                                    placeholder="0" inputMode="numeric" disabled={isCashLocked}
                                 />
                             </div>
                         ))}
@@ -121,7 +142,7 @@ const CashTab: React.FC = () => {
                                     <input
                                         type="number" className="ck-denom-input" value={qty || ''}
                                         onChange={e => handleCashChange(key, parseInt(e.target.value) || 0)}
-                                        placeholder="0" min="0" inputMode="numeric" disabled={isCompleted}
+                                        placeholder="0" min="0" inputMode="numeric" disabled={isCashLocked}
                                     />
                                     <span className="ck-denom-total">{fmt(qty * denom)}</span>
                                 </div>
@@ -142,7 +163,7 @@ const CashTab: React.FC = () => {
                     </div>
 
                     {/* Difference reason */}
-                    {diff !== 0 && (
+                    {Math.abs(diff) > 0 && (
                         <div className="ck-diff-card">
                             <div className="ck-diff-header">
                                 <span className="material-symbols-outlined" style={{ fontSize: 14 }}>warning</span>
@@ -156,7 +177,7 @@ const CashTab: React.FC = () => {
                                     handleCashNoteChange('_diff_reason_trigger', e.target.value);
                                 }}
                                 placeholder="Nhập lý do chênh lệch..."
-                                disabled={isCompleted}
+                                disabled={isCashLocked}
                                 rows={2}
                             />
                         </div>
@@ -173,7 +194,7 @@ const CashTab: React.FC = () => {
                             value={(cash.item_notes as Record<string, string>)?._shift_notes || ''}
                             onChange={e => handleCashNoteChange('_shift_notes', e.target.value)}
                             placeholder="Ghi chú thêm về vận hành ca (nếu có)..."
-                            disabled={isCompleted}
+                            disabled={isCashLocked}
                             rows={3}
                         />
                     </div>
@@ -202,13 +223,27 @@ const CashTab: React.FC = () => {
                                 <span className="ck-sig-label">Quản lý nhận ca</span>
                             </div>
                             <div className="ck-sig-status">
-                                {isCompleted ? (
+                                {cash.status === 'REJECTED' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <span className="ck-sig-done" style={{ color: '#ef4444' }}>
+                                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>cancel</span>
+                                            Bị từ chối duyệt
+                                        </span>
+                                        <button
+                                            onClick={handleResubmit}
+                                            disabled={isResubmitting}
+                                            style={{ backgroundColor: '#f59e0b', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                        >
+                                            {isResubmitting ? 'Đang nộp lại...' : 'Nộp lại Báo Cáo'}
+                                        </button>
+                                    </div>
+                                ) : isCompleted ? (
                                     <span className="ck-sig-done">
                                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>
                                         Đã xác nhận
                                     </span>
                                 ) : (
-                                    <button className="ck-sig-btn" disabled={isCompleted}>Ký nhận</button>
+                                    <button className="ck-sig-btn" disabled={isCashLocked}>Ký nhận</button>
                                 )}
                             </div>
                         </div>

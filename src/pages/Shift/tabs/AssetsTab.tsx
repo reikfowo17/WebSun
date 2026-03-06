@@ -2,7 +2,9 @@ import React from 'react';
 import { useShiftContext } from '../ShiftContext';
 
 const AssetsTab: React.FC = () => {
-    const { assets, assetChecks, isCompleted, handleAssetCheck, fmt } = useShiftContext();
+    const { assets, assetChecks, isCompleted, handleAssetCheck, fmt, cash } = useShiftContext();
+
+    const isLocked = isCompleted && cash?.status !== 'REJECTED';
 
 
     return (
@@ -49,16 +51,16 @@ const AssetsTab: React.FC = () => {
                                             </td>
                                             <td style={{ textAlign: 'center' }}>
                                                 <input type="number" className="at-td-input"
-                                                    value={check?.ok_count ?? asset.expected_ok}
+                                                    value={check?.ok_count ?? ''}
                                                     onChange={e => handleAssetCheck(asset.id, parseInt(e.target.value) || 0, check?.damaged_count || 0)}
-                                                    min="0" inputMode="numeric" disabled={isCompleted}
+                                                    min="0" inputMode="numeric" disabled={isLocked}
                                                 />
                                             </td>
                                             <td style={{ textAlign: 'center' }}>
                                                 <input type="number" className={`at-td-input ${hasDamage ? 'damaged' : ''}`}
                                                     value={check?.damaged_count || ''}
                                                     onChange={e => handleAssetCheck(asset.id, check?.ok_count ?? asset.expected_ok, parseInt(e.target.value) || 0)}
-                                                    min="0" inputMode="numeric" placeholder="0" disabled={isCompleted}
+                                                    min="0" inputMode="numeric" placeholder="0" disabled={isLocked}
                                                 />
                                             </td>
                                         </tr>

@@ -120,6 +120,14 @@ export const CashService = {
             .select()
             .single();
         if (error) throw new Error(error.message);
+
+        if (data?.shift_id) {
+            await supabase
+                .from('shifts')
+                .update({ status: 'LOCKED', updated_at: new Date().toISOString() })
+                .eq('id', data.shift_id);
+        }
+
         return data;
     },
 

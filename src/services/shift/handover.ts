@@ -38,7 +38,7 @@ export const HandoverService = {
             product_name: t.product_name,
             barcode: t.barcode,
             system_qty: prevMap.get(t.id) || 0,
-            actual_qty: 0,
+            actual_qty: null as unknown as number,
             checked_by: userId,
             checked_at: new Date().toISOString(),
         }));
