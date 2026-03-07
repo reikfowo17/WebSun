@@ -18,7 +18,7 @@ type TabId = 'OVERVIEW' | 'REVIEWS' | 'TASKS' | 'RECOVERY';
 
 const TAB_META: Record<TabId, { label: string; desc: string }> = {
     OVERVIEW: { label: 'Tổng Quan', desc: 'Thống kê & báo cáo kiểm kho' },
-    REVIEWS: { label: 'Duyệt Báo Cáo', desc: 'Xét duyệt phiếu kiểm từ nhân viên' },
+    REVIEWS: { label: 'Xử lý Báo Cáo', desc: 'Xử lý chênh lệch phiếu kiểm từ nhân viên' },
     TASKS: { label: 'Phân Phối', desc: 'Chấm công & phân ca kiểm kho' },
     RECOVERY: { label: 'Truy Thu', desc: 'Theo dõi & xử lý truy thu' },
 };
@@ -71,7 +71,7 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
         {
             label: 'QUẢN LÝ',
             items: [
-                { id: 'REVIEWS', label: 'Duyệt Báo Cáo', badge: pendingCount > 0 ? pendingCount : undefined, badgeColor: 'danger' },
+                { id: 'REVIEWS', label: 'Xử lý Báo Cáo', badge: pendingCount > 0 ? pendingCount : undefined, badgeColor: 'danger' },
                 { id: 'TASKS', label: 'Phân Phối' },
                 { id: 'RECOVERY', label: 'Truy Thu' },
             ]

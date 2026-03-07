@@ -41,9 +41,9 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; ico
 };
 
 const REPORT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-    PENDING: { label: 'Chờ duyệt', color: '#92400e', bg: '#fef3c7' },
-    APPROVED: { label: 'Đã duyệt', color: '#065f46', bg: '#d1fae5' },
-    REJECTED: { label: 'Từ chối', color: '#991b1b', bg: '#fef2f2' },
+    PENDING: { label: 'Chờ xử lý', color: '#92400e', bg: '#fef3c7' },
+    APPROVED: { label: 'Đã xử lý (Cân Kiot)', color: '#065f46', bg: '#d1fae5' },
+    REJECTED: { label: 'Cần kiểm lại', color: '#991b1b', bg: '#fee2e2' },
 };
 
 const getStatusInfo = (s: string) => STATUS_MAP[s] || STATUS_MAP.UNCHECKED;

@@ -544,7 +544,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                             onClick={handleRedistribute}
                                             disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
                                             className="dh-btn-redistrib"
-                                            title={distStatus.reportStatus === 'APPROVED' ? 'Báo cáo đã duyệt — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
+                                            title={distStatus.reportStatus === 'APPROVED' ? 'Báo cáo đã xử lý — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
                                         >
                                             <span className="material-symbols-outlined" style={{ fontSize: 15 }}>sync_alt</span>
                                             Phân phối lại

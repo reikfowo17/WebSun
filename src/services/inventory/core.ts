@@ -334,27 +334,10 @@ export async function reviewReport(reportId: string, status: ReportStatus, revie
             return { success: false, message: 'Báo cáo đã được xử lý bởi người khác. Vui lòng refresh.' };
         }
         let stockUpdateFailed = false;
-        if (status === REPORT_STATUS.APPROVED && report) {
-            const { error: stockErr } = await supabase.rpc(
-                'apply_approved_stock_update',
-                {
-                    p_store_id: report.store_id,
-                    p_check_date: report.check_date,
-                    p_shift: report.shift
-                }
-            );
-            if (stockErr) {
-                console.error('[Inventory] CRITICAL: Stock update RPC failed:', stockErr);
-                stockUpdateFailed = true;
-            }
-        }
 
         return {
             success: true,
-            stockUpdateFailed,
-            message: stockUpdateFailed
-                ? 'Đã duyệt báo cáo nhưng cập nhật tồn kho thất bại. Vui lòng liên hệ admin.'
-                : undefined
+            message: undefined
         };
     } catch (e: unknown) {
         console.error('[Inventory] Review report error:', e);

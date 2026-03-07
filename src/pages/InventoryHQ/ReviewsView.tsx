@@ -24,9 +24,9 @@ interface ReviewsViewProps {
 type ViewMode = 'PENDING' | 'HISTORY';
 
 const STATUS_CFG: Record<string, { label: string; bg: string; text: string; dot: string; icon: string }> = {
-    PENDING: { label: 'Chờ duyệt', bg: '#fef3c7', text: '#92400e', dot: '#f59e0b', icon: 'schedule' },
-    APPROVED: { label: 'Đã duyệt', bg: '#d1fae5', text: '#065f46', dot: '#10b981', icon: 'check_circle' },
-    REJECTED: { label: 'Từ chối', bg: '#fef2f2', text: '#991b1b', dot: '#ef4444', icon: 'cancel' },
+    PENDING: { label: 'Chờ xử lý', bg: '#fef3c7', text: '#92400e', dot: '#f59e0b', icon: 'schedule' },
+    APPROVED: { label: 'Đã xử lý (Cân)', bg: '#d1fae5', text: '#065f46', dot: '#10b981', icon: 'check_circle' },
+    REJECTED: { label: 'Cần kiểm lại', bg: '#fef2f2', text: '#991b1b', dot: '#ef4444', icon: 'sync_problem' },
 };
 
 const getShiftLabel = (shift: number) => `Ca ${shift}`;
@@ -140,16 +140,16 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         if (!report) return '';
         const issues = report.missing + report.over;
         if (issues === 0) {
-            return `Báo cáo ${storeName(report.store)} - Ca ${report.shift}: Tất cả ${report.total} SP đều khớp. Xác nhận duyệt?`;
+            return `Báo cáo ${storeName(report.store)} - Ca ${report.shift}: Tất cả ${report.total} SP đều khớp. Xác nhận đánh dấu đã xử lý (đã cân KiotViet)?`;
         }
-        return `Báo cáo ${storeName(report.store)} - Ca ${report.shift}:\n• Tổng: ${report.total} SP\n• Khớp: ${report.matched}\n• Thiếu: ${report.missing} SP\n• Thừa: ${report.over} SP\n\n⚠️ Có ${issues} SP lệch. Xác nhận phê duyệt?`;
+        return `Báo cáo ${storeName(report.store)} - Ca ${report.shift}:\n• Tổng: ${report.total} SP\n• Khớp: ${report.matched}\n• Thiếu: ${report.missing} SP\n• Thừa: ${report.over} SP\n\n⚠️ Có ${issues} SP lệch. Hãy đảm bảo bạn đã cân kho trên KiotViet trước khi xác nhận. Xác nhận đánh dấu đã xử lý?`;
     }, [reports]);
 
     const getBulkApprovalSummary = useCallback(() => {
         const selected = reports.filter(r => selectedIds.has(r.id));
         const totalIssues = selected.reduce((sum, r) => sum + r.missing + r.over, 0);
         const storesSet = new Set(selected.map(r => storeName(r.store)));
-        let msg = `Duyệt ${selected.length} báo cáo từ ${storesSet.size} cửa hàng?`;
+        let msg = `Đánh dấu đã xử lý (cân KiotViet) ${selected.length} báo cáo từ ${storesSet.size} cửa hàng?`;
         if (totalIssues > 0) {
             msg += `\n\n⚠️ Tổng cộng có ${totalIssues} SP lệch trong các báo cáo đã chọn.`;
         }
@@ -165,14 +165,14 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             const res = await InventoryService.reviewReport(id, REPORT_STATUS.APPROVED, user.id, undefined, user.role);
             if (res.success) {
                 if (res.stockUpdateFailed) {
-                    toast.warning(res.message || 'Đã duyệt nhưng cập nhật tồn kho thất bại');
+                    toast.warning(res.message || 'Đã xử lý (có lỗi phụ)');
                 } else {
-                    toast.success('Đã phê duyệt báo cáo');
+                    toast.success('Đã xác nhận xử lý báo cáo');
                 }
                 loadReports();
                 onReviewDone?.();
             } else {
-                toast.error(res.message || 'Lỗi phê duyệt');
+                toast.error(res.message || 'Lỗi xử lý');
             }
         } catch { toast.error('Lỗi hệ thống'); }
         finally { setProcessing(false); }
@@ -185,8 +185,8 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         setProcessing(true);
         try {
             const res = await InventoryService.reviewReport(id, REPORT_STATUS.REJECTED, user.id, reason, user.role);
-            if (res.success) { toast.warning('Đã từ chối báo cáo'); loadReports(); onReviewDone?.(); }
-            else toast.error(res.message || 'Lỗi từ chối');
+            if (res.success) { toast.warning('Đã yêu cầu kiểm lại báo cáo'); loadReports(); onReviewDone?.(); }
+            else toast.error(res.message || 'Lỗi hệ thống');
         } catch { toast.error('Lỗi hệ thống'); }
         finally { setProcessing(false); }
     };
@@ -204,13 +204,13 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                 user.role
             );
             if (res.processed > 0) {
-                toast.success(`Đã duyệt ${res.processed} báo cáo`);
+                toast.success(`Đã đánh dấu xử lý ${res.processed} báo cáo`);
                 if (res.stockWarnings.length > 0) {
-                    toast.warning(`${res.stockWarnings.length} báo cáo cập nhật tồn kho thất bại`);
+                    toast.warning(`${res.stockWarnings.length} báo cáo có cảnh báo`);
                 }
             }
             if (res.failed > 0) {
-                toast.error(`${res.failed} báo cáo duyệt thất bại${res.errors.length > 0 ? ': ' + res.errors[0] : ''}`);
+                toast.error(`${res.failed} báo cáo xử lý thất bại${res.errors.length > 0 ? ': ' + res.errors[0] : ''}`);
             }
             setSelectedIds(new Set());
             loadReports();
@@ -232,8 +232,8 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                 reason,
                 user.role
             );
-            if (res.processed > 0) toast.warning(`Đã từ chối ${res.processed} báo cáo`);
-            if (res.failed > 0) toast.error(`${res.failed} báo cáo từ chối thất bại`);
+            if (res.processed > 0) toast.warning(`Đã yêu cầu kiểm lại ${res.processed} báo cáo`);
+            if (res.failed > 0) toast.error(`${res.failed} báo cáo xử lý thất bại`);
             setSelectedIds(new Set());
             loadReports();
             onReviewDone?.();
@@ -384,7 +384,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                 role="radio" aria-checked={viewMode === 'PENDING'}
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>pending_actions</span>
-                                Chờ duyệt
+                                Chờ xử lý
                                 {viewMode === 'PENDING' && pendingCount > 0 && (
                                     <span className="rv2-badge-count">{pendingCount}</span>
                                 )}
@@ -470,15 +470,15 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                     disabled={processing}
                                 >
                                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>done_all</span>
-                                    Duyệt {selectedIds.size}
+                                    Xác nhận {selectedIds.size}
                                 </button>
                                 <button
                                     className="rv2-btn-bulk-reject"
                                     onClick={() => setBulkRejectOpen(true)}
                                     disabled={processing}
                                 >
-                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
-                                    Từ chối {selectedIds.size}
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>sync_problem</span>
+                                    Yêu cầu kiểm lại {selectedIds.size}
                                 </button>
                             </div>
                         )}
@@ -507,12 +507,12 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                 </span>
                             </div>
                             <p className="rv2-empty-title">
-                                {viewMode === 'PENDING' ? 'Không có báo cáo chờ duyệt' : 'Chưa có lịch sử duyệt'}
+                                {viewMode === 'PENDING' ? 'Không có báo cáo chờ xử lý' : 'Chưa có lịch sử xử lý'}
                             </p>
                             <p className="rv2-empty-sub">
                                 {viewMode === 'PENDING'
-                                    ? 'Các báo cáo kiểm kê mới sẽ xuất hiện ở đây'
-                                    : 'Báo cáo đã duyệt hoặc từ chối sẽ hiện ở đây'}
+                                    ? 'Các báo cáo kiểm kê cần cân KiotViet sẽ xuất hiện ở đây'
+                                    : 'Báo cáo đã xử lý / yêu cầu kiểm lại sẽ xuất hiện ở đây'}
                             </p>
                         </div>
                     ) : (
@@ -617,19 +617,19 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                                                         className="rv2-inline-btn rv2-inline-approve"
                                                                         onClick={() => setApproveReportId(report.id)}
                                                                         disabled={processing}
-                                                                        title="Phê duyệt"
+                                                                        title="Xác nhận đã cân kho"
                                                                     >
                                                                         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check</span>
-                                                                        Duyệt
+                                                                        Đã Cân Kiot
                                                                     </button>
                                                                     <button
                                                                         className="rv2-inline-btn rv2-inline-reject"
                                                                         onClick={() => setRejectReportId(report.id)}
                                                                         disabled={processing}
-                                                                        title="Từ chối"
+                                                                        title="Yêu cầu nhân viên kiểm lại"
                                                                     >
-                                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
-                                                                        Từ chối
+                                                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>sync_problem</span>
+                                                                        Kiểm lại
                                                                     </button>
                                                                 </div>
                                                             )}
@@ -690,10 +690,10 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             {/* ── Modals ── */}
             <ConfirmModal
                 isOpen={!!approveReportId}
-                title="Phê duyệt báo cáo"
+                title="Xác nhận xử lý báo cáo"
                 message={approveReportId ? getApprovalSummary(approveReportId) : ''}
                 variant="info"
-                confirmText="Phê duyệt"
+                confirmText="Xác nhận đã xử lý"
                 cancelText="Hủy"
                 onConfirm={doApprove}
                 onCancel={() => setApproveReportId(null)}
@@ -701,10 +701,10 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             />
             <PromptModal
                 isOpen={!!rejectReportId}
-                title="Từ chối báo cáo"
-                message="Vui lòng nhập lý do từ chối báo cáo"
-                placeholder="Ví dụ: Dữ liệu không chính xác..."
-                confirmText="Từ chối"
+                title="Yêu cầu kiểm lại báo cáo"
+                message="Vui lòng nhập lý do/ghi chú yêu cầu nhân viên kiểm lại"
+                placeholder="Ví dụ: Thiếu bò húc quá nhiều, xem lại..."
+                confirmText="Yêu cầu kiểm lại"
                 cancelText="Hủy"
                 onConfirm={doReject}
                 onCancel={() => setRejectReportId(null)}
@@ -726,10 +726,10 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
 
             <ConfirmModal
                 isOpen={bulkApproveOpen}
-                title={`Duyệt ${selectedIds.size} báo cáo`}
+                title={`Xác nhận xử lý ${selectedIds.size} báo cáo`}
                 message={getBulkApprovalSummary()}
                 variant="info"
-                confirmText={`Duyệt tất cả (${selectedIds.size})`}
+                confirmText={`Xác nhận tất cả (${selectedIds.size})`}
                 cancelText="Hủy"
                 onConfirm={doBulkApprove}
                 onCancel={() => setBulkApproveOpen(false)}
@@ -739,10 +739,10 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             {/* U1-FIX: Bulk reject modal */}
             <PromptModal
                 isOpen={bulkRejectOpen}
-                title={`Từ chối ${selectedIds.size} báo cáo`}
-                message={`Vui lòng nhập lý do từ chối ${selectedIds.size} báo cáo đã chọn`}
-                placeholder="Lý do từ chối chung..."
-                confirmText={`Từ chối tất cả (${selectedIds.size})`}
+                title={`Yêu cầu kiểm lại ${selectedIds.size} báo cáo`}
+                message={`Vui lòng nhập lý do/yêu cầu kiểm lại chung cho ${selectedIds.size} báo cáo đã chọn`}
+                placeholder="Ghi chú yêu cầu kiểm lại..."
+                confirmText={`Yêu cầu kiểm lại (${selectedIds.size})`}
                 cancelText="Hủy"
                 onConfirm={doBulkReject}
                 onCancel={() => setBulkRejectOpen(false)}

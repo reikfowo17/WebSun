@@ -165,7 +165,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                     shiftSubmitted.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
                       'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'
                     }`}>
-                    {shiftSubmitted.status === 'APPROVED' ? 'Đã duyệt' : shiftSubmitted.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                    {shiftSubmitted.status === 'APPROVED' ? 'Đã xử lý (Cân Kiot)' : shiftSubmitted.status === 'REJECTED' ? 'Cần kiểm lại' : 'Chờ xử lý'}
                   </span>
                 </div>
 

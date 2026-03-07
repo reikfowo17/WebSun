@@ -33,10 +33,10 @@ interface ReportDetail {
     over_items: number;
 }
 
-const STATUS_CFG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
-    PENDING: { label: 'Chờ duyệt', bg: '#fef3c7', color: '#92400e', icon: 'schedule' },
-    APPROVED: { label: 'Đã duyệt', bg: '#d1fae5', color: '#065f46', icon: 'check_circle' },
-    REJECTED: { label: 'Từ chối', bg: '#fef2f2', color: '#991b1b', icon: 'cancel' },
+const STATUS_MAP: Record<string, { label: string; bg: string; color: string; icon: string }> = {
+    PENDING: { label: 'Chờ xử lý', bg: '#fef3c7', color: '#92400e', icon: 'schedule' },
+    APPROVED: { label: 'Đã xử lý (Cân Kiot)', bg: '#d1fae5', color: '#065f46', icon: 'check_circle' },
+    REJECTED: { label: 'Cần kiểm lại', bg: '#fee2e2', color: '#991b1b', icon: 'sync_problem' },
 };
 
 const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ reportId, toast, onClose }) => {
@@ -83,7 +83,7 @@ const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ reportId, toast, 
         return Math.round((checked / report.total_items) * 100);
     };
 
-    const statusCfg = report ? (STATUS_CFG[report.status] || STATUS_CFG.PENDING) : STATUS_CFG.PENDING;
+    const statusCfg = report ? (STATUS_MAP[report.status] || STATUS_MAP.PENDING) : STATUS_MAP.PENDING;
 
     return (
         <>
@@ -215,11 +215,11 @@ const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ reportId, toast, 
                                         <div className="rdm-review-section">
                                             <div className="rdm-info-grid">
                                                 <div>
-                                                    <p className="rdm-info-label">Người duyệt</p>
+                                                    <p className="rdm-info-label">Người xử lý</p>
                                                     <p className="rdm-info-value">{report.reviewed_by || 'N/A'}</p>
                                                 </div>
-                                                <div>
-                                                    <p className="rdm-info-label">Thời gian duyệt</p>
+                                                <div className="rdm-info-item">
+                                                    <p className="rdm-info-label">Thời gian xử lý</p>
                                                     <p className="rdm-info-value">{formatDate(report.reviewed_at)}</p>
                                                 </div>
                                             </div>
