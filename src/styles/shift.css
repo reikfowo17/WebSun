@@ -2372,81 +2372,123 @@ html.dark .badge-danger {
 }
 
 .sp-start-card {
-    max-width: 420px;
-    width: 100%;
-    padding: 2rem 1.5rem;
     background: white;
-    border-radius: 1.25rem;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    border-radius: 1.5rem;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.sp-start-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(90deg, #facc15, #f59e0b, #d97706);
 }
 
 .sp-start-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    width: 72px;
+    height: 72px;
+    background: #fffbeb;
+    border-radius: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1rem;
-    color: white;
-    font-size: 28px;
+    margin: 0 auto 1.5rem;
+    border: 4px solid white;
+    box-shadow: 0 8px 16px -4px rgba(245, 158, 11, 0.15);
+    transform: rotate(-5deg);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sp-start-card:hover .sp-start-icon {
+    transform: rotate(0) scale(1.05);
+}
+
+.sp-start-icon .material-symbols-outlined {
+    font-size: 36px;
+    color: #f59e0b;
 }
 
 .sp-start-title {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 800;
-    color: #111827;
-    margin: 0 0 0.375rem;
+    color: #1f2937;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.02em;
 }
 
 .sp-start-desc {
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     color: #6b7280;
-    margin: 0 0 1.5rem;
+    margin: 0 0 2rem;
+    line-height: 1.5;
 }
 
 .sp-type-list {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
-    margin-bottom: 1.5rem;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
 }
 
 .sp-type-btn {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem 1rem;
-    border-radius: 0.875rem;
-    border: 2px solid #e5e7eb;
-    background: white;
+    gap: 1rem;
+    padding: 0.875rem 1.25rem;
+    border-radius: 1rem;
+    border: 1.5px solid #f3f4f6;
+    background: #fafafa;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
+    position: relative;
+    overflow: hidden;
 }
 
-.sp-type-btn:hover {
-    border-color: #d1d5db;
-    background: #f9fafb;
+.sp-type-btn:hover:not(.disabled):not(:disabled) {
+    border-color: #e5e7eb;
+    background: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
 }
 
 .sp-type-btn.active {
     border-color: #f59e0b;
     background: #fffbeb;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.sp-type-btn.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #f59e0b;
+    border-radius: 4px 0 0 4px;
 }
 
 .sp-type-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 20px;
+    font-size: 22px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .sp-type-icon.morning {
@@ -2508,19 +2550,20 @@ html.dark .badge-danger {
 
 /* Support shift registration section */
 .sp-support-section {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #f3f4f6;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed #e5e7eb;
+    text-align: left;
 }
 
 .sp-support-title {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #6b7280;
-    margin-bottom: 0.625rem;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #4b5563;
+    margin-bottom: 0.875rem;
 }
 
 .sp-support-list {

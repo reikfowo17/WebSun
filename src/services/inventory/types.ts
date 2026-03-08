@@ -75,6 +75,8 @@ export interface InventoryProduct {
     note: string;
     diffReason?: DiffReason | null;
     snapshotAt?: string | null;
+    resolution?: 'PENDING' | 'ADJUSTED_KIOT' | 'RECHECK_REQUIRED' | 'MONITORING' | 'RESOLVED_INTERNAL' | null;
+    adminNote?: string | null;
 }
 export interface MasterItem {
     id: string;

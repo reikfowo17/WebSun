@@ -522,6 +522,8 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
         status: string;
         note: string | null;
         diff_reason: string | null;
+        resolution: string | null;
+        admin_note: string | null;
     }>;
 }> {
     if (!isSupabaseConfigured()) return { success: false };
@@ -537,6 +539,8 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
                     status,
                     note,
                     diff_reason,
+                    resolution,
+                    admin_note,
                     products (
                         name,
                         barcode,
@@ -561,6 +565,8 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
             status: item.status || 'PENDING',
             note: item.note,
             diff_reason: item.diff_reason,
+            resolution: item.resolution || 'PENDING',
+            admin_note: item.admin_note,
         }));
 
         return { success: true, items };
@@ -569,6 +575,28 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
         return { success: false };
     }
 }
+
+export async function updateItemResolution(itemId: string, resolution: string, adminNote: string): Promise<{ success: boolean; message?: string }> {
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+
+    try {
+        const { error } = await supabase
+            .from('inventory_items')
+            .update({
+                resolution,
+                admin_note: adminNote || null
+            })
+            .eq('id', itemId);
+
+        if (error) throw error;
+
+        return { success: true };
+    } catch (e: unknown) {
+        console.error('[Inventory] Update item resolution error:', e);
+        return { success: false, message: 'Không thể cập nhật hướng xử lý sản phẩm' };
+    }
+}
+
 export async function deleteReport(reportId: string): Promise<{ success: boolean; message?: string }> {
     if (!reportId) return { success: false, message: 'Missing report ID' };
     if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };

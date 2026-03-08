@@ -82,10 +82,8 @@ export async function getDistributionStatus(
         let checkDate = date;
 
         if (!checkDate) {
-            // Try RPC date first, then fallback to actual DB data
             const rpcDate = await getInventoryDate(shift);
 
-            // Check if items exist for RPC date
             const { data: rpcItems } = await supabase
                 .from('inventory_items')
                 .select('id', { count: 'exact', head: true })
@@ -96,7 +94,6 @@ export async function getDistributionStatus(
             if (rpcItems && rpcItems.length > 0) {
                 checkDate = rpcDate;
             } else {
-                // RPC date has no items — find most recent actual date
                 const { data: latestItem } = await supabase
                     .from('inventory_items')
                     .select('check_date')
@@ -144,7 +141,7 @@ export async function getDistributionStatus(
 }
 
 export async function distributeToStore(
-    storeCode: string, shift: number
+    storeCode: string, shift: number, targetDate?: string
 ): Promise<DistributeResult> {
     if (!storeCode || !shift) return { success: false, message: 'Thiếu thông tin bắt buộc' };
     if (shift < 1 || shift > 3) return { success: false, message: 'Ca không hợp lệ (1-3)' };
@@ -157,7 +154,7 @@ export async function distributeToStore(
         const { data: products } = await supabase.from('products').select('id').eq('is_active', true);
         if (!products?.length) return { success: false, message: 'Không có sản phẩm trong danh mục' };
 
-        const today = await getInventoryDate(shift);
+        const today = targetDate || await getInventoryDate(shift);
         const userId = await getCurrentUserId();
         const { data: existing } = await supabase
             .from('inventory_items')
@@ -214,12 +211,12 @@ export async function distributeToStore(
 }
 
 export async function redistributeToStore(
-    storeCode: string, shift: number, force = false
+    storeCode: string, shift: number, force = false, targetDate?: string
 ): Promise<DistributeResult> {
     if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
 
     try {
-        const status = await getDistributionStatus(storeCode, shift);
+        const status = await getDistributionStatus(storeCode, shift, targetDate);
 
         if (status.reportStatus === 'APPROVED' || status.reportStatus === 'SUBMITTED') {
             return {
@@ -235,15 +232,15 @@ export async function redistributeToStore(
             };
         }
 
-        const resetResult = await resetDistribution(storeCode, shift, true);
+        const resetResult = await resetDistribution(storeCode, shift, true, targetDate);
         if (!resetResult.success) return resetResult;
 
-        const distResult = await distributeToStore(storeCode, shift);
+        const distResult = await distributeToStore(storeCode, shift, targetDate);
 
         if (distResult.success) {
             const storeId = await getStoreId(storeCode);
             if (storeId) {
-                await logDistribution(storeId, shift, await getInventoryDate(shift), 'REDISTRIBUTE', distResult.itemCount || 0,
+                await logDistribution(storeId, shift, targetDate || await getInventoryDate(shift), 'REDISTRIBUTE', distResult.itemCount || 0,
                     `Force=${force}, had ${status.checkedItems} checked items`);
             }
         }
@@ -261,7 +258,7 @@ export async function redistributeToStore(
 }
 
 export async function resetDistribution(
-    storeCode: string, shift: number, force = false
+    storeCode: string, shift: number, force = false, targetDate?: string
 ): Promise<DistributeResult> {
     if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
 
@@ -276,8 +273,18 @@ export async function resetDistribution(
             .eq('store_id', storeId)
             .eq('shift', shift);
 
-        const uniqueDates = [...new Set((existingItems || []).map((d: any) => d.check_date))];
-        console.debug(`[Reset] store=${storeCode} shift=${shift} foundDates=[${uniqueDates.join(',')}] itemCount=${existingItems?.length || 0}`);
+        const foundDates = [...new Set((existingItems || []).map((d: any) => d.check_date))];
+
+        let uniqueDates: string[] = [];
+        if (targetDate && foundDates.includes(targetDate)) {
+            uniqueDates = [targetDate]; // Exact match first
+        } else if (foundDates.length > 0) {
+            uniqueDates = foundDates; // Fallback to whatever actually exists
+        } else if (targetDate) {
+            uniqueDates = [targetDate]; // Fallback to provided param even if no items, to gracefully fail
+        }
+
+        console.debug(`[Reset] store=${storeCode} shift=${shift} targetDate=${targetDate || 'ANY'} foundDates=[${uniqueDates.join(', ')}]`);
 
         if (uniqueDates.length === 0) {
             return { success: true, itemCount: 0, message: 'Không có phân phối nào để xóa' };
@@ -301,7 +308,6 @@ export async function resetDistribution(
             }
         }
 
-        // Use SECURITY DEFINER RPC to bypass RLS
         const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_reset_distribution', {
             p_store_id: storeId,
             p_shift: shift,
@@ -311,7 +317,6 @@ export async function resetDistribution(
         if (rpcError) {
             console.error('[Reset] RPC error, falling back to direct delete:', rpcError.message);
 
-            // Fallback: direct delete (may fail due to RLS)
             for (const d of uniqueDates) {
                 const { data: report } = await supabase
                     .from('inventory_reports')

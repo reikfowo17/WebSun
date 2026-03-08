@@ -28,6 +28,9 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
     const [activeTab, setActiveTab] = useState<TabId>('OVERVIEW');
     const [currentDate, setCurrentDate] = useState(() => {
         const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+        if (vnNow.getUTCHours() < 6) {
+            vnNow.setUTCDate(vnNow.getUTCDate() - 1);
+        }
         return vnNow.toISOString().slice(0, 10);
     });
     const [pendingCount, setPendingCount] = useState(0);

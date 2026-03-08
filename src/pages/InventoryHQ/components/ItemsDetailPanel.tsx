@@ -13,6 +13,8 @@ interface ReportItem {
     status: string;
     note: string | null;
     diff_reason: string | null;
+    resolution: string | null;
+    admin_note: string | null;
 }
 
 export interface ItemsDetailPanelProps {
@@ -46,6 +48,14 @@ const REPORT_STATUS: Record<string, { label: string; color: string; bg: string }
     REJECTED: { label: 'Cần kiểm lại', color: '#991b1b', bg: '#fee2e2' },
 };
 
+const RESOLUTION_OPTIONS = [
+    { value: 'PENDING', label: 'Chờ xử lý' },
+    { value: 'ADJUSTED_KIOT', label: 'Đã cân KiotViet' },
+    { value: 'RECHECK_REQUIRED', label: 'Yêu cầu kiểm lại' },
+    { value: 'MONITORING', label: 'Theo dõi thêm' },
+    { value: 'RESOLVED_INTERNAL', label: 'Xử lý nội bộ' },
+];
+
 const getStatusInfo = (s: string) => STATUS_MAP[s] || STATUS_MAP.UNCHECKED;
 
 const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
@@ -58,6 +68,7 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
     const [filter, setFilter] = useState<string>('ALL');
     const [search, setSearch] = useState('');
     const [animateIn, setAnimateIn] = useState(false);
+    const [updatingParams, setUpdatingParams] = useState<string | null>(null);
 
     // Animate open/close (panel mode only)
     useEffect(() => {
@@ -101,6 +112,29 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         setAnimateIn(false);
         setTimeout(onClose, 280);
     }, [onClose, isInline]);
+
+    const handleUpdateItem = async (itemId: string, field: 'resolution' | 'admin_note', value: string) => {
+        const item = items.find(i => i.id === itemId);
+        if (!item) return;
+
+        const newResolution = field === 'resolution' ? value : (item.resolution || 'PENDING');
+        const newNote = field === 'admin_note' ? value : (item.admin_note || '');
+
+        setUpdatingParams(itemId + field);
+
+        try {
+            setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: value } : i));
+            const res = await InventoryService.updateItemResolution(itemId, newResolution, newNote);
+            if (!res.success) {
+                // revert mapping
+                setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: item[field as keyof ReportItem] } : i));
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setUpdatingParams(null);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -204,8 +238,9 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                                     <th style={{ width: '12%', textAlign: 'center' }}>Hệ thống</th>
                                     <th style={{ width: '12%', textAlign: 'center' }}>Thực tế</th>
                                     <th style={{ width: '10%', textAlign: 'center' }}>Lệch</th>
-                                    <th style={{ width: '12%', textAlign: 'center' }}>Trạng thái</th>
-                                    <th style={{ width: '12%' }}>Ghi chú</th>
+                                    <th style={{ width: '10%', textAlign: 'center' }}>Trạng thái</th>
+                                    <th style={{ width: '11%' }}>Ghi chú</th>
+                                    <th style={{ width: '15%' }}>Hướng xử lý</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -239,6 +274,36 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                                             </td>
                                             <td className="sp-cell-note">
                                                 {item.note || item.diff_reason || ''}
+                                            </td>
+                                            <td>
+                                                {hasDiff ? (
+                                                    <div className="sp-resolution-col">
+                                                        <select
+                                                            className="sp-res-select"
+                                                            value={item.resolution || 'PENDING'}
+                                                            onChange={(e) => handleUpdateItem(item.id, 'resolution', e.target.value)}
+                                                            disabled={updatingParams === item.id + 'resolution'}
+                                                        >
+                                                            {RESOLUTION_OPTIONS.map(opt => (
+                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                            ))}
+                                                        </select>
+                                                        <input
+                                                            type="text"
+                                                            className="sp-res-note"
+                                                            placeholder="Ghi chú admin..."
+                                                            value={item.admin_note || ''}
+                                                            onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, admin_note: e.target.value } : i))}
+                                                            onBlur={(e) => {
+                                                                // Only save if it changed - basic check assuming no other saves
+                                                                handleUpdateItem(item.id, 'admin_note', e.target.value);
+                                                            }}
+                                                            disabled={updatingParams === item.id + 'admin_note'}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -540,6 +605,23 @@ const CSS_TEXT = `
 .sp-content::-webkit-scrollbar-track { background:transparent; }
 .sp-content::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:99px; }
 .sp-content::-webkit-scrollbar-thumb:hover { background:#cbd5e1; }
+
+/* ── Resolution ── */
+.sp-resolution-col { display:flex; flex-direction:column; gap:4px; }
+.sp-res-select {
+    padding:4px 6px; font-size:11px; border-radius:6px;
+    border:1px solid #cbd5e1; background:#fff; color:#1e293b;
+    outline:none; width:100%; transition:border-color .15s;
+    font-weight: 500;
+}
+.sp-res-select:focus { border-color:#6366f1; }
+.sp-res-note {
+    padding:4px 6px; font-size:11px; border-radius:6px;
+    border:1px solid #cbd5e1; background:#f8fafc; color:#1e293b;
+    outline:none; width:100%; transition:all .15s;
+}
+.sp-res-note:focus { border-color:#6366f1; background:#fff; }
+.sp-res-note::placeholder { color:#94a3b8; }
 
 /* ── Inline mode ── */
 .sp-inline-root { padding:12px 0 4px; }

@@ -88,10 +88,9 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         try {
             if (selectedStore === 'ALL') {
                 setDistStatus(null);
-                // Load aggregated status for all stores
                 if (stores.length > 0) {
                     const results = await Promise.all(
-                        stores.map(s => getDistributionStatus(s.code, selectedShift))
+                        stores.map(s => getDistributionStatus(s.code, selectedShift, date))
                     );
                     const distributed = results.filter(r => r.distributed).length;
                     const totalItems = results.reduce((sum, r) => sum + r.totalItems, 0);
@@ -102,7 +101,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                 }
             } else {
                 setAllStoresStatus(null);
-                const st = await getDistributionStatus(selectedStore, selectedShift);
+                const st = await getDistributionStatus(selectedStore, selectedShift, date);
                 setDistStatus(st);
             }
         } catch {
@@ -111,7 +110,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         } finally {
             setLoadingStatus(false);
         }
-    }, [selectedStore, selectedShift, stores]);
+    }, [selectedStore, selectedShift, stores, date]);
 
     useEffect(() => {
         loadMasterProducts();
@@ -141,7 +140,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
             });
             return;
         }
-        const r = await redistributeToStore(selectedStore, selectedShift, false);
+        const r = await redistributeToStore(selectedStore, selectedShift, false, date);
         if (!r.success) {
             setConfirmAction({ type: 'redistribute', message: r.message || 'Xác nhận phân phối lại?' });
         } else {
@@ -170,7 +169,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         try {
             if (selectedStore === 'ALL') {
                 const results = await Promise.allSettled(
-                    stores.map(s => InventoryService.distributeToStore(s.code, selectedShift))
+                    stores.map(s => InventoryService.distributeToStore(s.code, selectedShift, date))
                 );
                 const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.success) as PromiseFulfilledResult<any>[];
                 const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
@@ -188,7 +187,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                     toast.error('Phân phối thất bại cho tất cả cửa hàng');
                 }
             } else {
-                const r = await InventoryService.distributeToStore(selectedStore, selectedShift);
+                const r = await InventoryService.distributeToStore(selectedStore, selectedShift, date);
                 if (r.success) {
                     if (r.itemCount === 0) {
                         toast.info(r.message || 'Ca này đã được phân phối. Không có SP mới.');
@@ -211,7 +210,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setConfirmAction(null);
         setProcessing(ProcessingState.DISTRIBUTE);
         try {
-            const r = await redistributeToStore(selectedStore, selectedShift, true);
+            const r = await redistributeToStore(selectedStore, selectedShift, true, date);
             r.success ? toast.success(r.message || 'Đã phân phối lại!') : toast.error(r.message || 'Lỗi');
         } catch { toast.error('Lỗi hệ thống'); }
         finally { setProcessing(null); loadDistStatus(); }
@@ -222,7 +221,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setProcessing(ProcessingState.DISTRIBUTE);
         try {
             const results = await Promise.allSettled(
-                stores.map(s => redistributeToStore(s.code, selectedShift, true))
+                stores.map(s => redistributeToStore(s.code, selectedShift, true, date))
             );
             const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
             if (failed.length === 0) toast.success(`Đã phân phối lại cho toàn bộ cửa hàng (Ca ${selectedShift})`);
@@ -235,7 +234,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setConfirmAction(null);
         setProcessing(ProcessingState.DISTRIBUTE);
         try {
-            const r = await resetDistribution(selectedStore, selectedShift, true);
+            const r = await resetDistribution(selectedStore, selectedShift, true, date);
             r.success ? toast.success(r.message || 'Đã reset!') : toast.error(r.message || 'Lỗi');
         } catch { toast.error('Lỗi hệ thống'); }
         finally { setProcessing(null); loadDistStatus(); }
@@ -246,7 +245,7 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
         setProcessing(ProcessingState.DISTRIBUTE);
         try {
             const results = await Promise.allSettled(
-                stores.map(s => resetDistribution(s.code, selectedShift, true))
+                stores.map(s => resetDistribution(s.code, selectedShift, true, date))
             );
             const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
             if (failed.length === 0) toast.success(`Đã reset toàn bộ cho cửa hàng (Ca ${selectedShift})`);
