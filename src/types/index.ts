@@ -56,6 +56,7 @@ export interface InventoryProduct {
     diff?: number | null;
     status: string;
     note?: string;
+    diffReason?: string;
 }
 
 

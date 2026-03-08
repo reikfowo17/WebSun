@@ -42,7 +42,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; ico
 
 const REPORT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
     PENDING: { label: 'Chờ xử lý', color: '#92400e', bg: '#fef3c7' },
-    APPROVED: { label: 'Đã xử lý (Cân Kiot)', color: '#065f46', bg: '#d1fae5' },
+    APPROVED: { label: 'Đã xử lý', color: '#065f46', bg: '#d1fae5' },
     REJECTED: { label: 'Cần kiểm lại', color: '#991b1b', bg: '#fee2e2' },
 };
 

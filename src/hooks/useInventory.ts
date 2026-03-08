@@ -97,6 +97,7 @@ export const useInventory = (user: User) => {
     submittedAt?: string;
     status?: string;
     viewingData?: boolean;
+    rejectionReason?: string;
   }>({ submitted: false });
   const [confirmSubmit, setConfirmSubmit] = useState<{
     show: boolean;
@@ -113,11 +114,13 @@ export const useInventory = (user: User) => {
         shift,
       );
       if (reportStatus.submitted && reportStatus.report) {
+        const isRejected = reportStatus.report.status === "REJECTED";
         setShiftSubmitted({
-          submitted: true,
+          submitted: !isRejected,
           submittedBy: reportStatus.report.submittedBy,
           submittedAt: reportStatus.report.submittedAt,
           status: reportStatus.report.status,
+          rejectionReason: reportStatus.report.rejectionReason,
         });
       }
 
@@ -359,7 +362,7 @@ export const useInventory = (user: User) => {
   const getStatusConfig = (status: string) => {
     return (
       INVENTORY_CONFIG.STATUS_CONFIG[
-        status as keyof typeof INVENTORY_CONFIG.STATUS_CONFIG
+      status as keyof typeof INVENTORY_CONFIG.STATUS_CONFIG
       ] || INVENTORY_CONFIG.STATUS_CONFIG.PENDING
     );
   };

@@ -221,8 +221,11 @@ export async function redistributeToStore(
     try {
         const status = await getDistributionStatus(storeCode, shift);
 
-        if (status.reportStatus === 'APPROVED') {
-            return { success: false, message: 'Báo cáo đã được DUYỆT — không thể phân phối lại. Hãy liên hệ quản lý.' };
+        if (status.reportStatus === 'APPROVED' || status.reportStatus === 'SUBMITTED') {
+            return {
+                success: false,
+                message: `Báo cáo đang ở trạng thái ${status.reportStatus} — không thể phân phối lại. Hãy từ chối báo cáo trước.`
+            };
         }
 
         if (status.checkedItems > 0 && !force) {
@@ -318,8 +321,8 @@ export async function resetDistribution(
                     .eq('check_date', d)
                     .maybeSingle();
 
-                if (report?.status === 'APPROVED') {
-                    return { success: false, message: `Báo cáo ngày ${d} đã DUYỆT — không thể reset` };
+                if (report?.status === 'APPROVED' || report?.status === 'SUBMITTED') {
+                    return { success: false, message: `Báo cáo ngày ${d} đang ở trạng thái ${report.status} — không thể reset` };
                 }
                 if (report) {
                     await supabase.from('inventory_reports').delete().eq('id', report.id);

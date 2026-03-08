@@ -155,7 +155,7 @@ export async function submitReport(storeCode: string, shift: number, userId: str
                 .eq('shift', shift)
                 .maybeSingle();
 
-            if (existingReport) {
+            if (existingReport && existingReport.status !== REPORT_STATUS.REJECTED) {
                 return { success: false, message: `Báo cáo đã được nộp (${existingReport.status}). Không thể nộp lại.` };
             }
 
@@ -203,7 +203,10 @@ export async function submitReport(storeCode: string, shift: number, userId: str
                     shift: shift,
                     submitted_by: userId,
                     submitted_at: new Date().toISOString(),
-                    status: 'PENDING'
+                    status: 'PENDING',
+                    reviewed_by: null,
+                    reviewed_at: null,
+                    rejection_reason: null,
                 }, { onConflict: 'store_id,check_date,shift' });
 
             if (reportError) console.error('[Inventory] Report creation warning:', reportError);
@@ -219,7 +222,7 @@ export async function submitReport(storeCode: string, shift: number, userId: str
     }
     return { success: false, message: 'Database disconnected' };
 }
-export async function getReportStatus(storeCode: string, shift: number): Promise<{ submitted: boolean; report?: { submittedBy: string; submittedAt: string; status: string } }> {
+export async function getReportStatus(storeCode: string, shift: number): Promise<{ submitted: boolean; report?: { submittedBy: string; submittedAt: string; status: string; rejectionReason?: string } }> {
     if (!storeCode || !shift || !isSupabaseConfigured()) {
         return { submitted: false };
     }
@@ -235,6 +238,7 @@ export async function getReportStatus(storeCode: string, shift: number): Promise
                     status,
                     submitted_at,
                     created_at,
+                    rejection_reason,
                     stores!inner ( code ),
                     users!inventory_reports_submitted_by_fkey ( name )
                 `)
@@ -251,7 +255,8 @@ export async function getReportStatus(storeCode: string, shift: number): Promise
                 report: {
                     submittedBy: (data as any).users?.name || 'Nhân viên',
                     submittedAt: (data as any).submitted_at || (data as any).created_at || '',
-                    status: (data as any).status || 'PENDING'
+                    status: (data as any).status || 'PENDING',
+                    rejectionReason: (data as any).rejection_reason || ''
                 }
             };
         }
@@ -313,7 +318,7 @@ export async function reviewReport(reportId: string, status: ReportStatus, revie
         if (report.status !== REPORT_STATUS.PENDING) {
             return {
                 success: false,
-                message: `Báo cáo đã được xử lý (${report.status === REPORT_STATUS.APPROVED ? 'đã duyệt' : 'đã từ chối'}). Vui lòng refresh.`
+                message: `Báo cáo đã được xử lý (${report.status === REPORT_STATUS.APPROVED ? 'đã xử lý' : 'đã yêu cầu kiểm lại'}). Vui lòng refresh.`
             };
         }
 

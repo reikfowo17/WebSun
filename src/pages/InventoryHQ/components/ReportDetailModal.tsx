@@ -228,7 +228,7 @@ const ReportDetailModal: React.FC<ReportDetailModalProps> = ({ reportId, toast, 
 
                                     {report.rejection_reason && (
                                         <div className="rdm-rejection">
-                                            <p className="rdm-info-label" style={{ marginBottom: 6 }}>Lý do từ chối</p>
+                                            <p className="rdm-info-label" style={{ marginBottom: 6 }}>Nội dung yêu cầu kiểm lại</p>
                                             <div className="rdm-rejection-box">
                                                 <p>{report.rejection_reason}</p>
                                             </div>

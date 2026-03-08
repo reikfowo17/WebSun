@@ -542,18 +542,18 @@ const DistributionHub: React.FC<DistributionHubProps> = ({ toast, date }) => {
                                     <div className="dh-status-actions">
                                         <button
                                             onClick={handleRedistribute}
-                                            disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
+                                            disabled={!!processing || distStatus.reportStatus === 'APPROVED' || distStatus.reportStatus === 'SUBMITTED'}
                                             className="dh-btn-redistrib"
-                                            title={distStatus.reportStatus === 'APPROVED' ? 'Báo cáo đã xử lý — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
+                                            title={distStatus.reportStatus === 'APPROVED' || distStatus.reportStatus === 'SUBMITTED' ? 'Báo cáo đã nộp hoặc xử lý — không thể phân phối lại' : 'Xóa phân phối cũ và phân phối danh sách mới'}
                                         >
                                             <span className="material-symbols-outlined" style={{ fontSize: 15 }}>sync_alt</span>
                                             Phân phối lại
                                         </button>
                                         <button
                                             onClick={handleResetDist}
-                                            disabled={!!processing || distStatus.reportStatus === 'APPROVED'}
+                                            disabled={!!processing || distStatus.reportStatus === 'APPROVED' || distStatus.reportStatus === 'SUBMITTED'}
                                             className="dh-btn-reset-dist"
-                                            title="Xóa toàn bộ phân phối cho store/ca này"
+                                            title={distStatus.reportStatus === 'APPROVED' || distStatus.reportStatus === 'SUBMITTED' ? 'Báo cáo đã nộp hoặc xử lý — không thể reset' : 'Xóa toàn bộ phân phối cho store/ca này'}
                                         >
                                             <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete_sweep</span>
                                         </button>

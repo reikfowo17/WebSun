@@ -165,7 +165,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                     shiftSubmitted.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
                       'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'
                     }`}>
-                    {shiftSubmitted.status === 'APPROVED' ? 'Đã xử lý (Cân Kiot)' : shiftSubmitted.status === 'REJECTED' ? 'Cần kiểm lại' : 'Chờ xử lý'}
+                    {shiftSubmitted.status === 'APPROVED' ? 'Đã xử lý' : shiftSubmitted.status === 'REJECTED' ? 'Cần kiểm lại' : 'Chờ xử lý'}
                   </span>
                 </div>
 
@@ -184,6 +184,18 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
           ) : (
             /* Table Area */
             <div className="space-y-4">
+              {shiftSubmitted.status === 'REJECTED' && !shiftSubmitted.submitted && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 p-4 rounded-xl flex items-start gap-3 shadow-sm">
+                  <span className="material-symbols-outlined mt-0.5 text-red-500">warning</span>
+                  <div>
+                    <h3 className="font-bold">Yêu cầu từ Admin: Cần kiểm lại</h3>
+                    {shiftSubmitted.rejectionReason && (
+                      <p className="text-sm mt-1">{shiftSubmitted.rejectionReason}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {shiftSubmitted.submitted && shiftSubmitted.viewingData && (
                 <div className="flex items-center gap-3 bg-white dark:bg-[#1a1a1a] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
                   <button onClick={() => setShiftSubmitted(prev => ({ ...prev, viewingData: false }))} className="w-8 h-8 rounded hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center">
@@ -260,7 +272,8 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                           <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Mã Kiot</th>
                           <th className="px-4 py-3 text-center text-xs font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider w-32">Thực tế</th>
                           <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Lệch</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-48">Ghi chú</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Ghi chú NV</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Lý do chênh lệch</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -322,6 +335,24 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                                     className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#1a1a1a] outline-none transition-shadow"
                                     placeholder="Ghi chú..."
                                   />
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {isSubmitted ? (
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">{p.diffReason || '—'}</span>
+                                ) : (
+                                  <select
+                                    value={p.diffReason || ''}
+                                    onChange={e => updateField(String(p.id), 'diffReason', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#1a1a1a] outline-none transition-shadow"
+                                    disabled={!hasDiff}
+                                  >
+                                    <option value="">-- Chọn lý do --</option>
+                                    <option value="LOST">Thất thoát</option>
+                                    <option value="DAMAGED">Hư hỏng</option>
+                                    <option value="WRONG_ENTRY">Nhập sai</option>
+                                    <option value="OTHER">Khác</option>
+                                  </select>
                                 )}
                               </td>
                             </tr>

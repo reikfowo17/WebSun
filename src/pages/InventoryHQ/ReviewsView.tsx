@@ -25,7 +25,7 @@ type ViewMode = 'PENDING' | 'HISTORY';
 
 const STATUS_CFG: Record<string, { label: string; bg: string; text: string; dot: string; icon: string }> = {
     PENDING: { label: 'Chờ xử lý', bg: '#fef3c7', text: '#92400e', dot: '#f59e0b', icon: 'schedule' },
-    APPROVED: { label: 'Đã xử lý (Cân)', bg: '#d1fae5', text: '#065f46', dot: '#10b981', icon: 'check_circle' },
+    APPROVED: { label: 'Đã xử lý', bg: '#d1fae5', text: '#065f46', dot: '#10b981', icon: 'check_circle' },
     REJECTED: { label: 'Cần kiểm lại', bg: '#fef2f2', text: '#991b1b', dot: '#ef4444', icon: 'sync_problem' },
 };
 
