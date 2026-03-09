@@ -9,13 +9,12 @@ import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
 import StockCheckAdmin from './StockCheckAdmin';
 import StockCheckWorker from './StockCheckWorker';
 import StockCheckService from '../../services/stockCheck';
-import '../styles/hq-sidebar.css';
+import '../../styles/hq-sidebar.css';
 
-type ExpiryTab = 'CONFIG' | 'SCHEDULE' | 'REPORTS' | 'STOCKCHECK_ADMIN' | 'STOCKCHECK_WORKER';
+type ExpiryTab = 'CONFIG' | 'REPORTS' | 'STOCKCHECK_ADMIN' | 'STOCKCHECK_WORKER';
 
 const TAB_META: Record<ExpiryTab, { label: string; desc: string }> = {
     CONFIG: { label: 'Cấu Hình Ngưỡng', desc: 'Thiết lập ngưỡng cận date & NSX theo loại sản phẩm' },
-    SCHEDULE: { label: 'Lịch Quét', desc: 'Lên lịch nhắc nhở kiểm tra date tự động' },
     REPORTS: { label: 'Báo Cáo Date', desc: 'Tổng hợp kết quả kiểm date theo cửa hàng' },
     STOCKCHECK_ADMIN: { label: 'Danh Mục Cần Kiểm', desc: 'Tạo danh mục sản phẩm yêu cầu kiểm date hằng đêm' },
     STOCKCHECK_WORKER: { label: 'Kiểm Date Hàng Ngày', desc: 'Thực hiện kiểm tra hạn sử dụng theo danh mục yêu cầu' },
@@ -41,16 +40,10 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
 
     const sidebarGroups: SubSidebarGroup[] = [
         {
-            label: 'CẤU HÌNH',
+            label: 'CẤU HÌNH & BÁO CÁO',
             items: [
-                { id: 'CONFIG', label: 'Ngưỡng Sản Phẩm' },
-                { id: 'SCHEDULE', label: 'Lịch Quét' },
-            ]
-        },
-        {
-            label: 'BÁO CÁO',
-            items: [
-                { id: 'REPORTS', label: 'Báo Cáo Date' },
+                { id: 'REPORTS', label: TAB_META.REPORTS.label },
+                { id: 'CONFIG', label: TAB_META.CONFIG.label },
             ]
         },
         {
@@ -107,7 +100,6 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
                 <div className="hq-content" key={subTab}>
                     <div className="hq-section-animate">
                         {subTab === 'CONFIG' && <ExpiryConfigView toast={toast} />}
-                        {subTab === 'SCHEDULE' && <ExpiryScheduleView toast={toast} />}
                         {subTab === 'REPORTS' && <ExpiryReportsView toast={toast} />}
                         {subTab === 'STOCKCHECK_ADMIN' && <StockCheckAdmin />}
                         {subTab === 'STOCKCHECK_WORKER' && (
@@ -238,25 +230,7 @@ const ExpiryConfigView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
     );
 };
 
-/* ═══════════════════════════════════════════════
-   2. SCHEDULE VIEW
-   ═══════════════════════════════════════════════ */
-const ExpiryScheduleView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
-    return (
-        <div className="space-y-4">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 text-center py-12">
-                <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="material-symbols-outlined text-3xl text-orange-400">calendar_clock</span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-800">Lịch Quét Tự Động</h3>
-                <p className="text-gray-500 text-sm max-w-md mx-auto mt-2">Tính năng đang được phát triển. Cho phép lên lịch nhắc nhở nhân viên kiểm tra date định kỳ theo loại sản phẩm.</p>
-                <button className="mt-6 px-6 py-2 bg-orange-500 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:bg-orange-600 transition-all">
-                    Tạo Lịch Mới
-                </button>
-            </div>
-        </div>
-    );
-};
+
 
 /* ═══════════════════════════════════════════════
    3. REPORTS VIEW

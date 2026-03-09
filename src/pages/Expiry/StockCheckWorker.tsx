@@ -5,6 +5,7 @@ import StockCheckService, {
     StockCheckResult,
 } from '../../services/stockCheck';
 import { supabase } from '../../lib/supabase';
+import { ExpiryService, ExpiryConfig } from '../../services';
 
 interface Store { id: string; name: string; code: string; }
 interface User { id: string; display_name?: string; full_name?: string; store_id?: string; }
@@ -113,6 +114,7 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
     const [syncing, setSyncing] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [syncMsg, setSyncMsg] = useState('');
+    const [configs, setConfigs] = useState<ExpiryConfig[]>([]);
     const [inputMap, setInputMap] = useState<Record<string, string>>({});
     const [dateMap, setDateMap] = useState<Record<string, string>>({});
     const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -134,7 +136,12 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
         }
     };
 
-    useEffect(() => { loadCategories(); loadStores(); }, []);
+    const loadConfigs = async () => {
+        const res = await ExpiryService.getConfigs();
+        if (res.success) setConfigs(res.configs);
+    };
+
+    useEffect(() => { loadCategories(); loadStores(); loadConfigs(); }, []);
 
     const loadSession = useCallback(async () => {
         if (!selectedCatId || !selectedStoreId) return;
@@ -243,6 +250,31 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
     const diffCount = results.filter(r => r.diff !== null && r.diff !== 0).length;
     const isCompleted = session?.status === 'COMPLETED';
     const selectedCat = categories.find(c => c.id === selectedCatId);
+
+    // Find applicable config for category
+    const catConfig = configs.find(c => c.type.toLowerCase() === selectedCat?.name.toLowerCase()) || configs[0];
+    const nearExpiryDays = catConfig?.nearExpiryDays || 30;
+
+    const parseShortDate = (str: string): number | null => {
+        if (!str) return null;
+        // Allows formats: 12/12/24, 12-12-2024, 12.12.24
+        const parts = str.match(/(\d+)[/.-](\d+)[/.-](\d+)/);
+        if (!parts) return null;
+        let [_, d, m, y] = parts;
+        if (y.length === 2) y = '20' + y;
+        const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        if (isNaN(date.getTime())) return null;
+        return date.getTime();
+    };
+
+    const getExpiryStatus = (dateStr: string) => {
+        const ms = parseShortDate(dateStr);
+        if (!ms) return null;
+        const diffDays = Math.ceil((ms - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) return 'EXPIRED';
+        if (diffDays <= nearExpiryDays) return 'NEAR_EXPIRY';
+        return 'OK';
+    };
 
     return (
         <div className="scw-root">
@@ -414,22 +446,33 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                                 const diffOk = diff === 0;
                                 const diffPos = diff !== null && diff > 0;
                                 const diffNeg = diff !== null && diff < 0;
+
+                                const status = getExpiryStatus(dateMap[r.id] || '');
+
                                 return (
                                     <tr key={r.id} className={`scw-row ${hasVal ? 'checked' : ''}`}>
                                         <td className="scw-idx">{idx + 1}</td>
                                         <td className="scw-name">{r.product?.name || '—'}</td>
                                         <td className="scw-sp">{r.product?.sp || ''}</td>
-                                        <td className="center scw-sys-qty">
+                                        <td className="center scw-sys-qty" style={{ position: 'relative' }}>
                                             <input
                                                 type="text"
                                                 className={`scw-qty-input ${dateMap[r.id] ? 'has-value' : ''}`}
-                                                style={{ fontSize: 13, width: '100%' }}
+                                                style={{
+                                                    fontSize: 13, width: '100%',
+                                                    color: status === 'EXPIRED' ? '#dc2626' : status === 'NEAR_EXPIRY' ? '#ea580c' : undefined,
+                                                    fontWeight: (status === 'EXPIRED' || status === 'NEAR_EXPIRY') ? 'bold' : 'normal',
+                                                    borderColor: status === 'EXPIRED' ? '#fecaca' : status === 'NEAR_EXPIRY' ? '#fed7aa' : undefined,
+                                                    backgroundColor: status === 'EXPIRED' ? '#fef2f2' : status === 'NEAR_EXPIRY' ? '#fff7ed' : undefined
+                                                }}
                                                 value={dateMap[r.id] || ''}
                                                 onChange={e => handleResultChange(r.id, 'date', e.target.value)}
                                                 placeholder="VD: 12/12/24"
                                                 disabled={isCompleted}
                                                 title="Ghi nhận Hạn sử dụng của sản phẩm (hoặc lô gần nhất)"
                                             />
+                                            {status === 'EXPIRED' && <span className="scw-date-badge scw-badge-red">Hết hạn</span>}
+                                            {status === 'NEAR_EXPIRY' && <span className="scw-date-badge scw-badge-orange">Cận date</span>}
                                         </td>
                                         <td className="scw-qty-cell center">
                                             <input
@@ -470,7 +513,7 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                     </table>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
@@ -625,6 +668,25 @@ const CSS_WORKER = `
 .scw-loading { padding: 20px; display: flex; flex-direction: column; gap: 8px; }
 .scw-skeleton-row { height: 48px; border-radius: 10px; background: linear-gradient(90deg, #f3f4f6 25%, #e9ebee 50%, #f3f4f6 75%); background-size: 200% 100%; animation: scwSkeletonSlide 1.5s linear infinite; }
 @keyframes scwSkeletonSlide { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+.scw-uncheck-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+}
+.scw-date-badge {
+    position: absolute;
+    top: 0px;
+    right: 2px;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+.scw-badge-red { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+.scw-badge-orange { background: #ffedd5; color: #ea580c; border: 1px solid #fed7aa; }
 
 .scw-empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
