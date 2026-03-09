@@ -1,25 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { User } from '../types';
-import { useToast } from '../contexts';
-import { ToastContextType } from '../contexts/ToastContext';
-import { ExpiryService, ExpiryConfig, ExpiryReport } from '../services';
-import ConfirmModal from '../components/ConfirmModal';
-import SubSidebar, { SubSidebarGroup } from '../components/SubSidebar';
+import { User } from '../../types';
+import { useToast } from '../../contexts';
+import { ToastContextType } from '../../contexts/ToastContext';
+import { ExpiryService, ExpiryConfig, ExpiryReport } from '../../services';
+import ConfirmModal from '../../components/ConfirmModal';
+import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
+import StockCheckAdmin from './StockCheckAdmin';
+import StockCheckWorker from './StockCheckWorker';
 import '../styles/hq-sidebar.css';
 
-type ExpiryTab = 'CONFIG' | 'SCHEDULE' | 'REPORTS';
+type ExpiryTab = 'CONFIG' | 'SCHEDULE' | 'REPORTS' | 'STOCKCHECK_ADMIN' | 'STOCKCHECK_WORKER';
 
 const TAB_META: Record<ExpiryTab, { label: string; desc: string }> = {
     CONFIG: { label: 'Cấu Hình Ngưỡng', desc: 'Thiết lập ngưỡng cận date & NSX theo loại sản phẩm' },
     SCHEDULE: { label: 'Lịch Quét', desc: 'Lên lịch nhắc nhở kiểm tra date tự động' },
     REPORTS: { label: 'Báo Cáo Date', desc: 'Tổng hợp kết quả kiểm date theo cửa hàng' },
+    STOCKCHECK_ADMIN: { label: 'Danh Mục Cần Kiểm', desc: 'Tạo danh mục sản phẩm yêu cầu kiểm date hằng đêm' },
+    STOCKCHECK_WORKER: { label: 'Kiểm Date Hàng Ngày', desc: 'Thực hiện kiểm tra hạn sử dụng theo danh mục yêu cầu' },
 };
+
+const isAdmin = (user: User) => ['ADMIN', 'MANAGER'].includes(user.role || '');
 
 const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     const toast = useToast();
     const [subTab, setSubTab] = useState<ExpiryTab>('CONFIG');
-    const [currentDate, setCurrentDate] = useState(new Date().toISOString().slice(0, 10));
+    const [currentDate, setCurrentDate] = useState(() => {
+        const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
+        if (vnNow.getUTCHours() < 6) {
+            vnNow.setUTCDate(vnNow.getUTCDate() - 1);
+        }
+        return vnNow.toISOString().slice(0, 10);
+    });
     const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
@@ -38,6 +50,13 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
             label: 'BÁO CÁO',
             items: [
                 { id: 'REPORTS', label: 'Báo Cáo Date' },
+            ]
+        },
+        {
+            label: 'KIỂM DATE HẰNG ĐÊM',
+            items: [
+                { id: 'STOCKCHECK_WORKER', label: 'Kiểm Date Hàng Ngày' },
+                ...(isAdmin(user) ? [{ id: 'STOCKCHECK_ADMIN', label: 'Danh Mục Cần Kiểm' }] : []),
             ]
         }
     ];
@@ -89,6 +108,13 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
                         {subTab === 'CONFIG' && <ExpiryConfigView toast={toast} />}
                         {subTab === 'SCHEDULE' && <ExpiryScheduleView toast={toast} />}
                         {subTab === 'REPORTS' && <ExpiryReportsView toast={toast} />}
+                        {subTab === 'STOCKCHECK_ADMIN' && <StockCheckAdmin />}
+                        {subTab === 'STOCKCHECK_WORKER' && (
+                            <StockCheckWorker
+                                user={user as any}
+                                currentDate={currentDate}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { User, ExpiryProduct } from '../types';
-import { ExpiryService } from '../services';
-import type { ExpiryConfig } from '../services/expiry';
-import { useToast } from '../contexts';
-import PortalHeader from '../components/PortalHeader';
+import type { User, ExpiryProduct } from '../../types';
+import { ExpiryService } from '../../services';
+import type { ExpiryConfig } from '../../services/expiry';
+import { useToast } from '../../contexts';
+import PortalHeader from '../../components/PortalHeader';
 
 interface ExpiryProps {
   user: User;

@@ -23,6 +23,8 @@ const TAB_META: Record<TabId, { label: string; desc: string }> = {
     RECOVERY: { label: 'Truy Thu', desc: 'Theo dõi & xử lý truy thu' },
 };
 
+const isAdmin = (user: User) => ['ADMIN', 'MANAGER'].includes(user.role || '');
+
 const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
     const toast = useToast();
     const [activeTab, setActiveTab] = useState<TabId>('OVERVIEW');
@@ -104,7 +106,6 @@ const InventoryHQ: React.FC<InventoryHQProps> = ({ user }) => {
 
     return (
         <div className="hq-page">
-            {/* Breadcrumb in topbar */}
             {topbarNode && createPortal(
                 <div className="hq-breadcrumb">
                     <span className="material-symbols-outlined hq-breadcrumb-icon">inventory_2</span>
