@@ -18,7 +18,6 @@ export const DIFF_REASON_OPTIONS = [
 ] as const;
 export type DiffReason = typeof DIFF_REASON_OPTIONS[number]['value'];
 
-/** Resolution types covering all discrepancy scenarios */
 export const RESOLUTION_CONFIG = {
     PENDING: {
         label: 'Chờ phân loại',
@@ -72,11 +71,7 @@ export const RESOLUTION_CONFIG = {
 } as const;
 
 export type DiscrepancyResolution = keyof typeof RESOLUTION_CONFIG;
-
-/** Which resolutions auto-create a recovery charge */
 export const RECOVERY_RESOLUTIONS: DiscrepancyResolution[] = ['LOST_GOODS'];
-
-/** Which resolutions need a recheck date */
 export const RECHECK_RESOLUTIONS: DiscrepancyResolution[] = ['MISPLACED'];
 export interface ReportSummary {
     id: string;
@@ -149,7 +144,6 @@ export interface MasterItem {
     unitPrice: number;
 }
 
-/** Full detail item returned from getReportItems — includes recheck & recovery fields */
 export interface ReportItem {
     id: string;
     product_name: string;
@@ -166,25 +160,21 @@ export interface ReportItem {
     recheck_due_date: string | null;
     recheck_note: string | null;
     recheck_completed_at: string | null;
-    /** ID of recovery_items record created for this item, if any */
     recovery_id?: string | null;
     source_report_id?: string | null;
 }
-
-/** Input for flagging an item as misplaced / needing recheck */
 export interface FlagRecheckInput {
     itemId: string;
-    recheckDueDate: string;         // ISO date string YYYY-MM-DD
+    recheckDueDate: string;
     note?: string;
 }
 
-/** Input for creating a recovery charge from a discrepancy item */
 export interface CreateRecoveryFromDiscrepancyInput {
     itemId: string;
     reportId: string;
     storeId: string;
-    employeeId?: string;            // assigned to (optional)
-    quantity: number;               // abs(diff)
+    employeeId?: string;
+    quantity: number;
     unitPrice: number;
     reason: string;
 }

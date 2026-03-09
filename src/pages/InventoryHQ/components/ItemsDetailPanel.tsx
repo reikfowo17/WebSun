@@ -40,7 +40,6 @@ const REPORT_STATUS_MAP: Record<string, { label: string; color: string; bg: stri
 
 const getStatusInfo = (s: string) => STATUS_MAP[s] || STATUS_MAP.UNCHECKED;
 
-/* ── Resolution option list for the dropdown (ordered) ── */
 const RESOLUTION_ORDER: DiscrepancyResolution[] = [
     'PENDING',
     'LOST_GOODS',
@@ -51,7 +50,6 @@ const RESOLUTION_ORDER: DiscrepancyResolution[] = [
     'RESOLVED_INTERNAL',
 ];
 
-/* ══════════════ Sub-component: per-item action panel ══════════════ */
 interface ItemActionPanelProps {
     item: ReportItem;
     reportId?: string;
@@ -88,7 +86,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
         }
     };
 
-    /* Auto-save note with debounce */
     const handleNoteChange = (val: string) => {
         setAdminNote(val);
         if (noteTimer.current) clearTimeout(noteTimer.current);
@@ -100,7 +97,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
         }, 800);
     };
 
-    /* Save recheck date */
     const handleRecheckDateChange = async (date: string) => {
         setRecheckDate(date);
         setSaving(true);
@@ -115,7 +111,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
         }
     };
 
-    /* Create recovery charge */
     const handleCreateRecovery = async () => {
         if (!unitPrice || Number(unitPrice) < 0) return;
         setSavingRecovery(true);
@@ -139,7 +134,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
 
     return (
         <div className="iap-root">
-            {/* Resolution dropdown */}
             <div className="iap-field">
                 <label className="iap-label">
                     <span className="material-symbols-outlined" style={{ fontSize: 13 }}>category</span>
@@ -168,7 +162,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
                 <p className="iap-desc">{RESOLUTION_CONFIG[resolution].description}</p>
             </div>
 
-            {/* Recheck date picker (only for MISPLACED) */}
             {needsRecheck && (
                 <div className="iap-field iap-field--recheck">
                     <label className="iap-label">
@@ -191,7 +184,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
                 </div>
             )}
 
-            {/* Recovery charge form (only for LOST_GOODS) */}
             {needsRecovery && (
                 <div className="iap-field iap-field--recovery">
                     <label className="iap-label">
@@ -241,7 +233,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
                 </div>
             )}
 
-            {/* Admin note */}
             <div className="iap-field">
                 <label className="iap-label">
                     <span className="material-symbols-outlined" style={{ fontSize: 13 }}>edit_note</span>
@@ -259,7 +250,6 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
     );
 };
 
-/* ══════════════ Main Component ══════════════ */
 const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
     storeId, storeCode, storeName = '', checkDate, shift, reportId,
     isOpen, onClose = () => { }, mode = 'panel', submittedBy, reportStatus,
@@ -273,7 +263,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
     const [animateIn, setAnimateIn] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
-    // Animate open/close (panel mode only)
     useEffect(() => {
         if (isInline) return;
         if (isOpen) {
@@ -283,7 +272,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         }
     }, [isOpen, isInline]);
 
-    // Fetch items
     useEffect(() => {
         if (!isOpen || !storeId || !checkDate) return;
         let cancelled = false;
@@ -301,7 +289,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         return () => { cancelled = true; };
     }, [isOpen, storeId, checkDate, shift]);
 
-    // Close on Escape (panel only)
     useEffect(() => {
         if (!isOpen || isInline) return;
         const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
@@ -321,7 +308,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
 
     if (!isOpen) return null;
 
-    /* ── Filter & search ── */
     const discrepant = items.filter(i => i.diff !== null && i.diff !== 0);
     const filteredItems = items.filter(item => {
         if (filter !== 'ALL') {
@@ -341,7 +327,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         return true;
     });
 
-    /* ── Counts ── */
     const counts = {
         ALL: items.length,
         MATCHED: items.filter(i => i.status === 'MATCHED').length,
@@ -354,7 +339,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
     const resPending = discrepant.filter(i => !i.resolution || i.resolution === 'PENDING').length;
     const reportSt = reportStatus ? REPORT_STATUS_MAP[reportStatus] : null;
 
-    /* ── Render table row ── */
     const renderRow = (item: ReportItem, idx: number) => {
         const si = getStatusInfo(item.status);
         const hasDiff = item.diff !== null && item.diff !== 0;
@@ -419,7 +403,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                     </td>
                 </tr>
 
-                {/* Expanded action panel */}
                 {hasDiff && isExpanded && (
                     <tr className="sp-row--action-panel">
                         <td colSpan={8} style={{ padding: 0 }}>
@@ -438,10 +421,8 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         );
     };
 
-    /* ── Shared content ── */
     const renderContent = () => (
         <>
-            {/* Pending resolution notice */}
             {resPending > 0 && (
                 <div className="sp-notice sp-notice--warn">
                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>warning</span>
@@ -452,7 +433,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                 </div>
             )}
 
-            {/* ── Toolbar ── */}
             <div className="sp-toolbar">
                 <div className="sp-filters">
                     {(['ALL', 'DISCREPANT', 'MISSING', 'OVER', 'MATCHED', 'UNCHECKED'] as const).map(f => {
@@ -491,7 +471,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                 </div>
             </div>
 
-            {/* Resolution filter (only when DISCREPANT tab active) */}
             {filter === 'DISCREPANT' && discrepant.length > 0 && (
                 <div className="sp-res-filter-bar">
                     <span className="sp-res-filter-label">Lọc hướng xử lý:</span>
@@ -519,7 +498,6 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                 </div>
             )}
 
-            {/* ── Items Table ── */}
             <div className={isInline ? 'sp-content sp-content--inline' : 'sp-content'}>
                 {loading ? (
                     <div className="sp-loading">
@@ -671,9 +649,7 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
 
 export default ItemsDetailPanel;
 
-/* ═══════════════════════════ CSS ═══════════════════════════ */
 const CSS_TEXT = `
-/* ── Backdrop ── */
 .sp-backdrop {
     position:fixed; inset:0; z-index:998;
     background:rgba(15,23,42,.35);
@@ -683,7 +659,6 @@ const CSS_TEXT = `
 }
 .sp-backdrop--visible { opacity:1; pointer-events:auto; }
 
-/* ── Side Panel ── */
 .sp-panel {
     position:fixed; top:0; right:0; bottom:0; z-index:999;
     width:min(640px, 92vw);
@@ -696,7 +671,6 @@ const CSS_TEXT = `
 }
 .sp-panel--open { transform:translateX(0); }
 
-/* ── Header ── */
 .sp-header {
     padding:20px 24px 0;
     border-bottom:1px solid #e5e7eb;
@@ -718,7 +692,6 @@ const CSS_TEXT = `
 .sp-meta-sep { color:#cbd5e1; font-size:10px; }
 .sp-report-badge { padding:4px 12px; border-radius:7px; font-size:11px; font-weight:700; white-space:nowrap; align-self:flex-start; margin-top:2px; }
 
-/* ── Stats Row ── */
 .sp-stats-row { display:flex; gap:2px; padding:12px 0; }
 .sp-stat { flex:1; text-align:center; padding:8px 4px; border-radius:10px; background:#f8fafc; }
 .sp-stat--ok { background:#f0fdf44d; }
@@ -732,7 +705,6 @@ const CSS_TEXT = `
 .sp-stat--warn .sp-stat-val { color:#d97706; }
 .sp-stat-label { display:block; font-size:10px; color:#94a3b8; font-weight:600; margin-top:2px; text-transform:uppercase; letter-spacing:.02em; }
 
-/* ── Notice ── */
 .sp-notice {
     display:flex; align-items:center; gap:8px;
     padding:8px 16px; font-size:12px; font-weight:600;
@@ -741,7 +713,6 @@ const CSS_TEXT = `
 }
 .sp-notice--warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
 
-/* ── Toolbar ── */
 .sp-toolbar {
     display:flex; align-items:center; gap:8px; flex-wrap:wrap;
     padding:12px 24px; border-bottom:1px solid #f1f5f9;
