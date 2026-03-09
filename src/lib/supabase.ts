@@ -1,9 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-// ===========================================================================
-// SUPABASE CLIENT CONFIGURATION
-// ===========================================================================
-
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
@@ -19,7 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     fetch: (url, options) => {
-      return fetch(url, { ...options, signal: AbortSignal.timeout(15_000) });
+      return fetch(url, { ...options, signal: AbortSignal.timeout(60_000) });
     },
   },
 });
@@ -27,10 +23,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(supabaseUrl && supabaseAnonKey);
 };
-
-// ===========================================================================
-// RETRY UTILITY — Exponential backoff for resilient API calls
-// ===========================================================================
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

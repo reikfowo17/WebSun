@@ -63,11 +63,11 @@ interface ShiftContextType {
     // Assets
     assets: ShiftAsset[];
     assetChecks: ShiftAssetCheck[];
-    handleAssetCheck: (assetId: string, okCount: number, damagedCount: number) => void;
+    handleAssetCheck: (assetId: string, okCount: number | null, damagedCount: number) => void;
 
     // Handover
     handoverItems: ShiftInventoryHandover[];
-    handleHandoverUpdate: (item: ShiftInventoryHandover, field: 'system_qty' | 'actual_qty', value: number) => void;
+    handleHandoverUpdate: (item: ShiftInventoryHandover, field: 'system_qty' | 'actual_qty', value: number | null) => void;
 
     // Quick Reports
     quickReports: ShiftQuickReport[];
@@ -384,10 +384,10 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         } catch (err) { console.error('[ShiftContext] Toggle error:', err); }
     }, [shift, isCompleted, user.id]);
 
-    const handleAssetCheck = useCallback(async (assetId: string, okCount: number, damagedCount: number) => {
+    const handleAssetCheck = useCallback(async (assetId: string, okCount: number | null, damagedCount: number) => {
         if (!shift) return;
         try {
-            const updated = await AssetService.upsertCheck(shift.id, assetId, okCount, damagedCount, user.id);
+            const updated = await AssetService.upsertCheck(shift.id, assetId, okCount as number, damagedCount, user.id);
             setAssetChecks(prev => {
                 const idx = prev.findIndex(c => c.asset_id === assetId);
                 if (idx >= 0) { const arr = [...prev]; arr[idx] = updated; return arr; }
@@ -396,7 +396,7 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         } catch (err) { console.error('[ShiftContext] Asset check error:', err); }
     }, [shift, user.id]);
 
-    const handleHandoverUpdate = useCallback(async (item: ShiftInventoryHandover, field: 'system_qty' | 'actual_qty', value: number) => {
+    const handleHandoverUpdate = useCallback(async (item: ShiftInventoryHandover, field: 'system_qty' | 'actual_qty', value: number | null) => {
         try {
             const updated = await HandoverService.updateItem(item.id, { [field]: value });
             setHandoverItems(prev => prev.map(h => h.id === updated.id ? updated : h));

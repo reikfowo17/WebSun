@@ -112,6 +112,16 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
         });
     };
 
+    const handleToggle = async (product: HandoverProduct) => {
+        try {
+            const updated = await HandoverService.updateProduct(product.id, { is_active: !product.is_active });
+            setProducts(prev => prev.map(p => p.id === product.id ? updated : p));
+            toast.success(`Đã ${updated.is_active ? 'bật' : 'tắt'} "${product.product_name}"`);
+        } catch (err: unknown) {
+            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+        }
+    };
+
     const handleCancel = () => {
         setEditingId(null);
         setIsAdding(false);
@@ -126,7 +136,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                         <div className="stg-toolbar-left">
                             <span className="stg-badge">{products.length} sản phẩm</span>
                             <span style={{ fontSize: 12, color: 'var(--stg-text-muted)' }}>
-                                Danh sách SP cố định kiểm tồn khi giao ca
+                                · {products.filter(p => p.is_active).length} đang hoạt động
                             </span>
                         </div>
                         <div className="stg-toolbar-right">
@@ -156,25 +166,27 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                     <table className="stg-table stg-table-fixed">
                         <colgroup>
                             <col style={{ width: '6%' }} />
-                            <col style={{ width: '30%' }} />
-                            <col style={{ width: '22%' }} />
-                            <col style={{ width: '26%' }} />
-                            <col style={{ width: '16%' }} />
+                            <col style={{ width: '28%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '11%' }} />
                         </colgroup>
                         <thead>
                             <tr>
                                 <th>STT</th>
                                 <th>TÊN SẢN PHẨM</th>
                                 <th>BARCODE</th>
+                                <th style={{ textAlign: 'center' }}>TRẠNG THÁI</th>
                                 <th>CỬA HÀNG</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>Đang tải...</td></tr>
+                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>Đang tải...</td></tr>
                             ) : products.length === 0 && !isAdding ? (
-                                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>
+                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>
                                     Chưa có SP giao ca nào. Thêm tối đa 20 SP chính để nhân viên kiểm tồn.
                                 </td></tr>
                             ) : (
@@ -182,7 +194,9 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                     {filtered.map((product, idx) => {
                                         const isEditing = editingId === product.id;
                                         return (
-                                            <tr key={product.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}>
+                                            <tr key={product.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}
+                                                style={{ opacity: !product.is_active && !isEditing ? 0.55 : 1 }}
+                                            >
                                                 <td style={{ paddingLeft: 16, fontWeight: 600, color: 'var(--stg-text-muted)' }}>{idx + 1}</td>
                                                 <td style={{ fontWeight: 500, color: '#111827', fontSize: 13, lineHeight: '1.4' }}>
                                                     {isEditing ? (
@@ -197,6 +211,18 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                                     ) : (
                                                         <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--stg-text-muted)' }}>{product.barcode || '—'}</span>
                                                     )}
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                                        <span className={`stg-status-dot ${product.is_active ? 'active' : 'inactive'}`} />
+                                                        <button
+                                                            className={`stg-toggle-btn ${product.is_active ? 'active' : 'inactive'}`}
+                                                            onClick={() => handleToggle(product)}
+                                                            disabled={saving || isEditing}
+                                                        >
+                                                            <span className="stg-toggle-knob" />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     {isEditing ? (
@@ -256,6 +282,14 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                                             </td>
                                             <td>
                                                 <input type="text" className="stg-input stg-input-mono" value={draft.barcode || ''} onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))} placeholder="Barcode" />
+                                            </td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                                    <span className="stg-status-dot active" />
+                                                    <button className="stg-toggle-btn active" disabled>
+                                                        <span className="stg-toggle-knob" />
+                                                    </button>
+                                                </div>
                                             </td>
                                             <td>
                                                 <MultiStoreSelect

@@ -86,6 +86,9 @@ export const ScheduleService = {
         note?: string
     ): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        if (workDate < formatLocalDate(new Date())) {
+            return { success: false, message: 'Không thể đăng ký lịch làm trong quá khứ' };
+        }
         try {
             const userId = await getCurrentUserId();
             const { error } = await supabase
@@ -107,6 +110,17 @@ export const ScheduleService = {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
             const userId = await getCurrentUserId();
+
+            const { data: reg, error: fetchErr } = await supabase
+                .from('schedule_registrations')
+                .select('work_date')
+                .eq('id', regId)
+                .single();
+            if (fetchErr || !reg) return { success: false, message: 'Không tìm thấy ca đăng ký' };
+            if (reg.work_date < formatLocalDate(new Date())) {
+                return { success: false, message: 'Không thể hủy lịch làm trong quá khứ' };
+            }
+
             const { error } = await supabase
                 .from('schedule_registrations')
                 .delete()

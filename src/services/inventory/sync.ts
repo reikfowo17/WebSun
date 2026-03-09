@@ -10,10 +10,21 @@ export async function syncKiotVietStock(storeCode: string, shift: number): Promi
     }
 
     try {
-        // Call Edge Function to get stock map
+        const { data: store, error: storeErr } = await supabase
+            .from('stores')
+            .select('id, kiotviet_branch_name')
+            .eq('code', storeCode)
+            .single();
+
+        if (storeErr || !store) {
+            return { success: false, message: 'Cửa hàng không tồn tại trong hệ thống' };
+        }
+
+        const branchName = store.kiotviet_branch_name || storeCode;
+
         const { data: fnData, error: fnErr } = await supabase
             .functions.invoke('kiotviet-stock', {
-                body: { storeCode }
+                body: { storeCode: storeCode, branchName: branchName }
             });
 
         if (fnErr || !fnData?.stockMap) {
@@ -22,17 +33,6 @@ export async function syncKiotVietStock(storeCode: string, shift: number): Promi
         }
 
         const stockMap: Record<string, number> = fnData.stockMap;
-
-        // Get store ID
-        const { data: store } = await supabase
-            .from('stores')
-            .select('id')
-            .eq('code', storeCode)
-            .single();
-
-        if (!store) {
-            return { success: false, message: 'Cửa hàng không tồn tại' };
-        }
 
         const { data: dateData } = await supabase.rpc('get_inventory_date', { p_shift: shift });
         const today = dateData || new Date().toISOString().split('T')[0];

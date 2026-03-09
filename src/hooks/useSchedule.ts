@@ -26,7 +26,6 @@ function formatDateShort(dateStr: string): string {
     return `${d.getDate()}/${d.getMonth() + 1}`;
 }
 
-/** Parse shift time string '06:00 - 14:00' into hours (e.g. 8) */
 function getShiftHours(timeStr: string): number {
     const match = timeStr.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
     if (!match) return 8;
@@ -37,11 +36,9 @@ function getShiftHours(timeStr: string): number {
 }
 
 export function useSchedule(isAdmin: boolean, toast: ToastFn) {
-    // ── Stable refs (avoid re-creating callbacks) ──
     const toastRef = useRef(toast);
     toastRef.current = toast;
 
-    // ── State ──
     const [empTab, setEmpTab] = useState<EmpTab>('MY_SCHEDULE');
     const [weekOffset, setWeekOffset] = useState(0);
     const [stores, setStores] = useState<StoreConfig[]>([]);
@@ -55,7 +52,6 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
     const [assignPopup, setAssignPopup] = useState<{ date: string; shift: number } | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
-    // ── Derived ──
     const baseDate = useMemo(() => {
         const d = new Date();
         d.setDate(d.getDate() + weekOffset * 7);
@@ -64,17 +60,15 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
 
     const weekDates = useMemo(() => getWeekDates(baseDate), [baseDate]);
 
-    // LOGIC-01: today refreshes at midnight
     const [today, setToday] = useState(() => todayStr());
     useEffect(() => {
         const now = new Date();
         const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
         const tid = setTimeout(() => {
             setToday(todayStr());
-            // After first midnight, check every minute
             const interval = setInterval(() => setToday(todayStr()), 60_000);
             return () => clearInterval(interval);
-        }, msToMidnight + 500); // +500ms buffer
+        }, msToMidnight + 500);
         return () => clearTimeout(tid);
     }, []);
     const weekLabel = useMemo(() => `${formatDateShort(weekDates[0])} — ${formatDateShort(weekDates[6])}`, [weekDates]);
@@ -90,7 +84,6 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
 
     const allShiftIds = useMemo(() => shifts.map(s => s.id), [shifts]);
 
-    // ── O(1) slot lookup via Map (PERF-01) ──
     const slotLookup = useMemo(() => {
         const regMap = new Map<string, ScheduleRegistration[]>();
         const asgnMap = new Map<string, ScheduleAssignment[]>();
@@ -124,14 +117,12 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         [slotLookup]
     );
 
-    // ── Pre-built shift Map (PERF-01) ──
     const shiftMap = useMemo(() => {
         const m = new Map<number, ShiftConfig>();
         shifts.forEach(s => m.set(s.id, s));
         return m;
     }, [shifts]);
 
-    // ── Stats (LOGIC-03: use max_slots for accurate total) ──
     const totalSlots = useMemo(() => {
         return shifts.reduce((sum, s) => sum + (s.max_slots || 1) * 7, 0);
     }, [shifts]);
@@ -144,7 +135,6 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
     }, 0), [assignments, shiftMap]);
     const regCount = new Set(registrations.map(r => `${r.work_date}-${r.shift}`)).size;
 
-    // ── Init: Load stores + shifts (with AbortController cleanup — ARCH-02) ──
     useEffect(() => {
         let cancelled = false;
 
@@ -166,25 +156,20 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         })();
 
         return () => { cancelled = true; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Load employees for selected store (admin only)
     useEffect(() => {
         if (isAdmin && selectedStore) ScheduleService.getAllEmployees(selectedStore).then(setEmployees);
     }, [isAdmin, selectedStore]);
-
-    // Load schedule data (PERF-02: use toastRef to avoid dep on toast)
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (showLoading = true) => {
         if (!selectedStore) return;
-        setLoading(true);
+        if (showLoading) setLoading(true);
         try {
             if (isAdmin) {
                 const data = await ScheduleService.getWeekSchedule(baseDate, selectedStore);
                 setRegistrations(data.registrations);
                 setAssignments(data.assignments);
             } else {
-                // LOGIC-02: filter assignments by selectedStore
                 const [regs, asgns] = await Promise.all([
                     ScheduleService.getMyRegistrations(baseDate, selectedStore),
                     ScheduleService.getMyAssignments(baseDate, selectedStore),
@@ -195,19 +180,16 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         } catch {
             toastRef.current.error('Lỗi tải lịch làm');
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     }, [baseDate, selectedStore, isAdmin]);
 
-    useEffect(() => { loadData(); }, [loadData]);
+    useEffect(() => { loadData(true); }, [loadData]);
 
-    // ── Handlers ──
-    // UX-01: confirm before un-registering
     const toggleRegistration = async (date: string, shift: number) => {
         const existing = registrations.find(r => r.work_date === date && r.shift === shift && r.store_id === selectedStore);
 
         if (existing) {
-            // Confirm cancellation
             const sc = shiftMap.get(shift);
             setConfirmDialog({
                 title: 'Hủy đăng ký',
@@ -218,7 +200,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
                     try {
                         const r = await ScheduleService.cancelRegistration(existing.id);
                         r.success ? toastRef.current.info('Đã hủy đăng ký') : toastRef.current.error(r.message || 'Lỗi');
-                        await loadData();
+                        await loadData(false);
                     } catch {
                         toastRef.current.error('Lỗi hệ thống');
                     } finally {
@@ -233,7 +215,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         try {
             const r = await ScheduleService.registerAvailability(selectedStore, date, shift);
             r.success ? toastRef.current.success('Đã đăng ký') : toastRef.current.error(r.message || 'Lỗi');
-            await loadData();
+            await loadData(false);
         } catch {
             toastRef.current.error('Lỗi hệ thống');
         } finally {
@@ -250,7 +232,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
             const r = await ScheduleService.assignShift(userId, selectedStore, d, s);
             r.success ? toastRef.current.success('Đã xếp lịch') : toastRef.current.error(r.message || 'Lỗi');
             if (assignPopup) setAssignPopup(null);
-            await loadData();
+            await loadData(false);
         } catch {
             toastRef.current.error('Lỗi hệ thống');
         } finally {
@@ -263,7 +245,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         try {
             const r = await ScheduleService.removeAssignment(aId);
             r.success ? toastRef.current.success('Đã xóa') : toastRef.current.error(r.message || 'Lỗi');
-            await loadData();
+            await loadData(false);
         } catch {
             toastRef.current.error('Lỗi hệ thống');
         } finally {
@@ -276,7 +258,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         try {
             const r = await ScheduleService.copyPreviousWeekRegistrations(baseDate, selectedStore);
             r.success ? toastRef.current.success(r.message!) : toastRef.current.warning(r.message!);
-            await loadData();
+            await loadData(true);
         } catch {
             toastRef.current.error('Lỗi hệ thống');
         } finally {
@@ -289,7 +271,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         try {
             const r = await ScheduleService.copyPreviousWeekAssignments(baseDate, selectedStore);
             r.success ? toastRef.current.success(r.message!) : toastRef.current.warning(r.message!);
-            await loadData();
+            await loadData(true);
         } catch {
             toastRef.current.error('Lỗi hệ thống');
         } finally {
@@ -302,7 +284,7 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         try {
             const r = await ScheduleService.autoAssignShifts(baseDate, selectedStore, shifts);
             r.success ? toastRef.current.success(r.message!) : toastRef.current.warning(r.message!);
-            await loadData();
+            await loadData(true);
         } catch {
             toastRef.current.error('Lỗi hệ thống');
         } finally {
@@ -310,7 +292,6 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         }
     };
 
-    // ── Confirmation wrappers (UX-01) ──
     const confirmAutoAssign = () => {
         setConfirmDialog({
             title: 'Tự động xếp lịch',
@@ -336,7 +317,6 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
     };
 
     return {
-        // State
         empTab, setEmpTab,
         weekOffset, setWeekOffset,
         stores, shifts, selectedStore, setSelectedStore,
@@ -346,17 +326,13 @@ export function useSchedule(isAdmin: boolean, toast: ToastFn) {
         assignPopup, setAssignPopup,
         confirmDialog, setConfirmDialog,
 
-        // Derived
         baseDate, weekDates, today, weekLabel,
         shiftTree, allShiftIds,
 
-        // Helpers
         getRegsForSlot, getAsgnsForSlot, isRegistered, isAssignedSlot,
 
-        // Stats
         totalSlots, filledSlots, fillRate, emptySlots, totalHours, regCount,
 
-        // Handlers
         toggleRegistration, handleAssign,
         handleRemoveAssignment: confirmRemoveAssignment,
         handleCopyRegs,

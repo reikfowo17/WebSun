@@ -306,7 +306,16 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                                     type="number"
                                     inputMode="numeric"
                                     value={p.actualStock == null ? '' : p.actualStock}
-                                    onChange={e => updateField(String(p.id), 'actualStock', e.target.value)}
+                                    onChange={e => {
+                                      let val = e.target.value.replace(/\D/g, '');
+                                      if (val.length > 5) val = val.slice(0, 5);
+                                      updateField(String(p.id), 'actualStock', val);
+                                    }}
+                                    onKeyDown={e => {
+                                      if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) e.preventDefault();
+                                    }}
+                                    max={99999}
+                                    maxLength={5}
                                     className="w-full h-10 text-center font-bold text-lg bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-shadow"
                                     placeholder="-"
                                   />

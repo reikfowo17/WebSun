@@ -165,13 +165,12 @@ export interface ChecklistResponse {
     photo_url?: string;
     created_at: string;
     updated_at: string;
-    // Joined
     template?: ChecklistTemplate;
 }
 
 export interface ShiftAsset {
     id: string;
-    store_ids: string[] | null; // NULL = all stores, array = specific stores
+    store_ids: string[] | null;
     name: string;
     unit_value: number;
     expected_ok: number;
@@ -186,19 +185,17 @@ export interface ShiftAssetCheck {
     id: string;
     shift_id: string;
     asset_id: string;
-    ok_count: number;
+    ok_count: number | null;
     damaged_count: number;
     note?: string;
     checked_by?: string;
     checked_at: string;
-    // Joined
     asset?: ShiftAsset;
 }
 
-// FIX: Handover product template (admin-configured fixed list)
 export interface HandoverProduct {
     id: string;
-    store_ids: string[] | null; // NULL = all stores, array = specific stores
+    store_ids: string[] | null;
     product_name: string;
     barcode?: string;
     sort_order: number;
@@ -210,11 +207,11 @@ export interface HandoverProduct {
 export interface ShiftInventoryHandover {
     id: string;
     shift_id: string;
-    product_template_id?: string;  // FIX: Link to template
+    product_template_id?: string;
     product_name: string;
     barcode?: string;
     system_qty: number;
-    actual_qty: number;
+    actual_qty: number | null;
     difference: number;
     note?: string;
     checked_by?: string;

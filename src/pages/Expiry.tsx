@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { User, ExpiryProduct } from '../types';
 import { ExpiryService } from '../services';
+import type { ExpiryConfig } from '../services/expiry';
 import { useToast } from '../contexts';
 import PortalHeader from '../components/PortalHeader';
 
@@ -10,16 +11,11 @@ interface ExpiryProps {
   onBack?: () => void;
 }
 
-const EXPIRY_CONFIG = {
-  NEAR_EXPIRY_DAYS: 5,
-  PRODUCTION_DAYS_THRESHOLD: 7,
-  PRODUCT_TYPES: ['TỦ MÁT', 'BÁNH MÌ', 'KHO KHÔ', 'KHO LẠNH']
-};
-
 const Expiry: React.FC<ExpiryProps> = ({ user }) => {
   const navigate = useNavigate();
   const toast = useToast();
-  const [type, setType] = useState('TỦ MÁT');
+  const [configs, setConfigs] = useState<ExpiryConfig[]>([]);
+  const [type, setType] = useState('');
   const [products, setProducts] = useState<ExpiryProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -28,10 +24,26 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    loadConfigs();
+  }, []);
+
+  const loadConfigs = async () => {
+    const res = await ExpiryService.getConfigs();
+    if (res.success && res.configs) {
+      const enabledConfigs = res.configs.filter(c => c.enabled);
+      setConfigs(enabledConfigs);
+      if (enabledConfigs.length > 0) {
+        setType(enabledConfigs[0].type);
+      }
+    }
+  };
 
   useEffect(() => {
-    loadData();
-    setSelectedItems(new Set());
+    if (type) {
+      loadData();
+      setSelectedItems(new Set());
+    }
   }, [type, user.store]);
 
   const loadData = async () => {
@@ -41,10 +53,15 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
       const res = await ExpiryService.getItems(storeCode, type);
 
       if (res.success && res.products) {
+        // Find current config
+        const currentConfig = configs.find(c => c.type === type);
+        const nearExpiryDays = currentConfig?.nearExpiryDays ?? 5;
+        const productionThreshold = currentConfig?.productionThreshold ?? 7;
+
         // Enhance with computed status following GAS logic
         const enhanced = res.products.map(p => {
-          const daysLeft = computeDaysLeft(p.expiryDate, p.mfgDate);
-          const status = computeStatus(daysLeft);
+          const daysLeft = computeDaysLeft(p.expiryDate, p.mfgDate, productionThreshold);
+          const status = computeStatus(daysLeft, nearExpiryDays);
           return { ...p, daysLeft, status };
         });
         setProducts(enhanced);
@@ -58,15 +75,15 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
   };
 
   /** GAS-style: layTrangThai(daysDiff, threshold) */
-  const computeStatus = (daysLeft: number | null): string => {
+  const computeStatus = (daysLeft: number | null, nearExpiryDays: number): string => {
     if (daysLeft === null) return 'UNKNOWN';
     if (daysLeft < 0) return 'EXPIRED';
-    if (daysLeft <= EXPIRY_CONFIG.NEAR_EXPIRY_DAYS) return 'NEAR_EXPIRY';
+    if (daysLeft <= nearExpiryDays) return 'NEAR_EXPIRY';
     return 'SAFE';
   };
 
   /** Compute days left from expiry date or production date */
-  const computeDaysLeft = (expiryDate: string | null, mfgDate: string | null): number | null => {
+  const computeDaysLeft = (expiryDate: string | null, mfgDate: string | null, productionThreshold: number): number | null => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -81,7 +98,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
       const mfg = new Date(mfgDate);
       mfg.setHours(0, 0, 0, 0);
       const pseudoExpiry = new Date(mfg);
-      pseudoExpiry.setDate(pseudoExpiry.getDate() + EXPIRY_CONFIG.PRODUCTION_DAYS_THRESHOLD);
+      pseudoExpiry.setDate(pseudoExpiry.getDate() + productionThreshold);
       return Math.floor((pseudoExpiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     }
 
@@ -112,7 +129,9 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
     return filtered.sort((a, b) => (a.daysLeft ?? 999) - (b.daysLeft ?? 999));
   }, [products, filter, searchQuery]);
 
-  // Stats
+  // Stats and dynamic current config
+  const currentConfig = useMemo(() => configs.find(c => c.type === type), [configs, type]);
+
   const stats = useMemo(() => ({
     total: products.length,
     nearExpiry: products.filter(p => p.status === 'NEAR_EXPIRY').length,
@@ -285,7 +304,7 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
                 <span className="text-xs font-bold text-amber-600 uppercase">Cận Date</span>
               </div>
               <p className="text-3xl font-black text-amber-600" style={{ letterSpacing: '-1px' }}>{stats.nearExpiry}</p>
-              <p className="text-[10px] text-gray-400 mt-1">≤ {EXPIRY_CONFIG.NEAR_EXPIRY_DAYS} ngày</p>
+              <p className="text-[10px] text-gray-400 mt-1">≤ {currentConfig?.nearExpiryDays ?? 5} ngày</p>
             </div>
 
             <div
@@ -322,16 +341,16 @@ const Expiry: React.FC<ExpiryProps> = ({ user }) => {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Product Type Tabs */}
             <div className="flex p-1 bg-white rounded-xl overflow-x-auto max-w-full" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.03)' }}>
-              {EXPIRY_CONFIG.PRODUCT_TYPES.map(t => (
+              {configs.map(c => (
                 <button
-                  key={t}
-                  onClick={() => setType(t)}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${type === t
+                  key={c.id}
+                  onClick={() => setType(c.type)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${type === c.type
                     ? 'bg-gradient-to-r from-gray-800 to-gray-700 text-white shadow-md'
                     : 'text-gray-500 hover:bg-gray-50'
                     }`}
                 >
-                  {t}
+                  {c.type}
                 </button>
               ))}
             </div>

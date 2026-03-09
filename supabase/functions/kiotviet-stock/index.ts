@@ -61,10 +61,11 @@ Deno.serve(async (req: Request) => {
     try {
         const body = await req.json();
         const storeCode = body.storeCode;
-        console.log('[kiotviet-stock] Request storeCode:', storeCode);
+        const branchName = body.branchName;
+        console.log('[kiotviet-stock] Request storeCode/branchName:', storeCode, branchName);
 
         if (!storeCode) {
-            return jsonResponse({ success: false, error: 'Thiếu storeCode' }, 400);
+            return jsonResponse({ success: false, error: 'Thiếu storeCode' }, 200);
         }
 
         const retailer = Deno.env.get('KIOTVIET_RETAILER');
@@ -73,14 +74,14 @@ Deno.serve(async (req: Request) => {
 
         if (!retailer || !clientId || !clientSecret) {
             console.error('[kiotviet-stock] Missing env vars:', { retailer: !!retailer, clientId: !!clientId, clientSecret: !!clientSecret });
-            return jsonResponse({ success: false, error: 'Thiếu cấu hình KiotViet trên máy chủ' }, 400);
+            return jsonResponse({ success: false, error: 'Thiếu cấu hình KiotViet trên máy chủ' }, 200);
         }
 
         // 1. Get Token  
         const token = await getKiotVietToken(clientId, clientSecret);
 
-        // 2. Resolve branch  
-        const targetBranchName = BRANCH_MAPPING[storeCode] || storeCode;
+        // 2. Resolve branch (Priority: branchName from frontend > Mapping dict > storeCode)
+        const targetBranchName = branchName || BRANCH_MAPPING[storeCode] || storeCode;
         console.log('[kiotviet-stock] Resolving branch:', targetBranchName);
 
         const branchesRes = await fetch(`${API_URL}/branches`, {
@@ -90,7 +91,7 @@ Deno.serve(async (req: Request) => {
         if (!branchesRes.ok) {
             const errText = await branchesRes.text();
             console.error(`[kiotviet-stock] Branches API error: ${branchesRes.status}`, errText);
-            return jsonResponse({ success: false, error: `KiotViet branches API error: ${branchesRes.status}` }, 502);
+            return jsonResponse({ success: false, error: `KiotViet branches API error: ${branchesRes.status}` }, 200);
         }
 
         const branchesData = await branchesRes.json();
@@ -104,8 +105,8 @@ Deno.serve(async (req: Request) => {
         if (!branch) {
             return jsonResponse({
                 success: false,
-                error: `Không tìm thấy chi nhánh: "${targetBranchName}". Có: ${allBranches.map((b: any) => b.branchName).join(', ')}`
-            }, 404);
+                error: `Không tìm thấy chi nhánh KiotViet phù hợp với chuỗi định danh "${targetBranchName}". Vui lòng kiểm tra lại cấu hình tên chi nhánh KiotViet trong cài đặt cửa hàng.`
+            }, 200);
         }
 
         const branchId = branch.id;
@@ -152,6 +153,6 @@ Deno.serve(async (req: Request) => {
 
     } catch (e: any) {
         console.error('[kiotviet-stock] Unhandled error:', e.message, e.stack);
-        return jsonResponse({ success: false, error: e.message }, 500);
+        return jsonResponse({ success: false, error: e.message }, 200);
     }
 });
