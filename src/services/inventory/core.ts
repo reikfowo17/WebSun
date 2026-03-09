@@ -1,5 +1,12 @@
 import { supabase, isSupabaseConfigured } from "../../lib/supabase";
-import { REPORT_STATUS, DIFF_REASON_OPTIONS, ReportStatus, DiffReason, ReportSummary, ReportDetail, ReviewResult, BulkReviewResult, InventoryProduct, MasterItem, NV_ALLOWED_FIELDS, ADMIN_ALLOWED_FIELDS, REVIEW_ALLOWED_ROLES } from "./types";
+import {
+    REPORT_STATUS, DIFF_REASON_OPTIONS,
+    ReportStatus, DiffReason, ReportSummary, ReportDetail,
+    ReviewResult, BulkReviewResult, InventoryProduct, MasterItem,
+    NV_ALLOWED_FIELDS, ADMIN_ALLOWED_FIELDS, REVIEW_ALLOWED_ROLES,
+    DiscrepancyResolution, FlagRecheckInput, CreateRecoveryFromDiscrepancyInput,
+    ReportItem
+} from "./types";
 export async function getItems(store: string, shift: number): Promise<{ success: boolean; products: InventoryProduct[] }> {
     if (!store || !shift || shift < 1 || shift > 3) {
         return { success: false, products: [] };
@@ -385,7 +392,7 @@ export async function bulkReviewReports(reportIds: string[], status: ReportStatu
         processed,
         failed,
         stockWarnings,
-        errors: [...new Set(errors)] // Deduplicate
+        errors: [...new Set(errors)]
     };
 }
 export async function getOverview(date: string): Promise<{
@@ -511,20 +518,7 @@ export async function getOverview(date: string): Promise<{
 
 export async function getReportItems(storeId: string, checkDate: string, shift: number): Promise<{
     success: boolean;
-    items?: Array<{
-        id: string;
-        product_name: string;
-        barcode: string;
-        category: string;
-        system_stock: number;
-        actual_stock: number | null;
-        diff: number | null;
-        status: string;
-        note: string | null;
-        diff_reason: string | null;
-        resolution: string | null;
-        admin_note: string | null;
-    }>;
+    items?: ReportItem[];
 }> {
     if (!isSupabaseConfigured()) return { success: false };
 
@@ -541,6 +535,9 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
                     diff_reason,
                     resolution,
                     admin_note,
+                    recheck_due_date,
+                    recheck_note,
+                    recheck_completed_at,
                     products (
                         name,
                         barcode,
@@ -554,7 +551,7 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
 
         if (error) throw error;
 
-        const items = (data || []).map((item: any) => ({
+        const items: ReportItem[] = (data || []).map((item: any) => ({
             id: item.id,
             product_name: item.products?.name || '[Đã xóa]',
             barcode: item.products?.barcode || '',
@@ -565,8 +562,11 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
             status: item.status || 'PENDING',
             note: item.note,
             diff_reason: item.diff_reason,
-            resolution: item.resolution || 'PENDING',
+            resolution: (item.resolution as DiscrepancyResolution) || 'PENDING',
             admin_note: item.admin_note,
+            recheck_due_date: item.recheck_due_date ?? null,
+            recheck_note: item.recheck_note ?? null,
+            recheck_completed_at: item.recheck_completed_at ?? null,
         }));
 
         return { success: true, items };
@@ -576,16 +576,30 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
     }
 }
 
-export async function updateItemResolution(itemId: string, resolution: string, adminNote: string): Promise<{ success: boolean; message?: string }> {
+export async function updateItemResolution(
+    itemId: string,
+    resolution: DiscrepancyResolution,
+    adminNote: string,
+    extra?: { recheckDueDate?: string; recheckNote?: string }
+): Promise<{ success: boolean; message?: string }> {
     if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
 
     try {
+        const updatePayload: Record<string, any> = {
+            resolution,
+            admin_note: adminNote || null,
+        };
+
+        if (resolution === 'MISPLACED') {
+            updatePayload.recheck_due_date = extra?.recheckDueDate || null;
+            updatePayload.recheck_note = extra?.recheckNote || adminNote || null;
+        } else {
+            updatePayload.recheck_due_date = null;
+        }
+
         const { error } = await supabase
             .from('inventory_items')
-            .update({
-                resolution,
-                admin_note: adminNote || null
-            })
+            .update(updatePayload)
             .eq('id', itemId);
 
         if (error) throw error;
@@ -594,6 +608,80 @@ export async function updateItemResolution(itemId: string, resolution: string, a
     } catch (e: unknown) {
         console.error('[Inventory] Update item resolution error:', e);
         return { success: false, message: 'Không thể cập nhật hướng xử lý sản phẩm' };
+    }
+}
+
+export async function flagItemForRecheck(input: FlagRecheckInput): Promise<{ success: boolean; message?: string }> {
+    const { itemId, recheckDueDate, note } = input;
+    if (!itemId || !recheckDueDate) {
+        return { success: false, message: 'Thiếu thông tin: item ID và ngày kiểm lại là bắt buộc' };
+    }
+    return updateItemResolution(itemId, 'MISPLACED', note || '', {
+        recheckDueDate,
+        recheckNote: note,
+    });
+}
+
+export async function completeItemRecheck(itemId: string, userId: string): Promise<{ success: boolean; message?: string }> {
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+    try {
+        const { error } = await supabase
+            .from('inventory_items')
+            .update({
+                recheck_completed_at: new Date().toISOString(),
+                recheck_completed_by: userId,
+                resolution: 'RESOLVED_INTERNAL',
+            })
+            .eq('id', itemId);
+        if (error) throw error;
+        return { success: true };
+    } catch (e: unknown) {
+        console.error('[Inventory] Complete recheck error:', e);
+        return { success: false, message: 'Không thể đánh dấu hoàn thành kiểm' };
+    }
+}
+
+export async function createRecoveryFromDiscrepancy(
+    input: CreateRecoveryFromDiscrepancyInput
+): Promise<{ success: boolean; recoveryId?: string; message?: string }> {
+    const { itemId, reportId, storeId, employeeId, quantity, unitPrice, reason } = input;
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+    if (!itemId || !storeId || quantity <= 0) {
+        return { success: false, message: 'Thiếu thông tin bắt buộc' };
+    }
+
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return { success: false, message: 'Chưa đăng nhập' };
+
+        const { data: recovery, error: recErr } = await supabase
+            .from('recovery_items')
+            .insert([{
+                store_id: storeId,
+                quantity,
+                unit_price: unitPrice,
+                total_amount: quantity * unitPrice,
+                reason,
+                status: 'PENDING',
+                created_by: session.user.id,
+                assigned_to: employeeId || null,
+                source_inventory_item_id: itemId,
+                source_report_id: reportId || null,
+            }])
+            .select('id')
+            .single();
+
+        if (recErr) throw recErr;
+
+        await supabase
+            .from('inventory_items')
+            .update({ resolution: 'LOST_GOODS' })
+            .eq('id', itemId);
+
+        return { success: true, recoveryId: recovery.id };
+    } catch (e: unknown) {
+        console.error('[Inventory] Create recovery from discrepancy error:', e);
+        return { success: false, message: 'Không thể tạo phiếu truy thu: ' + (e instanceof Error ? e.message : String(e)) };
     }
 }
 

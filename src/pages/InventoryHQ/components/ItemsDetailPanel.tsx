@@ -1,39 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { InventoryService } from '../../../services';
-
-/* ── Types ── */
-interface ReportItem {
-    id: string;
-    product_name: string;
-    barcode: string;
-    category: string;
-    system_stock: number;
-    actual_stock: number | null;
-    diff: number | null;
-    status: string;
-    note: string | null;
-    diff_reason: string | null;
-    resolution: string | null;
-    admin_note: string | null;
-}
+import {
+    RESOLUTION_CONFIG,
+    RECHECK_RESOLUTIONS,
+    RECOVERY_RESOLUTIONS,
+    type DiscrepancyResolution,
+    type ReportItem,
+} from '../../../services/inventory';
 
 export interface ItemsDetailPanelProps {
     storeId: string;
+    storeCode?: string;
     checkDate: string;
     shift: number;
+    reportId?: string;
     isOpen: boolean;
     /** 'panel' = slide-in side panel (default), 'inline' = embedded in parent */
     mode?: 'panel' | 'inline';
-    /** Required for panel mode */
     storeName?: string;
-    /** Required for panel mode */
     onClose?: () => void;
-    /** Optional extra info to show in header */
     submittedBy?: string;
     reportStatus?: string;
 }
 
-/* ── Status helpers ── */
+/* ── Status chip config ── */
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: string }> = {
     MATCHED: { label: 'Khớp', color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle' },
     MISSING: { label: 'Thiếu', color: '#dc2626', bg: '#fef2f2', icon: 'remove_circle' },
@@ -42,41 +32,252 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; ico
     UNCHECKED: { label: 'Chưa kiểm', color: '#94a3b8', bg: '#f8fafc', icon: 'radio_button_unchecked' },
 };
 
-const REPORT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+const REPORT_STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
     PENDING: { label: 'Chờ xử lý', color: '#92400e', bg: '#fef3c7' },
     APPROVED: { label: 'Đã xử lý', color: '#065f46', bg: '#d1fae5' },
     REJECTED: { label: 'Cần kiểm lại', color: '#991b1b', bg: '#fee2e2' },
 };
 
-const RESOLUTION_OPTIONS = [
-    { value: 'PENDING', label: 'Chờ xử lý' },
-    { value: 'ADJUSTED_KIOT', label: 'Đã cân KiotViet' },
-    { value: 'RECHECK_REQUIRED', label: 'Yêu cầu kiểm lại' },
-    { value: 'MONITORING', label: 'Theo dõi thêm' },
-    { value: 'RESOLVED_INTERNAL', label: 'Xử lý nội bộ' },
-];
-
 const getStatusInfo = (s: string) => STATUS_MAP[s] || STATUS_MAP.UNCHECKED;
 
+/* ── Resolution option list for the dropdown (ordered) ── */
+const RESOLUTION_ORDER: DiscrepancyResolution[] = [
+    'PENDING',
+    'LOST_GOODS',
+    'MISPLACED',
+    'STOCK_ADJUSTMENT',
+    'INPUT_ERROR',
+    'RETURN_GOODS',
+    'RESOLVED_INTERNAL',
+];
+
+/* ══════════════ Sub-component: per-item action panel ══════════════ */
+interface ItemActionPanelProps {
+    item: ReportItem;
+    reportId?: string;
+    storeId: string;
+    onUpdated: (updated: Partial<ReportItem>) => void;
+}
+
+const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, storeId, onUpdated }) => {
+    const [resolution, setResolution] = useState<DiscrepancyResolution>(item.resolution || 'PENDING');
+    const [adminNote, setAdminNote] = useState(item.admin_note || '');
+    const [recheckDate, setRecheckDate] = useState(item.recheck_due_date || '');
+    const [saving, setSaving] = useState(false);
+    const [savingRecovery, setSavingRecovery] = useState(false);
+    const [unitPrice, setUnitPrice] = useState('');
+    const [recoveryDone, setRecoveryDone] = useState(false);
+    const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const needsRecheck = RECHECK_RESOLUTIONS.includes(resolution);
+    const needsRecovery = RECOVERY_RESOLUTIONS.includes(resolution);
+    const diff = item.diff ?? 0;
+    const absQty = Math.abs(diff);
+
+    /* Auto-save resolution change */
+    const handleResolutionChange = async (newRes: DiscrepancyResolution) => {
+        setResolution(newRes);
+        setSaving(true);
+        try {
+            await InventoryService.updateItemResolution(item.id, newRes, adminNote, {
+                recheckDueDate: recheckDate || undefined,
+            });
+            onUpdated({ resolution: newRes });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    /* Auto-save note with debounce */
+    const handleNoteChange = (val: string) => {
+        setAdminNote(val);
+        if (noteTimer.current) clearTimeout(noteTimer.current);
+        noteTimer.current = setTimeout(async () => {
+            await InventoryService.updateItemResolution(item.id, resolution, val, {
+                recheckDueDate: recheckDate || undefined,
+            });
+            onUpdated({ admin_note: val });
+        }, 800);
+    };
+
+    /* Save recheck date */
+    const handleRecheckDateChange = async (date: string) => {
+        setRecheckDate(date);
+        setSaving(true);
+        try {
+            await InventoryService.updateItemResolution(item.id, resolution, adminNote, {
+                recheckDueDate: date || undefined,
+                recheckNote: adminNote || undefined,
+            });
+            onUpdated({ recheck_due_date: date });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    /* Create recovery charge */
+    const handleCreateRecovery = async () => {
+        if (!unitPrice || Number(unitPrice) < 0) return;
+        setSavingRecovery(true);
+        try {
+            const res = await InventoryService.createRecoveryFromDiscrepancy({
+                itemId: item.id,
+                reportId: reportId || '',
+                storeId,
+                quantity: absQty,
+                unitPrice: Number(unitPrice),
+                reason: adminNote || `Mất hàng – ${item.product_name} (lệch ${diff})`,
+            });
+            if (res.success) {
+                setRecoveryDone(true);
+                onUpdated({ resolution: 'LOST_GOODS' });
+            }
+        } finally {
+            setSavingRecovery(false);
+        }
+    };
+
+    return (
+        <div className="iap-root">
+            {/* Resolution dropdown */}
+            <div className="iap-field">
+                <label className="iap-label">
+                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>category</span>
+                    Phân loại xử lý
+                    {saving && <span className="iap-saving-dot" />}
+                </label>
+                <div className="iap-select-wrap">
+                    <select
+                        className="iap-select"
+                        style={{
+                            borderColor: RESOLUTION_CONFIG[resolution].color + '60',
+                            color: RESOLUTION_CONFIG[resolution].color,
+                            background: RESOLUTION_CONFIG[resolution].bg,
+                        }}
+                        value={resolution}
+                        onChange={e => handleResolutionChange(e.target.value as DiscrepancyResolution)}
+                    >
+                        {RESOLUTION_ORDER.map(r => (
+                            <option key={r} value={r}>
+                                {RESOLUTION_CONFIG[r].label}
+                            </option>
+                        ))}
+                    </select>
+                    <span className="iap-select-icon material-symbols-outlined">{RESOLUTION_CONFIG[resolution].icon}</span>
+                </div>
+                <p className="iap-desc">{RESOLUTION_CONFIG[resolution].description}</p>
+            </div>
+
+            {/* Recheck date picker (only for MISPLACED) */}
+            {needsRecheck && (
+                <div className="iap-field iap-field--recheck">
+                    <label className="iap-label">
+                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>event</span>
+                        Ngày kiểm tra lại
+                    </label>
+                    <input
+                        type="date"
+                        className="iap-date-input"
+                        value={recheckDate}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={e => handleRecheckDateChange(e.target.value)}
+                    />
+                    {item.recheck_completed_at && (
+                        <span className="iap-recheck-done">
+                            <span className="material-symbols-outlined" style={{ fontSize: 13 }}>check_circle</span>
+                            Đã kiểm {new Date(item.recheck_completed_at).toLocaleDateString('vi-VN')}
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {/* Recovery charge form (only for LOST_GOODS) */}
+            {needsRecovery && (
+                <div className="iap-field iap-field--recovery">
+                    <label className="iap-label">
+                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>payments</span>
+                        Tạo phiếu truy thu
+                    </label>
+                    {recoveryDone ? (
+                        <div className="iap-recovery-done">
+                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#16a34a' }}>check_circle</span>
+                            Đã tạo phiếu truy thu
+                        </div>
+                    ) : (
+                        <div className="iap-recovery-form">
+                            <div className="iap-recovery-qty">
+                                <span className="iap-qty-label">SL mất:</span>
+                                <span className="iap-qty-val">{absQty}</span>
+                            </div>
+                            <div className="iap-recovery-price-row">
+                                <input
+                                    type="number"
+                                    className="iap-price-input"
+                                    placeholder="Đơn giá (VND)"
+                                    value={unitPrice}
+                                    min="0"
+                                    onChange={e => setUnitPrice(e.target.value)}
+                                />
+                                {unitPrice && Number(unitPrice) > 0 && (
+                                    <span className="iap-total">
+                                        = {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(absQty * Number(unitPrice))}
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                className="iap-btn-recovery"
+                                disabled={!unitPrice || Number(unitPrice) <= 0 || savingRecovery}
+                                onClick={handleCreateRecovery}
+                            >
+                                {savingRecovery ? (
+                                    <span className="iap-spinner" />
+                                ) : (
+                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>add_card</span>
+                                )}
+                                Tạo phiếu truy thu
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Admin note */}
+            <div className="iap-field">
+                <label className="iap-label">
+                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>edit_note</span>
+                    Ghi chú admin
+                </label>
+                <textarea
+                    className="iap-note"
+                    placeholder="Ghi chú thêm..."
+                    rows={2}
+                    value={adminNote}
+                    onChange={e => handleNoteChange(e.target.value)}
+                />
+            </div>
+        </div>
+    );
+};
+
+/* ══════════════ Main Component ══════════════ */
 const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
-    storeId, storeName = '', checkDate, shift, isOpen, onClose = () => { },
-    mode = 'panel', submittedBy, reportStatus,
+    storeId, storeCode, storeName = '', checkDate, shift, reportId,
+    isOpen, onClose = () => { }, mode = 'panel', submittedBy, reportStatus,
 }) => {
     const isInline = mode === 'inline';
     const [items, setItems] = useState<ReportItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<string>('ALL');
+    const [resFilter, setResFilter] = useState<string>('ALL');
     const [search, setSearch] = useState('');
     const [animateIn, setAnimateIn] = useState(false);
-    const [updatingParams, setUpdatingParams] = useState<string | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     // Animate open/close (panel mode only)
     useEffect(() => {
         if (isInline) return;
         if (isOpen) {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => setAnimateIn(true));
-            });
+            requestAnimationFrame(() => requestAnimationFrame(() => setAnimateIn(true)));
         } else {
             setAnimateIn(false);
         }
@@ -89,64 +290,50 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         setLoading(true);
         setItems([]);
         setFilter('ALL');
+        setResFilter('ALL');
         setSearch('');
+        setExpandedId(null);
         InventoryService.getReportItems(storeId, checkDate, shift).then(res => {
             if (cancelled) return;
-            if (res.success && res.items) setItems(res.items);
+            if (res.success && res.items) setItems(res.items as ReportItem[]);
             setLoading(false);
         });
         return () => { cancelled = true; };
     }, [isOpen, storeId, checkDate, shift]);
 
-    // Close on Escape key (panel mode only)
+    // Close on Escape (panel only)
     useEffect(() => {
         if (!isOpen || isInline) return;
-        const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-        document.addEventListener('keydown', handleKey);
-        return () => document.removeEventListener('keydown', handleKey);
-    }, [isOpen, isInline, onClose]);
+        const h = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+        document.addEventListener('keydown', h);
+        return () => document.removeEventListener('keydown', h);
+    }, [isOpen, isInline]);
 
-    // Graceful close with animation (panel mode only)
     const handleClose = useCallback(() => {
         if (isInline) return;
         setAnimateIn(false);
         setTimeout(onClose, 280);
     }, [onClose, isInline]);
 
-    const handleUpdateItem = async (itemId: string, field: 'resolution' | 'admin_note', value: string) => {
-        const item = items.find(i => i.id === itemId);
-        if (!item) return;
-
-        const newResolution = field === 'resolution' ? value : (item.resolution || 'PENDING');
-        const newNote = field === 'admin_note' ? value : (item.admin_note || '');
-
-        setUpdatingParams(itemId + field);
-
-        try {
-            setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: value } : i));
-            const res = await InventoryService.updateItemResolution(itemId, newResolution, newNote);
-            if (!res.success) {
-                // revert mapping
-                setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: item[field as keyof ReportItem] } : i));
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setUpdatingParams(null);
-        }
-    };
+    const handleItemUpdated = useCallback((itemId: string, patch: Partial<ReportItem>) => {
+        setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...patch } : i));
+    }, []);
 
     if (!isOpen) return null;
 
     /* ── Filter & search ── */
+    const discrepant = items.filter(i => i.diff !== null && i.diff !== 0);
     const filteredItems = items.filter(item => {
         if (filter !== 'ALL') {
             if (filter === 'UNCHECKED') {
                 if (item.status !== 'UNCHECKED' && item.status !== 'PENDING') return false;
+            } else if (filter === 'DISCREPANT') {
+                if (item.diff === null || item.diff === 0) return false;
             } else if (item.status !== filter) {
                 return false;
             }
         }
+        if (resFilter !== 'ALL' && item.resolution !== resFilter) return false;
         if (search) {
             const q = search.toLowerCase();
             return item.product_name.toLowerCase().includes(q) || item.barcode.includes(q);
@@ -161,20 +348,119 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         MISSING: items.filter(i => i.status === 'MISSING').length,
         OVER: items.filter(i => i.status === 'OVER').length,
         UNCHECKED: items.filter(i => i.status === 'UNCHECKED' || i.status === 'PENDING').length,
+        DISCREPANT: discrepant.length,
     };
 
-    const reportSt = reportStatus ? REPORT_STATUS[reportStatus] : null;
+    const resPending = discrepant.filter(i => !i.resolution || i.resolution === 'PENDING').length;
+    const reportSt = reportStatus ? REPORT_STATUS_MAP[reportStatus] : null;
 
-    /* ── Shared toolbar + table content (used by both modes) ── */
+    /* ── Render table row ── */
+    const renderRow = (item: ReportItem, idx: number) => {
+        const si = getStatusInfo(item.status);
+        const hasDiff = item.diff !== null && item.diff !== 0;
+        const isExpanded = expandedId === item.id;
+        const res = item.resolution || 'PENDING';
+        const resCfg = RESOLUTION_CONFIG[res as DiscrepancyResolution] || RESOLUTION_CONFIG.PENDING;
+
+        return (
+            <React.Fragment key={item.id}>
+                <tr
+                    className={`sp-row ${hasDiff ? 'sp-row--issue' : ''} ${isExpanded ? 'sp-row--expanded' : ''}`}
+                    onClick={() => hasDiff ? setExpandedId(prev => prev === item.id ? null : item.id) : undefined}
+                    style={{ cursor: hasDiff ? 'pointer' : 'default' }}
+                >
+                    <td className="sp-cell-num">{idx + 1}</td>
+                    <td>
+                        <div className="sp-product">
+                            <span className="sp-product-name">{item.product_name}</span>
+                            {item.barcode && <span className="sp-barcode">{item.barcode}</span>}
+                        </div>
+                    </td>
+                    <td className="sp-cell-num">{item.system_stock}</td>
+                    <td className="sp-cell-num" style={{ fontWeight: 700 }}>
+                        {item.actual_stock !== null ? item.actual_stock : '—'}
+                    </td>
+                    <td className="sp-cell-num" style={{
+                        color: hasDiff ? si.color : '#94a3b8',
+                        fontWeight: hasDiff ? 800 : 400,
+                    }}>
+                        {item.diff !== null ? (item.diff > 0 ? `+${item.diff}` : item.diff) : '—'}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                        <span className="sp-status-badge" style={{ background: si.bg, color: si.color }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{si.icon}</span>
+                            {si.label}
+                        </span>
+                    </td>
+                    <td className="sp-cell-note">{item.note || item.diff_reason || ''}</td>
+                    <td>
+                        {hasDiff ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span
+                                    className="sp-res-chip"
+                                    style={{ background: resCfg.bg, color: resCfg.color }}
+                                    title={resCfg.description}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>{resCfg.icon}</span>
+                                    {resCfg.label}
+                                </span>
+                                {hasDiff && (
+                                    <span
+                                        className="sp-expand-chevron material-symbols-outlined"
+                                        style={{ transform: isExpanded ? 'rotate(180deg)' : 'none' }}
+                                    >
+                                        expand_more
+                                    </span>
+                                )}
+                            </div>
+                        ) : (
+                            <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
+                        )}
+                    </td>
+                </tr>
+
+                {/* Expanded action panel */}
+                {hasDiff && isExpanded && (
+                    <tr className="sp-row--action-panel">
+                        <td colSpan={8} style={{ padding: 0 }}>
+                            <div onClick={e => e.stopPropagation()}>
+                                <ItemActionPanel
+                                    item={item}
+                                    reportId={reportId}
+                                    storeId={storeId}
+                                    onUpdated={(patch) => handleItemUpdated(item.id, patch)}
+                                />
+                            </div>
+                        </td>
+                    </tr>
+                )}
+            </React.Fragment>
+        );
+    };
+
+    /* ── Shared content ── */
     const renderContent = () => (
         <>
-            {/* ── Toolbar (filter + search) ── */}
+            {/* Pending resolution notice */}
+            {resPending > 0 && (
+                <div className="sp-notice sp-notice--warn">
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>warning</span>
+                    <span>
+                        <strong>{resPending}</strong> sản phẩm lệch chưa được phân loại xử lý.
+                        Nhấn vào hàng để mở panel xử lý.
+                    </span>
+                </div>
+            )}
+
+            {/* ── Toolbar ── */}
             <div className="sp-toolbar">
                 <div className="sp-filters">
-                    {(['ALL', 'MISSING', 'OVER', 'MATCHED', 'UNCHECKED'] as const).map(f => {
+                    {(['ALL', 'DISCREPANT', 'MISSING', 'OVER', 'MATCHED', 'UNCHECKED'] as const).map(f => {
                         const info = f === 'ALL'
                             ? { label: 'Tất cả', color: '#475569', bg: '#f1f5f9' }
-                            : getStatusInfo(f);
+                            : f === 'DISCREPANT'
+                                ? { label: 'Lệch', color: '#dc2626', bg: '#fef2f2' }
+                                : getStatusInfo(f);
                         return (
                             <button
                                 key={f}
@@ -205,11 +491,39 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                 </div>
             </div>
 
-            {/* ── Items List ── */}
+            {/* Resolution filter (only when DISCREPANT tab active) */}
+            {filter === 'DISCREPANT' && discrepant.length > 0 && (
+                <div className="sp-res-filter-bar">
+                    <span className="sp-res-filter-label">Lọc hướng xử lý:</span>
+                    <button
+                        className={`sp-res-filter-btn ${resFilter === 'ALL' ? 'active' : ''}`}
+                        onClick={() => setResFilter('ALL')}
+                    >
+                        Tất cả
+                    </button>
+                    {(['PENDING', 'LOST_GOODS', 'MISPLACED', 'STOCK_ADJUSTMENT', 'INPUT_ERROR', 'RETURN_GOODS', 'RESOLVED_INTERNAL'] as DiscrepancyResolution[]).map(r => {
+                        const cfg = RESOLUTION_CONFIG[r];
+                        const cnt = discrepant.filter(i => i.resolution === r || (!i.resolution && r === 'PENDING')).length;
+                        if (cnt === 0) return null;
+                        return (
+                            <button
+                                key={r}
+                                className={`sp-res-filter-btn ${resFilter === r ? 'active' : ''}`}
+                                style={resFilter === r ? { background: cfg.bg, color: cfg.color, borderColor: cfg.color + '50' } : {}}
+                                onClick={() => setResFilter(r)}
+                            >
+                                {cfg.label} <span className="sp-filter-cnt">{cnt}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* ── Items Table ── */}
             <div className={isInline ? 'sp-content sp-content--inline' : 'sp-content'}>
                 {loading ? (
                     <div className="sp-loading">
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                        {[1, 2, 3, 4, 5, 6].map(i => (
                             <div key={i} className="sp-skel-row">
                                 <div className="sp-skel" style={{ width: '45%' }} />
                                 <div className="sp-skel" style={{ width: '18%' }} />
@@ -233,81 +547,18 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                         <table className="sp-table">
                             <thead>
                                 <tr>
-                                    <th style={{ width: '5%' }}>#</th>
-                                    <th style={{ width: '37%' }}>Sản phẩm</th>
-                                    <th style={{ width: '12%', textAlign: 'center' }}>Hệ thống</th>
-                                    <th style={{ width: '12%', textAlign: 'center' }}>Thực tế</th>
-                                    <th style={{ width: '10%', textAlign: 'center' }}>Lệch</th>
-                                    <th style={{ width: '10%', textAlign: 'center' }}>Trạng thái</th>
-                                    <th style={{ width: '11%' }}>Ghi chú</th>
-                                    <th style={{ width: '15%' }}>Hướng xử lý</th>
+                                    <th style={{ width: '4%' }}>#</th>
+                                    <th style={{ width: '32%' }}>Sản phẩm</th>
+                                    <th style={{ width: '10%', textAlign: 'center' }}>Hệ thống</th>
+                                    <th style={{ width: '10%', textAlign: 'center' }}>Thực tế</th>
+                                    <th style={{ width: '8%', textAlign: 'center' }}>Lệch</th>
+                                    <th style={{ width: '11%', textAlign: 'center' }}>Trạng thái</th>
+                                    <th style={{ width: '10%' }}>Ghi chú NV</th>
+                                    <th style={{ width: '15%' }}>Xử lý</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredItems.map((item, idx) => {
-                                    const si = getStatusInfo(item.status);
-                                    const hasDiff = item.diff !== null && item.diff !== 0;
-                                    return (
-                                        <tr key={item.id} className={hasDiff ? 'sp-row-issue' : ''}>
-                                            <td className="sp-cell-num">{idx + 1}</td>
-                                            <td>
-                                                <div className="sp-product">
-                                                    <span className="sp-product-name">{item.product_name}</span>
-                                                    {item.barcode && <span className="sp-barcode">{item.barcode}</span>}
-                                                </div>
-                                            </td>
-                                            <td className="sp-cell-num">{item.system_stock}</td>
-                                            <td className="sp-cell-num" style={{ fontWeight: 700 }}>
-                                                {item.actual_stock !== null ? item.actual_stock : '—'}
-                                            </td>
-                                            <td className="sp-cell-num" style={{
-                                                color: hasDiff ? si.color : '#94a3b8',
-                                                fontWeight: hasDiff ? 800 : 400
-                                            }}>
-                                                {item.diff !== null ? (item.diff > 0 ? `+${item.diff}` : item.diff) : '—'}
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <span className="sp-status-badge" style={{ background: si.bg, color: si.color }}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{si.icon}</span>
-                                                    {si.label}
-                                                </span>
-                                            </td>
-                                            <td className="sp-cell-note">
-                                                {item.note || item.diff_reason || ''}
-                                            </td>
-                                            <td>
-                                                {hasDiff ? (
-                                                    <div className="sp-resolution-col">
-                                                        <select
-                                                            className="sp-res-select"
-                                                            value={item.resolution || 'PENDING'}
-                                                            onChange={(e) => handleUpdateItem(item.id, 'resolution', e.target.value)}
-                                                            disabled={updatingParams === item.id + 'resolution'}
-                                                        >
-                                                            {RESOLUTION_OPTIONS.map(opt => (
-                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                            ))}
-                                                        </select>
-                                                        <input
-                                                            type="text"
-                                                            className="sp-res-note"
-                                                            placeholder="Ghi chú admin..."
-                                                            value={item.admin_note || ''}
-                                                            onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, admin_note: e.target.value } : i))}
-                                                            onBlur={(e) => {
-                                                                // Only save if it changed - basic check assuming no other saves
-                                                                handleUpdateItem(item.id, 'admin_note', e.target.value);
-                                                            }}
-                                                            disabled={updatingParams === item.id + 'admin_note'}
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <span style={{ color: '#94a3b8', fontSize: 11 }}>—</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {filteredItems.map((item, idx) => renderRow(item, idx))}
                             </tbody>
                         </table>
                     </div>
@@ -319,9 +570,14 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                 <div className="sp-footer">
                     <span>
                         Hiển thị <strong>{filteredItems.length}</strong> / {items.length} sản phẩm
+                        {discrepant.length > 0 && (
+                            <> • <span style={{ color: '#dc2626', fontWeight: 700 }}>{discrepant.length} lệch</span>
+                                {resPending > 0 && <> (<span style={{ color: '#d97706' }}>{resPending} chờ phân loại</span>)</>}
+                            </>
+                        )}
                     </span>
-                    {filter !== 'ALL' && (
-                        <button className="sp-footer-reset" onClick={() => { setFilter('ALL'); setSearch(''); }}>
+                    {(filter !== 'ALL' || resFilter !== 'ALL' || search) && (
+                        <button className="sp-footer-reset" onClick={() => { setFilter('ALL'); setResFilter('ALL'); setSearch(''); }}>
                             Xóa bộ lọc
                         </button>
                     )}
@@ -330,7 +586,7 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         </>
     );
 
-    /* ── INLINE mode: just render content directly ── */
+    /* ── INLINE mode ── */
     if (isInline) {
         return (
             <div className="sp-inline-root">
@@ -340,26 +596,22 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
         );
     }
 
-    /* ── PANEL mode: slide-in with backdrop ── */
+    /* ── PANEL mode ── */
     return (
         <>
             <style>{CSS_TEXT}</style>
-
-            {/* Backdrop overlay */}
             <div
                 className={`sp-backdrop ${animateIn ? 'sp-backdrop--visible' : ''}`}
                 onClick={handleClose}
                 aria-hidden="true"
             />
-
-            {/* Side Panel */}
             <aside
                 className={`sp-panel ${animateIn ? 'sp-panel--open' : ''}`}
                 role="dialog"
                 aria-label={`Chi tiết kiểm kê - ${storeName}`}
                 onClick={e => e.stopPropagation()}
             >
-                {/* ── Header ── */}
+                {/* Header */}
                 <div className="sp-header">
                     <div className="sp-header-top">
                         <button className="sp-close-btn" onClick={handleClose} aria-label="Đóng">
@@ -395,31 +647,22 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
                     {/* Stats summary */}
                     {!loading && items.length > 0 && (
                         <div className="sp-stats-row">
-                            <div className="sp-stat">
-                                <span className="sp-stat-val">{counts.ALL}</span>
-                                <span className="sp-stat-label">Tổng</span>
-                            </div>
-                            <div className="sp-stat sp-stat--ok">
-                                <span className="sp-stat-val">{counts.MATCHED}</span>
-                                <span className="sp-stat-label">Khớp</span>
-                            </div>
-                            <div className="sp-stat sp-stat--danger">
-                                <span className="sp-stat-val">{counts.MISSING}</span>
-                                <span className="sp-stat-label">Thiếu</span>
-                            </div>
-                            <div className="sp-stat sp-stat--info">
-                                <span className="sp-stat-val">{counts.OVER}</span>
-                                <span className="sp-stat-label">Thừa</span>
-                            </div>
-                            <div className="sp-stat">
-                                <span className="sp-stat-val">{counts.UNCHECKED}</span>
-                                <span className="sp-stat-label">Chưa kiểm</span>
-                            </div>
+                            {[
+                                { label: 'Tổng', val: counts.ALL, cls: '' },
+                                { label: 'Khớp', val: counts.MATCHED, cls: 'sp-stat--ok' },
+                                { label: 'Thiếu', val: counts.MISSING, cls: 'sp-stat--danger' },
+                                { label: 'Thừa', val: counts.OVER, cls: 'sp-stat--info' },
+                                { label: 'Chờ phân loại', val: resPending, cls: resPending > 0 ? 'sp-stat--warn' : '' },
+                            ].map(s => (
+                                <div key={s.label} className={`sp-stat ${s.cls}`}>
+                                    <span className="sp-stat-val">{s.val}</span>
+                                    <span className="sp-stat-label">{s.label}</span>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
-                {/* Shared content (toolbar + table + footer) */}
                 {renderContent()}
             </aside>
         </>
@@ -428,15 +671,14 @@ const ItemsDetailPanel: React.FC<ItemsDetailPanelProps> = ({
 
 export default ItemsDetailPanel;
 
-/* ═══════════════════════ CSS ═══════════════════════ */
+/* ═══════════════════════════ CSS ═══════════════════════════ */
 const CSS_TEXT = `
 /* ── Backdrop ── */
 .sp-backdrop {
     position:fixed; inset:0; z-index:998;
     background:rgba(15,23,42,.35);
     backdrop-filter:blur(4px);
-    opacity:0;
-    transition:opacity .28s cubic-bezier(.4,0,.2,1);
+    opacity:0; transition:opacity .28s cubic-bezier(.4,0,.2,1);
     pointer-events:none;
 }
 .sp-backdrop--visible { opacity:1; pointer-events:auto; }
@@ -444,7 +686,7 @@ const CSS_TEXT = `
 /* ── Side Panel ── */
 .sp-panel {
     position:fixed; top:0; right:0; bottom:0; z-index:999;
-    width:min(560px, 90vw);
+    width:min(640px, 92vw);
     background:#fff;
     display:flex; flex-direction:column;
     box-shadow:-20px 0 60px rgba(0,0,0,.12), -4px 0 16px rgba(0,0,0,.06);
@@ -468,36 +710,36 @@ const CSS_TEXT = `
     align-items:center; justify-content:center; color:#64748b;
     transition:all .15s; flex-shrink:0;
 }
-.sp-close-btn:hover { background:#f1f5f9; color:#1e293b; border-color:#cbd5e1; }
-.sp-close-btn:focus-visible { outline:2px solid #6366f1; outline-offset:2px; }
+.sp-close-btn:hover { background:#f1f5f9; color:#1e293b; }
 .sp-header-info { flex:1; min-width:0; }
-.sp-title { margin:0; font-size:18px; font-weight:800; color:#0f172a; letter-spacing:-.01em; }
+.sp-title { margin:0; font-size:18px; font-weight:800; color:#0f172a; }
 .sp-meta { display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap; }
 .sp-meta-item { display:inline-flex; align-items:center; gap:3px; font-size:13px; color:#64748b; font-weight:500; }
 .sp-meta-sep { color:#cbd5e1; font-size:10px; }
-.sp-report-badge {
-    padding:4px 12px; border-radius:7px; font-size:11px;
-    font-weight:700; white-space:nowrap; align-self:flex-start; margin-top:2px;
-}
+.sp-report-badge { padding:4px 12px; border-radius:7px; font-size:11px; font-weight:700; white-space:nowrap; align-self:flex-start; margin-top:2px; }
 
 /* ── Stats Row ── */
-.sp-stats-row {
-    display:flex; gap:2px; padding:12px 0;
-}
-.sp-stat {
-    flex:1; text-align:center; padding:8px 4px;
-    border-radius:10px; background:#f8fafc;
-    transition:transform .15s;
-}
-.sp-stat:hover { transform:translateY(-1px); }
+.sp-stats-row { display:flex; gap:2px; padding:12px 0; }
+.sp-stat { flex:1; text-align:center; padding:8px 4px; border-radius:10px; background:#f8fafc; }
 .sp-stat--ok { background:#f0fdf44d; }
 .sp-stat--danger { background:#fef2f24d; }
 .sp-stat--info { background:#eef2ff4d; }
-.sp-stat-val { display:block; font-size:20px; font-weight:800; color:#1e293b; line-height:1.2; font-variant-numeric:tabular-nums; }
+.sp-stat--warn { background:#fffbeb4d; }
+.sp-stat-val { display:block; font-size:20px; font-weight:800; color:#1e293b; line-height:1.2; }
 .sp-stat--ok .sp-stat-val { color:#16a34a; }
 .sp-stat--danger .sp-stat-val { color:#dc2626; }
 .sp-stat--info .sp-stat-val { color:#4f46e5; }
-.sp-stat-label { display:block; font-size:11px; color:#94a3b8; font-weight:600; margin-top:2px; text-transform:uppercase; letter-spacing:.02em; }
+.sp-stat--warn .sp-stat-val { color:#d97706; }
+.sp-stat-label { display:block; font-size:10px; color:#94a3b8; font-weight:600; margin-top:2px; text-transform:uppercase; letter-spacing:.02em; }
+
+/* ── Notice ── */
+.sp-notice {
+    display:flex; align-items:center; gap:8px;
+    padding:8px 16px; font-size:12px; font-weight:600;
+    margin: 8px 24px 0;
+    border-radius:8px;
+}
+.sp-notice--warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
 
 /* ── Toolbar ── */
 .sp-toolbar {
@@ -525,25 +767,36 @@ const CSS_TEXT = `
     transition:border-color .15s, box-shadow .15s;
 }
 .sp-search:focus-within { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.08); }
-.sp-search-input {
-    border:none; outline:none; background:transparent;
-    font-size:12px; width:120px; color:#1e293b;
-}
+.sp-search-input { border:none; outline:none; background:transparent; font-size:12px; width:120px; color:#1e293b; }
 .sp-search-clear {
     display:flex; align-items:center; justify-content:center;
     width:18px; height:18px; border:none; background:transparent;
-    color:#94a3b8; cursor:pointer; border-radius:50%;
-    transition:all .12s;
+    color:#94a3b8; cursor:pointer; border-radius:50%; transition:all .12s;
 }
 .sp-search-clear:hover { background:#f1f5f9; color:#475569; }
 
-/* ── Content (scrollable) ── */
-.sp-content { flex:1; overflow-y:auto; padding:0 24px; }
+/* ── Resolution filter bar ── */
+.sp-res-filter-bar {
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    padding:8px 24px; border-bottom:1px solid #f1f5f9;
+    background:#fafbfc;
+}
+.sp-res-filter-label { font-size:11px; font-weight:600; color:#64748b; white-space:nowrap; }
+.sp-res-filter-btn {
+    padding:3px 10px; border-radius:6px; font-size:11px; font-weight:600;
+    border:1.5px solid transparent;
+    background:#f1f5f9; color:#64748b; cursor:pointer; transition:all .15s;
+}
+.sp-res-filter-btn.active { border-color:currentColor; }
 
-/* Table */
+/* ── Content ── */
+.sp-content { flex:1; overflow-y:auto; padding:0 24px; }
+.sp-content--inline { max-height:420px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; }
+
+/* ── Table ── */
 .sp-table-wrap { padding:4px 0 16px; }
 .sp-table { width:100%; border-collapse:collapse; font-size:12px; }
-.sp-table thead { position:sticky; top:0; z-index:2; background:#fff; }
+.sp-table thead { position:sticky; top:0; z-index:2; }
 .sp-table th {
     padding:10px 10px; text-align:left; font-weight:700;
     color:#475569; font-size:11px; text-transform:uppercase;
@@ -553,35 +806,126 @@ const CSS_TEXT = `
 .sp-table td { padding:9px 10px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
 .sp-table tbody tr { transition:background .1s; }
 .sp-table tbody tr:hover { background:#f8fafc; }
-.sp-row-issue { background:#fffbeb !important; }
-.sp-row-issue:hover { background:#fef3c7 !important; }
+.sp-row--issue { background:#fffbeb !important; }
+.sp-row--issue:hover { background:#fef3c7 !important; }
+.sp-row--expanded { background:#f0f9ff !important; }
+.sp-row--action-panel td { background:#f8fafc; border-bottom:2px solid #e0e7ff; }
+
 .sp-cell-num { text-align:center; font-variant-numeric:tabular-nums; color:#475569; }
 .sp-cell-note { font-size:11px; color:#64748b; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-/* Product cell */
 .sp-product { display:flex; flex-direction:column; gap:1px; }
 .sp-product-name { font-weight:600; color:#1e293b; line-height:1.3; }
 .sp-barcode { font-size:10px; color:#94a3b8; font-family:'Courier New',monospace; }
 
-/* Status badge */
 .sp-status-badge {
     display:inline-flex; align-items:center; gap:3px;
     padding:2px 8px; border-radius:99px;
-    font-size:11px; font-weight:700;
-    white-space:nowrap;
+    font-size:11px; font-weight:700; white-space:nowrap;
+}
+.sp-res-chip {
+    display:inline-flex; align-items:center; gap:3px;
+    padding:2px 7px; border-radius:6px;
+    font-size:11px; font-weight:600; white-space:nowrap;
+    border:1px solid transparent;
+}
+.sp-expand-chevron {
+    font-size:16px; color:#94a3b8;
+    transition:transform .2s; cursor:pointer;
 }
 
-/* ── Loading skeleton ── */
+/* ── Action Panel ── */
+.iap-root {
+    display:flex; gap:12px; flex-wrap:wrap;
+    padding:12px 24px 16px; align-items:flex-start;
+}
+.iap-field { display:flex; flex-direction:column; gap:5px; min-width:180px; }
+.iap-label {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:11px; font-weight:700; color:#475569;
+    text-transform:uppercase; letter-spacing:.04em;
+}
+.iap-saving-dot {
+    display:inline-block; width:6px; height:6px;
+    border-radius:50%; background:#6366f1;
+    animation:iapPulse .8s ease infinite;
+}
+@keyframes iapPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.iap-select-wrap { position:relative; }
+.iap-select {
+    width:100%; padding:6px 28px 6px 10px;
+    border-radius:8px; border:1.5px solid;
+    font-size:12px; font-weight:600; appearance:none;
+    outline:none; cursor:pointer;
+    transition:all .15s;
+}
+.iap-select-icon {
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    font-size:15px; pointer-events:none;
+}
+.iap-desc { font-size:11px; color:#94a3b8; line-height:1.4; margin:0; }
+
+.iap-field--recheck { border-left:3px solid #d97706; padding-left:10px; }
+.iap-date-input {
+    padding:6px 10px; border:1.5px solid #e5e7eb; border-radius:8px;
+    font-size:12px; font-weight:500; color:#1e293b;
+    outline:none; transition:all .15s;
+}
+.iap-date-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+.iap-recheck-done {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:11px; color:#16a34a; font-weight:600;
+}
+
+.iap-field--recovery { border-left:3px solid #dc2626; padding-left:10px; }
+.iap-recovery-done {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 10px; border-radius:8px;
+    background:#f0fdf4; font-size:12px; font-weight:600; color:#16a34a;
+}
+.iap-recovery-form { display:flex; flex-direction:column; gap:6px; }
+.iap-recovery-qty { display:flex; align-items:center; gap:6px; }
+.iap-qty-label { font-size:11px; color:#64748b; }
+.iap-qty-val { font-size:14px; font-weight:800; color:#dc2626; }
+.iap-recovery-price-row { display:flex; align-items:center; gap:8px; }
+.iap-price-input {
+    width:150px; padding:6px 10px; border:1.5px solid #e5e7eb; border-radius:8px;
+    font-size:12px; font-weight:500; outline:none; transition:all .15s;
+}
+.iap-price-input:focus { border-color:#6366f1; }
+.iap-total { font-size:12px; font-weight:700; color:#dc2626; white-space:nowrap; }
+.iap-btn-recovery {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:7px 14px; border-radius:8px; border:none;
+    background:linear-gradient(135deg,#dc2626,#b91c1c);
+    color:#fff; font-size:12px; font-weight:700;
+    cursor:pointer; transition:all .15s;
+}
+.iap-btn-recovery:hover:not(:disabled) { background:linear-gradient(135deg,#b91c1c,#991b1b); transform:translateY(-1px); }
+.iap-btn-recovery:disabled { opacity:.6; cursor:not-allowed; }
+.iap-spinner {
+    width:14px; height:14px; border:2px solid rgba(255,255,255,.3);
+    border-top-color:#fff; border-radius:50%; animation:iapSpin .6s linear infinite;
+}
+@keyframes iapSpin { to { transform:rotate(360deg); } }
+
+.iap-note {
+    padding:6px 10px; border:1.5px solid #e5e7eb; border-radius:8px;
+    font-size:12px; color:#1e293b; resize:vertical; min-height:52px;
+    outline:none; transition:all .15s; font-family:inherit;
+    background:#f8fafc;
+}
+.iap-note:focus { border-color:#6366f1; background:#fff; box-shadow:0 0 0 3px rgba(99,102,241,.08); }
+.iap-note::placeholder { color:#94a3b8; }
+
+/* ── Loading ── */
 .sp-loading { display:flex; flex-direction:column; gap:10px; padding:20px 0; }
 .sp-skel-row { display:flex; gap:12px; align-items:center; }
 .sp-skel { height:14px; background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; border-radius:6px; animation:sp-shimmer 1.5s ease-in-out infinite; }
 @keyframes sp-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
 /* ── Empty ── */
-.sp-empty {
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-    padding:60px 20px; text-align:center;
-}
+.sp-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:60px 20px; text-align:center; }
 .sp-empty-title { font-size:15px; font-weight:700; color:#475569; }
 .sp-empty-sub { font-size:13px; color:#94a3b8; }
 
@@ -595,37 +939,16 @@ const CSS_TEXT = `
 .sp-footer strong { color:#1e293b; font-weight:800; }
 .sp-footer-reset {
     border:none; background:none; color:#6366f1; font-size:12px;
-    font-weight:600; cursor:pointer; padding:4px 8px; border-radius:6px;
-    transition:background .12s;
+    font-weight:600; cursor:pointer; padding:4px 8px; border-radius:6px; transition:background .12s;
 }
 .sp-footer-reset:hover { background:#eef2ff; }
 
-/* Custom scrollbar for panel content */
+/* Custom scrollbar */
 .sp-content::-webkit-scrollbar { width:5px; }
 .sp-content::-webkit-scrollbar-track { background:transparent; }
 .sp-content::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:99px; }
 .sp-content::-webkit-scrollbar-thumb:hover { background:#cbd5e1; }
 
-/* ── Resolution ── */
-.sp-resolution-col { display:flex; flex-direction:column; gap:4px; }
-.sp-res-select {
-    padding:4px 6px; font-size:11px; border-radius:6px;
-    border:1px solid #cbd5e1; background:#fff; color:#1e293b;
-    outline:none; width:100%; transition:border-color .15s;
-    font-weight: 500;
-}
-.sp-res-select:focus { border-color:#6366f1; }
-.sp-res-note {
-    padding:4px 6px; font-size:11px; border-radius:6px;
-    border:1px solid #cbd5e1; background:#f8fafc; color:#1e293b;
-    outline:none; width:100%; transition:all .15s;
-}
-.sp-res-note:focus { border-color:#6366f1; background:#fff; }
-.sp-res-note::placeholder { color:#94a3b8; }
-
 /* ── Inline mode ── */
 .sp-inline-root { padding:12px 0 4px; }
-.sp-inline-root .sp-stats { margin-bottom:8px; }
-.sp-inline-root .sp-toolbar { margin-bottom:8px; }
-.sp-content--inline { max-height:400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; }
 `;

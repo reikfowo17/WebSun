@@ -655,6 +655,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                                                     storeId={report.storeId}
                                                                     checkDate={report.date}
                                                                     shift={report.shift}
+                                                                    reportId={report.id}
                                                                     isOpen={true}
                                                                     mode="inline"
                                                                 />
