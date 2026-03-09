@@ -8,6 +8,7 @@ import ConfirmModal from '../../components/ConfirmModal';
 import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
 import StockCheckAdmin from './StockCheckAdmin';
 import StockCheckWorker from './StockCheckWorker';
+import StockCheckService from '../../services/stockCheck';
 import '../styles/hq-sidebar.css';
 
 type ExpiryTab = 'CONFIG' | 'SCHEDULE' | 'REPORTS' | 'STOCKCHECK_ADMIN' | 'STOCKCHECK_WORKER';
@@ -261,17 +262,24 @@ const ExpiryScheduleView: React.FC<{ toast: ToastContextType }> = ({ toast }) =>
    3. REPORTS VIEW
    ═══════════════════════════════════════════════ */
 const ExpiryReportsView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
-    const [reports, setReports] = useState<ExpiryReport[]>([]);
+    const [reports, setReports] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+
+    const [dateFrom, setDateFrom] = useState(() => {
+        const d = new Date(); d.setDate(d.getDate() - 3); return d.toISOString().split('T')[0];
+    });
+    const [dateTo, setDateTo] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+    });
 
     useEffect(() => {
         loadReports();
-    }, []);
+    }, [dateFrom, dateTo]);
 
     const loadReports = async () => {
         setLoading(true);
-        const res = await ExpiryService.getReports();
-        if (res.success) setReports(res.reports);
+        const res = await StockCheckService.getDailySummary({ dateFrom, dateTo });
+        if (res.success) setReports(res.data);
         setLoading(false);
     };
 
@@ -298,27 +306,55 @@ const ExpiryReportsView: React.FC<{ toast: ToastContextType }> = ({ toast }) => 
 
     return (
         <div className="space-y-4">
-            {reports.length === 0 ? <p className="text-center text-gray-400">Không có báo cáo nào.</p> :
-                reports.map(report => (
-                    <div key={report.id} className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center justify-between hover:shadow-md transition-all">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 font-bold text-xs border border-orange-200">
-                                {report.store.split(' ').pop()}
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-gray-800">{report.store} <span className="text-gray-400 font-normal text-xs">• {report.date}</span></h4>
-                                <div className="flex gap-3 text-xs mt-1">
-                                    <span className="text-gray-500">Đã quét: <b>{report.scannedCount}</b></span>
-                                    <span className="text-orange-600">Cận date: <b>{report.nearExpiryCount}</b></span>
-                                    <span className="text-red-600">Hết hạn: <b>{report.expiredCount}</b></span>
+            <div className="flex gap-4 mb-4 bg-white p-4 rounded-2xl border border-gray-200">
+                <div className="flex flex-col">
+                    <label className="text-xs font-bold text-gray-500 mb-1">Từ ngày</label>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-orange-400" />
+                </div>
+                <div className="flex flex-col">
+                    <label className="text-xs font-bold text-gray-500 mb-1">Đến ngày</label>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-orange-400" />
+                </div>
+                <div className="flex items-end">
+                    <button onClick={loadReports} className="h-[38px] px-4 bg-orange-50 text-orange-600 font-bold text-sm rounded-lg hover:bg-orange-100 transition-colors">
+                        Lọc
+                    </button>
+                </div>
+            </div>
+
+            {reports.length === 0 ? <p className="text-center text-gray-400 py-8">Không có báo cáo kiểm date nào trong khoảng thời gian này.</p> :
+                reports.map(report => {
+                    const statusText = report.status === 'COMPLETED' ? 'Hoàn thành' : 'Đang thực hiện';
+                    const statusColor = report.status === 'COMPLETED' ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50';
+                    return (
+                        <div key={report.id} className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col md:flex-row md:items-center justify-between hover:shadow-md transition-all gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold border border-blue-100">
+                                    <span className="material-symbols-outlined">assignment</span>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                                        {report.category?.name || 'Danh mục chưa tên'}
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${statusColor}`}>
+                                            {statusText}
+                                        </span>
+                                    </h4>
+                                    <div className="flex gap-3 text-xs mt-1">
+                                        <span className="text-gray-500 font-medium">Cửa hàng: <b>{report.store?.name}</b></span>
+                                        <span className="text-gray-500 font-medium">• Ngày: <b>{new Date(report.check_date).toLocaleDateString('vi-VN')}</b></span>
+                                        <span className="text-gray-500 font-medium">• Ca: <b>{report.shift}</b></span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        Tiến độ: <span className="font-bold text-gray-700">{report.checked_count || 0}/{report.result_count || 0}</span> sản phẩm
+                                    </div>
                                 </div>
                             </div>
+                            <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 hover:text-gray-800 transition-colors shrink-0">
+                                Chi tiết
+                            </button>
                         </div>
-                        <button className="px-4 py-2 bg-gray-50 text-gray-600 rounded-lg text-xs font-bold hover:bg-orange-50 hover:text-orange-600 transition-colors">
-                            Chi tiết
-                        </button>
-                    </div>
-                ))}
+                    );
+                })}
         </div>
     );
 };

@@ -6,18 +6,14 @@ import StockCheckService, {
 } from '../../services/stockCheck';
 import { supabase } from '../../lib/supabase';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface Store { id: string; name: string; code: string; }
 interface User { id: string; display_name?: string; full_name?: string; store_id?: string; }
 
 interface StockCheckWorkerProps {
     user: User;
-    currentDate?: string;  // YYYY-MM-DD, defaults to today
-    currentShift?: number; // 1|2|3
+    currentDate?: string;
+    currentShift?: number;
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt2 = (n: number) => String(n).padStart(2, '0');
 const fmtDate = (d: string) =>
@@ -27,8 +23,6 @@ const fmtTime = (iso: string | null) => {
     const d = new Date(iso);
     return `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
 };
-
-// ─── Print template ───────────────────────────────────────────────────────────
 
 function printCheckList(session: StockCheckSession, results: StockCheckResult[], storeName: string) {
     const catName = (session as any).category?.name || 'Kiểm Date';
@@ -102,7 +96,6 @@ function printCheckList(session: StockCheckSession, results: StockCheckResult[],
     setTimeout(() => { w.print(); }, 400);
 }
 
-// ─── Main Worker Component ────────────────────────────────────────────────────
 
 const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, currentShift }) => {
     const today = currentDate || new Date().toISOString().slice(0, 10);
@@ -114,16 +107,14 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
     const [selectedStoreId, setSelectedStoreId] = useState<string>(user.store_id || '');
     const [selectedShift, setSelectedShift] = useState(defaultShift);
     const [checkDate, setCheckDate] = useState(today);
-
     const [session, setSession] = useState<StockCheckSession | null>(null);
     const [results, setResults] = useState<StockCheckResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [syncMsg, setSyncMsg] = useState('');
-
-    // input state: resultId -> qty string
     const [inputMap, setInputMap] = useState<Record<string, string>>({});
+    const [dateMap, setDateMap] = useState<Record<string, string>>({});
     const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     const loadCategories = async () => {
@@ -148,12 +139,11 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
     const loadSession = useCallback(async () => {
         if (!selectedCatId || !selectedStoreId) return;
         setLoading(true);
-        const res = await StockCheckService.getOrCreateSession({
+        const res = await StockCheckService.getSession({
             categoryId: selectedCatId,
             storeId: selectedStoreId,
             checkDate,
             shift: selectedShift,
-            userId: user.id,
         });
         if (res.success && res.session) {
             setSession(res.session);
@@ -161,32 +151,57 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
             if (rRes.success) {
                 setResults(rRes.data);
                 const initMap: Record<string, string> = {};
+                const initDateMap: Record<string, string> = {};
                 rRes.data.forEach(r => {
                     initMap[r.id] = r.actual_qty !== null ? String(r.actual_qty) : '';
+                    initDateMap[r.id] = r.note || '';
                 });
                 setInputMap(initMap);
+                setDateMap(initDateMap);
             }
+        } else {
+            setSession(null);
+            setResults([]);
         }
         setLoading(false);
-    }, [selectedCatId, selectedStoreId, checkDate, selectedShift, user.id]);
+    }, [selectedCatId, selectedStoreId, checkDate, selectedShift]);
 
     useEffect(() => { loadSession(); }, [loadSession]);
 
-    const handleQtyChange = (resultId: string, val: string) => {
-        setInputMap(prev => ({ ...prev, [resultId]: val }));
+    const handleStartSession = async () => {
+        if (!selectedCatId || !selectedStoreId) return;
+        setLoading(true);
+        const res = await StockCheckService.createSession({
+            categoryId: selectedCatId,
+            storeId: selectedStoreId,
+            checkDate,
+            shift: selectedShift,
+            userId: user.id,
+        });
+        if (res.success) {
+            loadSession();
+        }
+        setLoading(false);
+    };
 
-        // Debounced save
+    const handleResultChange = (resultId: string, field: 'qty' | 'date', val: string) => {
+        if (field === 'qty') setInputMap(prev => ({ ...prev, [resultId]: val }));
+        else setDateMap(prev => ({ ...prev, [resultId]: val }));
+
         clearTimeout(saveTimers.current[resultId]);
         saveTimers.current[resultId] = setTimeout(async () => {
-            const num = val === '' ? null : parseFloat(val);
-            if (val !== '' && isNaN(num!)) return;
+            const num = field === 'qty' ? (val === '' ? null : parseFloat(val)) : (inputMap[resultId] === '' ? null : parseFloat(inputMap[resultId]));
+            const noteVal = field === 'date' ? val : dateMap[resultId];
+
+            if (field === 'qty' && val !== '' && isNaN(num!)) return;
+
             await StockCheckService.updateResult(resultId, {
                 actual_qty: num,
+                note: noteVal,
                 checked_at: new Date().toISOString(),
             });
-            // Update local state
             setResults(prev => prev.map(r => r.id === resultId
-                ? { ...r, actual_qty: num, diff: num !== null && r.system_qty !== null ? num - r.system_qty : null }
+                ? { ...r, actual_qty: num, note: noteVal, diff: num !== null && r.system_qty !== null ? num - r.system_qty : null }
                 : r
             ));
         }, 600);
@@ -199,7 +214,6 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
         const res = await StockCheckService.syncSystemQtyFromInventory(session);
         if (res.success) {
             setSyncMsg(`Đã đồng bộ ${res.synced} sản phẩm từ KiotViet`);
-            // Reload results
             const rRes = await StockCheckService.getSessionResults(session.id);
             if (rRes.success) setResults(rRes.data);
             setTimeout(() => setSyncMsg(''), 4000);
@@ -369,8 +383,14 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                 ) : !session || results.length === 0 ? (
                     <div className="scw-empty">
                         <span className="material-symbols-outlined">inventory</span>
-                        <p>{categories.length === 0 ? 'Chưa có danh mục nào được tạo' : 'Danh mục này chưa có sản phẩm'}</p>
-                        <p className="scw-empty-sub">Liên hệ quản lý để thêm sản phẩm vào danh mục</p>
+                        <p>{categories.length === 0 ? 'Chưa có danh mục nào được tạo' : 'Ca kiểm chưa được tạo hoặc chưa bắt đầu'}</p>
+                        <p className="scw-empty-sub">Hãy nhấn "Bắt đầu ca kiểm" để lấy danh sách từ danh mục vào kiểm date.</p>
+                        {categories.length > 0 && selectedCatId && (
+                            <button className="scw-btn scw-btn--complete" onClick={handleStartSession} style={{ marginTop: 12 }}>
+                                <span className="material-symbols-outlined">play_arrow</span>
+                                Bắt đầu ca kiểm
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <table className="scw-table">
@@ -379,10 +399,11 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                                 <th style={{ width: 38 }}>#</th>
                                 <th>Tên sản phẩm</th>
                                 <th style={{ width: 100 }}>Mã SP</th>
-                                <th style={{ width: 110 }} className="center">SL Thực Tế</th>
-                                <th style={{ width: 110 }} className="center">SL Hệ Thống</th>
-                                <th style={{ width: 90 }} className="center">Chênh Lệch</th>
-                                <th style={{ width: 80 }} className="center">Trạng Thái</th>
+                                <th style={{ width: 100 }} className="center">Hạn Sử Dụng (Mới nhất)</th>
+                                <th style={{ width: 90 }} className="center">SL Thực Tế</th>
+                                <th style={{ width: 90 }} className="center">SL Hệ Thống</th>
+                                <th style={{ width: 80 }} className="center">Chênh Lệch</th>
+                                <th style={{ width: 50 }} className="center">Xong</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -398,16 +419,27 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                                         <td className="scw-idx">{idx + 1}</td>
                                         <td className="scw-name">{r.product?.name || '—'}</td>
                                         <td className="scw-sp">{r.product?.sp || ''}</td>
+                                        <td className="center scw-sys-qty">
+                                            <input
+                                                type="text"
+                                                className={`scw-qty-input ${dateMap[r.id] ? 'has-value' : ''}`}
+                                                style={{ fontSize: 13, width: '100%' }}
+                                                value={dateMap[r.id] || ''}
+                                                onChange={e => handleResultChange(r.id, 'date', e.target.value)}
+                                                placeholder="VD: 12/12/24"
+                                                disabled={isCompleted}
+                                                title="Ghi nhận Hạn sử dụng của sản phẩm (hoặc lô gần nhất)"
+                                            />
+                                        </td>
                                         <td className="scw-qty-cell center">
                                             <input
                                                 type="number"
                                                 step="0.01"
                                                 className={`scw-qty-input ${hasVal ? 'has-value' : ''}`}
                                                 value={val}
-                                                onChange={e => handleQtyChange(r.id, e.target.value)}
+                                                onChange={e => handleResultChange(r.id, 'qty', e.target.value)}
                                                 placeholder="—"
                                                 disabled={isCompleted}
-                                                title="Sử dụng phiếu in để kiểm date. Tại đây nhập số lượng thực tế khi kiểm (nếu có chênh lệch báo cáo)"
                                             />
                                         </td>
                                         <td className="center scw-sys-qty">
@@ -421,8 +453,8 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                                             ) : <span className="scw-na">—</span>}
                                         </td>
                                         <td className="center">
-                                            {hasVal ? (
-                                                <span className="scw-check-mark" title="Đã ghi nhận số lượng">
+                                            {hasVal || dateMap[r.id] ? (
+                                                <span className="scw-check-mark" title="Đã kiểm">
                                                     <span className="material-symbols-outlined">check_circle</span>
                                                 </span>
                                             ) : (
@@ -441,8 +473,6 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
         </div>
     );
 };
-
-// ─── CSS ──────────────────────────────────────────────────────────────────────
 
 const CSS_WORKER = `
 @keyframes scwSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
