@@ -4,3 +4,8 @@ export { default as RecoveryDetailModal } from './RecoveryDetailModal';
 export { default as RecoveryScanModal } from './RecoveryScanModal';
 export { default as ArchiveStatusPanel } from './ArchiveStatusPanel';
 export { default as ReportDetailModal } from './ReportDetailModal';
+export { default as ItemsDetailPanel } from './ItemsDetailPanel';
+export { ResolutionSelect } from './ItemsDetailPanel';
+export { RecoveryForm } from './RecoveryForm';
+export { RecheckDateField } from './RecheckDateField';
+export { AdminNoteField } from './AdminNoteField';

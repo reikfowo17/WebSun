@@ -523,7 +523,7 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
     if (!isSupabaseConfigured()) return { success: false };
 
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('inventory_items')
             .select(`
                     id,
@@ -550,6 +550,32 @@ export async function getReportItems(storeId: string, checkDate: string, shift: 
             .order('created_at', { ascending: true });
 
         if (error) throw error;
+
+        if (!data || data.length === 0) {
+            const { data: histData, error: histError } = await supabase
+                .from('inventory_history')
+                .select(`
+                        id,
+                        system_stock,
+                        actual_stock,
+                        diff,
+                        status,
+                        note,
+                        diff_reason,
+                        products (
+                            name,
+                            barcode,
+                            category
+                        )
+                    `)
+                .eq('store_id', storeId)
+                .eq('check_date', checkDate)
+                .eq('shift', shift)
+                .order('created_at', { ascending: true });
+
+            if (histError) throw histError;
+            data = (histData as any) || [];
+        }
 
         const items: ReportItem[] = (data || []).map((item: any) => ({
             id: item.id,
@@ -735,13 +761,83 @@ export async function deleteReport(reportId: string): Promise<{ success: boolean
     }
 }
 
+export async function batchUpdateItemsResolution(
+    reportIds: string[],
+    resolution: DiscrepancyResolution,
+    adminNote: string = ''
+): Promise<{ success: boolean; processed: number; failed: number; message?: string }> {
+    if (!isSupabaseConfigured()) return { success: false, processed: 0, failed: 0, message: 'Database disconnected' };
+    if (!reportIds.length) return { success: false, processed: 0, failed: 0, message: 'Không có báo cáo' };
 
+    try {
+        let processed = 0;
+        let failed = 0;
 
+        for (const reportId of reportIds) {
+            try {
+                const { data: report, error: reportError } = await supabase
+                    .from('inventory_reports')
+                    .select('store_id, check_date, shift')
+                    .eq('id', reportId)
+                    .single();
 
+                if (reportError || !report) {
+                    console.error(`[Inventory] Report not found: ${reportId}`);
+                    failed++;
+                    continue;
+                }
 
+                const { data: items, error: itemsError } = await supabase
+                    .from('inventory_items')
+                    .select('id')
+                    .eq('store_id', report.store_id)
+                    .eq('check_date', report.check_date)
+                    .eq('shift', report.shift);
 
+                if (itemsError || !items || items.length === 0) {
+                    failed++;
+                    continue;
+                }
 
+                const itemIds = items.map((i: any) => i.id);
+                const updatePayload: Record<string, any> = {
+                    resolution,
+                    admin_note: adminNote || null,
+                    recheck_due_date: null,
+                };
 
+                const { error: updateError } = await supabase
+                    .from('inventory_items')
+                    .update(updatePayload)
+                    .in('id', itemIds);
 
+                if (updateError) {
+                    console.error(`[Inventory] Batch update error for report ${reportId}:`, updateError);
+                    failed++;
+                } else {
+                    await supabase
+                        .from('inventory_reports')
+                        .update({ status: 'APPROVED' })
+                        .eq('id', reportId)
+                        .eq('status', 'PENDING');
 
+                    processed++;
+                }
+            } catch (e) {
+                console.error(`[Inventory] Batch update error for report ${reportId}:`, e);
+                failed++;
+            }
+        }
+
+        return {
+            success: processed > 0,
+            processed,
+            failed,
+            message: processed > 0 ? `Đã xử lý ${processed} báo cáo` : 'Không thể xử lý báo cáo nào'
+        };
+    } catch (e: unknown) {
+        console.error('[Inventory] Batch update resolution error:', e);
+        return { success: false, processed: 0, failed: 0, message: 'Lỗi hệ thống' };
+    }
+}
 

@@ -82,40 +82,32 @@ export async function getDistributionStatus(
         let checkDate = date;
 
         if (!checkDate) {
-            const rpcDate = await getInventoryDate(shift);
-
-            const { data: rpcItems } = await supabase
-                .from('inventory_items')
-                .select('id', { count: 'exact', head: true })
-                .eq('store_id', storeId)
-                .eq('shift', shift)
-                .eq('check_date', rpcDate);
-
-            if (rpcItems && rpcItems.length > 0) {
-                checkDate = rpcDate;
-            } else {
-                const { data: latestItem } = await supabase
-                    .from('inventory_items')
-                    .select('check_date')
-                    .eq('store_id', storeId)
-                    .eq('shift', shift)
-                    .order('check_date', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-
-                if (!latestItem) return empty;
-                checkDate = latestItem.check_date;
-            }
+            checkDate = await getInventoryDate(shift);
         }
 
-        const { data: items, error } = await supabase
+        let { data: items, error } = await supabase
             .from('inventory_items')
             .select('id, actual_stock, distributed_at, distributed_by')
             .eq('store_id', storeId)
             .eq('shift', shift)
             .eq('check_date', checkDate);
 
-        if (error || !items || items.length === 0) return empty;
+        if (error) return empty;
+
+        if (!items || items.length === 0) {
+            const { data: histItems } = await supabase
+                .from('inventory_history')
+                .select('id, actual_stock, distributed_at, distributed_by')
+                .eq('store_id', storeId)
+                .eq('shift', shift)
+                .eq('check_date', checkDate);
+
+            if (histItems && histItems.length > 0) {
+                items = histItems as any;
+            } else {
+                return empty;
+            }
+        }
 
         const { data: report } = await supabase
             .from('inventory_reports')

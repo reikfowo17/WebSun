@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ToastContextType } from '../../contexts/ToastContext';
 import { SystemService, ExpiryConfigItem, StoreConfig } from '../../services/system';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { MultiStoreSelect } from '../../components/MultiStoreSelect';
 
 interface Props {
     toast: ToastContextType;
@@ -202,26 +203,33 @@ export const SettingsExpiryConfig: React.FC<Props> = ({ toast, initialConfigs, a
                                         </td>
                                         <td>
                                             {isEditing ? (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                                    {allStores.filter(s => s.is_active !== false).map(store => (
-                                                        <label key={store.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
-                                                            <input type="checkbox" checked={draft?.stores?.includes(store.code) ?? false}
-                                                                onChange={e => {
-                                                                    if (!draft) return;
-                                                                    const stores = e.target.checked
-                                                                        ? [...(draft.stores || []), store.code]
-                                                                        : (draft.stores || []).filter(s => s !== store.code);
-                                                                    setDraft({ ...draft, stores });
-                                                                }} />
-                                                            {store.code}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                <MultiStoreSelect
+                                                    stores={allStores.filter(s => s.is_active !== false) as any}
+                                                    selectedStoreIds={
+                                                        !draft?.stores || draft.stores.length === 0
+                                                            ? null
+                                                            : draft.stores.map(code => allStores.find(s => s.code === code)?.id).filter(Boolean) as string[]
+                                                    }
+                                                    onChange={ids => {
+                                                        if (ids === null) {
+                                                            setDraft(p => p ? { ...p, stores: [] } : p);
+                                                        } else {
+                                                            const codes = ids.map(id => allStores.find(s => s.id === id)?.code).filter(Boolean) as string[];
+                                                            setDraft(p => p ? { ...p, stores: codes } : p);
+                                                        }
+                                                    }}
+                                                />
                                             ) : (
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                                    {config.stores?.length ? config.stores.map(s => (
-                                                        <span key={s} className="stg-badge" style={{ fontSize: 11, padding: '1px 6px' }}>{s}</span>
-                                                    )) : <span style={{ color: 'var(--stg-text-muted)', fontSize: 12, fontStyle: 'italic' }}>Tất cả</span>}
+                                                    {(!config.stores || config.stores.length === 0) ? (
+                                                        <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#dbeafe', color: '#1e40af' }}>Tất cả CH</span>
+                                                    ) : (
+                                                        config.stores.map(code => (
+                                                            <span key={code} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px', background: '#fef3c7', color: '#b45309' }}>
+                                                                {code}
+                                                            </span>
+                                                        ))
+                                                    )}
                                                 </div>
                                             )}
                                         </td>

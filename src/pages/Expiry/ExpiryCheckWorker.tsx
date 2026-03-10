@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import StockCheckService, {
-    StockCheckCategory,
-    StockCheckSession,
-    StockCheckResult,
-} from '../../services/stockCheck';
+import ExpiryCheckService, {
+    ExpiryCheckCategory,
+    ExpiryCheckSession,
+    ExpiryCheckResult,
+} from '../../services/expiryCheck';
 import { supabase } from '../../lib/supabase';
-import { ExpiryService, ExpiryConfig } from '../../services';
 
 interface Store { id: string; name: string; code: string; }
 interface User { id: string; display_name?: string; full_name?: string; store_id?: string; }
 
-interface StockCheckWorkerProps {
+interface ExpiryCheckWorkerProps {
     user: User;
     currentDate?: string;
     currentShift?: number;
@@ -25,7 +24,7 @@ const fmtTime = (iso: string | null) => {
     return `${fmt2(d.getHours())}:${fmt2(d.getMinutes())}`;
 };
 
-function printCheckList(session: StockCheckSession, results: StockCheckResult[], storeName: string) {
+function printCheckList(session: ExpiryCheckSession, results: ExpiryCheckResult[], storeName: string) {
     const catName = (session as any).category?.name || 'Kiểm Date';
     const date = fmtDate(session.check_date);
     const rows = results.map((r, i) => `
@@ -98,29 +97,28 @@ function printCheckList(session: StockCheckSession, results: StockCheckResult[],
 }
 
 
-const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, currentShift }) => {
+const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate, currentShift }) => {
     const today = currentDate || new Date().toISOString().slice(0, 10);
     const defaultShift = currentShift || 1;
 
-    const [categories, setCategories] = useState<StockCheckCategory[]>([]);
+    const [categories, setCategories] = useState<ExpiryCheckCategory[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [selectedCatId, setSelectedCatId] = useState<string>('');
     const [selectedStoreId, setSelectedStoreId] = useState<string>(user.store_id || '');
     const [selectedShift, setSelectedShift] = useState(defaultShift);
     const [checkDate, setCheckDate] = useState(today);
-    const [session, setSession] = useState<StockCheckSession | null>(null);
-    const [results, setResults] = useState<StockCheckResult[]>([]);
+    const [session, setSession] = useState<ExpiryCheckSession | null>(null);
+    const [results, setResults] = useState<ExpiryCheckResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [syncMsg, setSyncMsg] = useState('');
-    const [configs, setConfigs] = useState<ExpiryConfig[]>([]);
     const [inputMap, setInputMap] = useState<Record<string, string>>({});
     const [dateMap, setDateMap] = useState<Record<string, string>>({});
     const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     const loadCategories = async () => {
-        const res = await StockCheckService.getCategories();
+        const res = await ExpiryCheckService.getCategories();
         if (res.success) {
             const active = res.data.filter(c => c.is_active);
             setCategories(active);
@@ -136,17 +134,12 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
         }
     };
 
-    const loadConfigs = async () => {
-        const res = await ExpiryService.getConfigs();
-        if (res.success) setConfigs(res.configs);
-    };
-
-    useEffect(() => { loadCategories(); loadStores(); loadConfigs(); }, []);
+    useEffect(() => { loadCategories(); loadStores(); }, []);
 
     const loadSession = useCallback(async () => {
         if (!selectedCatId || !selectedStoreId) return;
         setLoading(true);
-        const res = await StockCheckService.getSession({
+        const res = await ExpiryCheckService.getSession({
             categoryId: selectedCatId,
             storeId: selectedStoreId,
             checkDate,
@@ -154,13 +147,13 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
         });
         if (res.success && res.session) {
             setSession(res.session);
-            const rRes = await StockCheckService.getSessionResults(res.session.id);
+            const rRes = await ExpiryCheckService.getSessionResults(res.session.id);
             if (rRes.success) {
                 setResults(rRes.data);
                 const initMap: Record<string, string> = {};
                 const initDateMap: Record<string, string> = {};
                 rRes.data.forEach(r => {
-                    initMap[r.id] = r.actual_qty !== null ? String(r.actual_qty) : '';
+                    initMap[r.id] = r.qty !== null ? String(r.qty) : '';
                     initDateMap[r.id] = r.note || '';
                 });
                 setInputMap(initMap);
@@ -178,7 +171,7 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
     const handleStartSession = async () => {
         if (!selectedCatId || !selectedStoreId) return;
         setLoading(true);
-        const res = await StockCheckService.createSession({
+        const res = await ExpiryCheckService.createSession({
             categoryId: selectedCatId,
             storeId: selectedStoreId,
             checkDate,
@@ -202,40 +195,37 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
 
             if (field === 'qty' && val !== '' && isNaN(num!)) return;
 
-            await StockCheckService.updateResult(resultId, {
-                actual_qty: num,
+            let parsedDate: string | null = null;
+            if (noteVal) {
+                const ms = parseShortDate(noteVal);
+                if (ms) parsedDate = new Date(ms).toISOString().split('T')[0];
+            }
+
+            await ExpiryCheckService.updateResult(resultId, {
+                qty: num,
                 note: noteVal,
+                expiry_date: parsedDate,
                 checked_at: new Date().toISOString(),
             });
             setResults(prev => prev.map(r => r.id === resultId
-                ? { ...r, actual_qty: num, note: noteVal, diff: num !== null && r.system_qty !== null ? num - r.system_qty : null }
+                ? { ...r, qty: num, note: noteVal, expiry_date: parsedDate }
                 : r
             ));
         }, 600);
     };
 
     const handleSync = async () => {
-        if (!session) return;
-        setSyncing(true);
-        setSyncMsg('');
-        const res = await StockCheckService.syncSystemQtyFromInventory(session);
-        if (res.success) {
-            setSyncMsg(`Đã đồng bộ ${res.synced} sản phẩm từ KiotViet`);
-            const rRes = await StockCheckService.getSessionResults(session.id);
-            if (rRes.success) setResults(rRes.data);
-            setTimeout(() => setSyncMsg(''), 4000);
-        }
-        setSyncing(false);
+        // Obsolete in Expiry Check
     };
 
     const handleComplete = async () => {
         if (!session) return;
-        const checked = results.filter(r => r.actual_qty !== null).length;
+        const checked = results.filter(r => r.qty !== null).length;
         if (checked < results.length) {
             if (!confirm(`Còn ${results.length - checked} sản phẩm chưa kiểm. Vẫn hoàn thành?`)) return;
         }
         setCompleting(true);
-        await StockCheckService.completeSession(session.id, user.id);
+        await ExpiryCheckService.completeSession(session.id, user.id);
         setSession(prev => prev ? { ...prev, status: 'COMPLETED' } : prev);
         setCompleting(false);
     };
@@ -246,14 +236,11 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
         printCheckList(session, results, storeName);
     };
 
-    const checkedCount = results.filter(r => r.actual_qty !== null).length;
-    const diffCount = results.filter(r => r.diff !== null && r.diff !== 0).length;
+    const checkedCount = results.filter(r => r.qty !== null).length;
     const isCompleted = session?.status === 'COMPLETED';
     const selectedCat = categories.find(c => c.id === selectedCatId);
 
-    // Find applicable config for category
-    const catConfig = configs.find(c => c.type.toLowerCase() === selectedCat?.name.toLowerCase()) || configs[0];
-    const nearExpiryDays = catConfig?.nearExpiryDays || 30;
+    const nearExpiryDays = selectedCat?.near_expiry_days || 30;
 
     const parseShortDate = (str: string): number | null => {
         if (!str) return null;
@@ -347,14 +334,6 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                             <span className="scw-stat-val">{checkedCount}</span>
                             <span className="scw-stat-lbl">Đã Ghi Nhận</span>
                         </div>
-                        <div className="scw-stat warn">
-                            <span className="scw-stat-val">{results.length - checkedCount}</span>
-                            <span className="scw-stat-lbl">Chưa Ghi Nhận</span>
-                        </div>
-                        <div className="scw-stat danger">
-                            <span className="scw-stat-val">{diffCount}</span>
-                            <span className="scw-stat-lbl">Lệch Kho</span>
-                        </div>
                     </div>
 
                     {/* Progress bar */}
@@ -367,17 +346,6 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
 
                     {/* Action buttons */}
                     <div className="scw-actions">
-                        <button
-                            className="scw-btn scw-btn--sync"
-                            onClick={handleSync}
-                            disabled={syncing || isCompleted}
-                            title="Lấy số lượng tồn từ KiotViet để đối chiếu"
-                        >
-                            <span className="material-symbols-outlined" style={{ animation: syncing ? 'scwSpin 1s linear infinite' : 'none' }}>
-                                sync
-                            </span>
-                            {syncing ? 'Đang đồng bộ...' : 'Đồng bộ TL KiotViet'}
-                        </button>
                         <button className="scw-btn scw-btn--print" onClick={handlePrint}>
                             <span className="material-symbols-outlined">print</span>
                             In Phiếu Kiểm Date
@@ -431,21 +399,15 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                                 <th style={{ width: 38 }}>#</th>
                                 <th>Tên sản phẩm</th>
                                 <th style={{ width: 100 }}>Mã SP</th>
-                                <th style={{ width: 100 }} className="center">Hạn Sử Dụng (Mới nhất)</th>
-                                <th style={{ width: 90 }} className="center">SL Thực Tế</th>
-                                <th style={{ width: 90 }} className="center">SL Hệ Thống</th>
-                                <th style={{ width: 80 }} className="center">Chênh Lệch</th>
+                                <th style={{ width: 100 }} className="center">Hạn Sử Dụng</th>
+                                <th style={{ width: 90 }} className="center">Số Lượng</th>
                                 <th style={{ width: 50 }} className="center">Xong</th>
                             </tr>
                         </thead>
                         <tbody>
                             {results.map((r, idx) => {
-                                const val = inputMap[r.id] ?? (r.actual_qty !== null ? String(r.actual_qty) : '');
-                                const hasVal = r.actual_qty !== null;
-                                const diff = r.diff;
-                                const diffOk = diff === 0;
-                                const diffPos = diff !== null && diff > 0;
-                                const diffNeg = diff !== null && diff < 0;
+                                const val = inputMap[r.id] ?? (r.qty !== null ? String(r.qty) : '');
+                                const hasVal = r.qty !== null;
 
                                 const status = getExpiryStatus(dateMap[r.id] || '');
 
@@ -484,16 +446,6 @@ const StockCheckWorker: React.FC<StockCheckWorkerProps> = ({ user, currentDate, 
                                                 placeholder="—"
                                                 disabled={isCompleted}
                                             />
-                                        </td>
-                                        <td className="center scw-sys-qty">
-                                            {r.system_qty !== null ? r.system_qty : <span className="scw-na">—</span>}
-                                        </td>
-                                        <td className="center">
-                                            {diff !== null && r.system_qty !== null && hasVal ? (
-                                                <span className={`scw-diff ${diffOk ? 'ok' : diffPos ? 'pos' : 'neg'}`}>
-                                                    {diffPos ? '+' : ''}{diff}
-                                                </span>
-                                            ) : <span className="scw-na">—</span>}
                                         </td>
                                         <td className="center">
                                             {hasVal || dateMap[r.id] ? (
@@ -697,4 +649,4 @@ const CSS_WORKER = `
 .scw-empty-sub { font-size: 12px !important; color: #94a3b8 !important; font-weight: 400 !important; }
 `;
 
-export default StockCheckWorker;
+export default ExpiryCheckWorker;

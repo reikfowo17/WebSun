@@ -23,7 +23,7 @@ import Register from "./pages/Register";
 // Pages (lazy load)
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const Inventory = React.lazy(() => import("./pages/Inventory"));
-const Expiry = React.lazy(() => import("./pages/Expiry/Expiry"));
+const Expiry = React.lazy(() => import("./pages/Expiry/ExpiryCheckWorker"));
 const InventoryHQ = React.lazy(() => import("./pages/InventoryHQ"));
 const ExpiryHQ = React.lazy(() => import("./pages/Expiry/ExpiryHQ"));
 const Profile = React.lazy(() => import("./pages/Profile"));

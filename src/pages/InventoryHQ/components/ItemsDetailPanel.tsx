@@ -8,6 +8,11 @@ import {
     type ReportItem,
 } from '../../../services/inventory';
 
+export { ResolutionSelect } from './ResolutionSelect';
+export { RecoveryForm } from './RecoveryForm';
+export { RecheckDateField } from './RecheckDateField';
+export { AdminNoteField } from './AdminNoteField';
+
 export interface ItemsDetailPanelProps {
     storeId: string;
     storeCode?: string;

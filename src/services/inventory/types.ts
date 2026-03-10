@@ -80,6 +80,7 @@ export interface ReportSummary {
     shift: number;
     date: string;
     submittedBy: string;
+    submittedById?: string;
     submittedAt: string;
     status: ReportStatus;
     total: number;

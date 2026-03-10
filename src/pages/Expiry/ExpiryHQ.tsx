@@ -3,28 +3,26 @@ import { createPortal } from 'react-dom';
 import { User } from '../../types';
 import { useToast } from '../../contexts';
 import { ToastContextType } from '../../contexts/ToastContext';
-import { ExpiryService, ExpiryConfig, ExpiryReport } from '../../services';
 import ConfirmModal from '../../components/ConfirmModal';
 import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
-import StockCheckAdmin from './StockCheckAdmin';
-import StockCheckWorker from './StockCheckWorker';
-import StockCheckService from '../../services/stockCheck';
+import ExpiryCheckAdmin from './ExpiryCheckAdmin';
+import ExpiryCheckService from '../../services/expiryCheck';
+import { SystemService, StoreConfig, ExpiryConfigItem, ProductConfig } from '../../services/system';
 import '../../styles/hq-sidebar.css';
+import '../../styles/settings.css';
 
-type ExpiryTab = 'CONFIG' | 'REPORTS' | 'STOCKCHECK_ADMIN' | 'STOCKCHECK_WORKER';
+type ExpiryTab = 'REPORTS' | 'STOCKCHECK_ADMIN';
 
 const TAB_META: Record<ExpiryTab, { label: string; desc: string }> = {
-    CONFIG: { label: 'Cấu Hình Ngưỡng', desc: 'Thiết lập ngưỡng cận date & NSX theo loại sản phẩm' },
-    REPORTS: { label: 'Báo Cáo Date', desc: 'Tổng hợp kết quả kiểm date theo cửa hàng' },
     STOCKCHECK_ADMIN: { label: 'Danh Mục Cần Kiểm', desc: 'Tạo danh mục sản phẩm yêu cầu kiểm date hằng đêm' },
-    STOCKCHECK_WORKER: { label: 'Kiểm Date Hàng Ngày', desc: 'Thực hiện kiểm tra hạn sử dụng theo danh mục yêu cầu' },
+    REPORTS: { label: 'Báo Cáo Date', desc: 'Tổng hợp kết quả kiểm date theo cửa hàng' },
 };
 
 const isAdmin = (user: User) => ['ADMIN', 'MANAGER'].includes(user.role || '');
 
 const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     const toast = useToast();
-    const [subTab, setSubTab] = useState<ExpiryTab>('CONFIG');
+    const [subTab, setSubTab] = useState<ExpiryTab>('STOCKCHECK_ADMIN');
     const [currentDate, setCurrentDate] = useState(() => {
         const vnNow = new Date(Date.now() + 7 * 3600 * 1000);
         if (vnNow.getUTCHours() < 6) {
@@ -34,23 +32,40 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
     });
     const [topbarNode, setTopbarNode] = useState<HTMLElement | null>(null);
 
+    const [stores, setStores] = useState<StoreConfig[]>([]);
+    const [expiryConfigs, setExpiryConfigs] = useState<ExpiryConfigItem[]>([]);
+    const [products, setProducts] = useState<ProductConfig[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+
     useEffect(() => {
         setTopbarNode(document.getElementById('topbar-left'));
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        setLoadingData(true);
+        try {
+            const [fetchedStores, fetchedExpiry, fetchedProducts] = await Promise.all([
+                SystemService.getStores(),
+                SystemService.getExpiryConfigs(),
+                SystemService.getProducts(),
+            ]);
+            setStores(fetchedStores);
+            setExpiryConfigs(fetchedExpiry);
+            setProducts(fetchedProducts);
+        } catch (e: unknown) {
+            toast.error('Lỗi khi tải dữ liệu: ' + (e instanceof Error ? e.message : String(e)));
+        } finally {
+            setLoadingData(false);
+        }
+    };
 
     const sidebarGroups: SubSidebarGroup[] = [
         {
             label: 'CẤU HÌNH & BÁO CÁO',
             items: [
+                { id: 'STOCKCHECK_ADMIN', label: TAB_META.STOCKCHECK_ADMIN.label },
                 { id: 'REPORTS', label: TAB_META.REPORTS.label },
-                { id: 'CONFIG', label: TAB_META.CONFIG.label },
-            ]
-        },
-        {
-            label: 'KIỂM DATE HẰNG ĐÊM',
-            items: [
-                { id: 'STOCKCHECK_WORKER', label: 'Kiểm Date Hàng Ngày' },
-                ...(isAdmin(user) ? [{ id: 'STOCKCHECK_ADMIN', label: 'Danh Mục Cần Kiểm' }] : []),
             ]
         }
     ];
@@ -99,135 +114,14 @@ const ExpiryHQ: React.FC<{ user: User }> = ({ user }) => {
                 />
                 <div className="hq-content" key={subTab}>
                     <div className="hq-section-animate">
-                        {subTab === 'CONFIG' && <ExpiryConfigView toast={toast} />}
                         {subTab === 'REPORTS' && <ExpiryReportsView toast={toast} />}
-                        {subTab === 'STOCKCHECK_ADMIN' && <StockCheckAdmin />}
-                        {subTab === 'STOCKCHECK_WORKER' && (
-                            <StockCheckWorker
-                                user={user as any}
-                                currentDate={currentDate}
-                            />
-                        )}
+                        {subTab === 'STOCKCHECK_ADMIN' && <ExpiryCheckAdmin />}
                     </div>
                 </div>
             </div>
         </div>
     );
-};
 
-const ExpiryConfigView: React.FC<{ toast: ToastContextType }> = ({ toast }) => {
-    const [configs, setConfigs] = useState<ExpiryConfig[]>([]);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        loadConfigs();
-    }, []);
-
-    const loadConfigs = async () => {
-        setLoading(true);
-        const res = await ExpiryService.getConfigs();
-        if (res.success) setConfigs(res.configs);
-        else toast.error('Không thể tải cấu hình');
-        setLoading(false);
-    };
-
-    const [pendingToggle, setPendingToggle] = useState<ExpiryConfig | null>(null);
-
-    const handleToggle = (cfg: ExpiryConfig) => {
-        setPendingToggle(cfg);
-    };
-
-    const executeToggle = async () => {
-        if (!pendingToggle) return;
-        const cfg = pendingToggle;
-        setPendingToggle(null);
-        const res = await ExpiryService.updateConfig(cfg.id, { enabled: !cfg.enabled });
-        if (res.success) {
-            toast.success('Đã cập nhật cấu hình');
-            loadConfigs();
-        } else {
-            toast.error('Lỗi khi cập nhật');
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="hq-skeleton">
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="hq-sk-wrap" style={{ padding: 20 }}>
-                            <div className="hq-sk-line" style={{ width: '60%', marginBottom: 12 }} />
-                            <div className="hq-sk-line" style={{ width: '40%', height: 10, marginBottom: 16 }} />
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <div className="hq-sk-card" style={{ flex: 1, height: 56 }} />
-                                <div className="hq-sk-card" style={{ flex: 1, height: 56 }} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {configs.length === 0 ? <p className="col-span-full text-center text-gray-400">Chưa có cấu hình.</p> :
-                configs.map(cfg => (
-                    <div key={cfg.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all group">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.enabled ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
-                                    <span className="material-symbols-outlined">settings</span>
-                                </div>
-                                <div>
-                                    <h3 className={`font-bold ${cfg.enabled ? 'text-gray-800' : 'text-gray-400'}`}>{cfg.type}</h3>
-                                    <p className="text-xs text-gray-400">ID: {cfg.id.split('-')[0]}</p>
-                                </div>
-                            </div>
-                            <div onClick={() => handleToggle(cfg)} className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in cursor-pointer">
-                                <div className={`absolute block w-5 h-5 rounded-full bg-white border-2 appearance-none transition-all ${cfg.enabled ? 'right-0 border-orange-500' : 'left-0 border-gray-300'}`} />
-                                <div className={`block overflow-hidden h-5 rounded-full ${cfg.enabled ? 'bg-orange-500' : 'bg-gray-200'}`}></div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                <span className="block text-[10px] font-bold text-gray-500 uppercase">Cận date</span>
-                                <span className="text-lg font-black text-orange-600">{cfg.nearExpiryDays} <span className="text-xs font-normal text-gray-400">ngày</span></span>
-                            </div>
-                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                <span className="block text-[10px] font-bold text-gray-500 uppercase">Ngưỡng NSX</span>
-                                <span className="text-lg font-black text-gray-700">{cfg.productionThreshold} <span className="text-xs font-normal text-gray-400">ngày</span></span>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {cfg.stores?.length > 0 ? cfg.stores.map(s => (
-                                <span key={s} className="px-2 py-1 bg-white border border-gray-200 rounded text-[10px] font-bold text-gray-500">{s}</span>
-                            )) : <span className="text-[10px] text-gray-400 italic">Áp dụng tất cả</span>}
-                            <button className="px-2 py-1 bg-gray-50 border border-dashed border-gray-300 rounded text-[10px] font-bold text-gray-400 hover:text-orange-500 hover:border-orange-300 transition-colors">
-                                + Edit
-                            </button>
-                        </div>
-                    </div>
-                ))}
-
-            <button className="border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50/50 transition-all min-h-[200px]">
-                <span className="material-symbols-outlined text-3xl">add_circle</span>
-                <span className="font-bold text-sm">Thêm Cấu Hình Loại SP</span>
-            </button>
-
-            <ConfirmModal
-                isOpen={!!pendingToggle}
-                title="Thay đổi cấu hình"
-                message={pendingToggle ? `Xác nhận ${pendingToggle.enabled ? 'tắt' : 'bật'} cấu hình này?` : ''}
-                variant="warning"
-                confirmText="Xác nhận"
-                onConfirm={executeToggle}
-                onCancel={() => setPendingToggle(null)}
-            />
-        </div>
-    );
 };
 
 
@@ -246,15 +140,29 @@ const ExpiryReportsView: React.FC<{ toast: ToastContextType }> = ({ toast }) => 
         return new Date().toISOString().split('T')[0];
     });
 
+    const [selectedReport, setSelectedReport] = useState<any | null>(null);
+    const [reportDetails, setReportDetails] = useState<any[]>([]);
+    const [loadingDetails, setLoadingDetails] = useState(false);
+    const [selectedStoreFilter, setSelectedStoreFilter] = useState<string | null>(null);
+
     useEffect(() => {
         loadReports();
     }, [dateFrom, dateTo]);
 
     const loadReports = async () => {
         setLoading(true);
-        const res = await StockCheckService.getDailySummary({ dateFrom, dateTo });
+        const res = await ExpiryCheckService.getDailySummary({ dateFrom, dateTo });
         if (res.success) setReports(res.data);
         setLoading(false);
+    };
+
+    const handleViewDetails = async (report: any) => {
+        setSelectedReport(report);
+        setLoadingDetails(true);
+        const res = await ExpiryCheckService.getSessionResults(report.id);
+        if (res.success) setReportDetails(res.data);
+        else toast.error('Lỗi khi tải chi tiết báo cáo');
+        setLoadingDetails(false);
     };
 
     if (loading) {
@@ -278,6 +186,17 @@ const ExpiryReportsView: React.FC<{ toast: ToastContextType }> = ({ toast }) => 
         );
     }
 
+    // Grouping by Store
+    const grouped: Record<string, any[]> = {};
+    reports.forEach(r => {
+        const storeName = r.store?.name || 'Không xác định';
+        if (!grouped[storeName]) grouped[storeName] = [];
+        grouped[storeName].push(r);
+    });
+
+    const storeNames = Object.keys(grouped).sort();
+    const activeStore = (selectedStoreFilter && storeNames.includes(selectedStoreFilter)) ? selectedStoreFilter : storeNames[0];
+
     return (
         <div className="space-y-4">
             <div className="flex gap-4 mb-4 bg-white p-4 rounded-2xl border border-gray-200">
@@ -297,38 +216,164 @@ const ExpiryReportsView: React.FC<{ toast: ToastContextType }> = ({ toast }) => 
             </div>
 
             {reports.length === 0 ? <p className="text-center text-gray-400 py-8">Không có báo cáo kiểm date nào trong khoảng thời gian này.</p> :
-                reports.map(report => {
-                    const statusText = report.status === 'COMPLETED' ? 'Hoàn thành' : 'Đang thực hiện';
-                    const statusColor = report.status === 'COMPLETED' ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50';
-                    return (
-                        <div key={report.id} className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col md:flex-row md:items-center justify-between hover:shadow-md transition-all gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold border border-blue-100">
-                                    <span className="material-symbols-outlined">assignment</span>
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                                        {report.category?.name || 'Danh mục chưa tên'}
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${statusColor}`}>
-                                            {statusText}
-                                        </span>
-                                    </h4>
-                                    <div className="flex gap-3 text-xs mt-1">
-                                        <span className="text-gray-500 font-medium">Cửa hàng: <b>{report.store?.name}</b></span>
-                                        <span className="text-gray-500 font-medium">• Ngày: <b>{new Date(report.check_date).toLocaleDateString('vi-VN')}</b></span>
-                                        <span className="text-gray-500 font-medium">• Ca: <b>{report.shift}</b></span>
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        Tiến độ: <span className="font-bold text-gray-700">{report.checked_count || 0}/{report.result_count || 0}</span> sản phẩm
-                                    </div>
-                                </div>
+                (
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                        {/* Store Selector (Left Sidebar) */}
+                        <div className="w-full md:w-64 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden shrink-0">
+                            <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+                                <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm">
+                                    <span className="material-symbols-outlined text-orange-500" style={{ fontSize: 20 }}>store</span>
+                                    Cửa Hàng Báo Cáo
+                                </h3>
                             </div>
-                            <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-50 hover:text-gray-800 transition-colors shrink-0">
-                                Chi tiết
+                            <div className="p-2 space-y-1">
+                                {storeNames.map(storeName => {
+                                    const count = grouped[storeName].length;
+                                    const isActive = activeStore === storeName;
+                                    return (
+                                        <button
+                                            key={storeName}
+                                            onClick={() => setSelectedStoreFilter(storeName)}
+                                            className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-between group ${isActive ? 'bg-orange-50 text-orange-700' : 'hover:bg-gray-50 text-gray-700'}`}
+                                        >
+                                            <span className="truncate pr-2">{storeName}</span>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-colors ${isActive ? 'bg-orange-200 text-orange-800' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'}`}>{count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Store Reports Details (Right Content) */}
+                        <div className="flex-1 w-full flex flex-col gap-4">
+                            {activeStore && grouped[activeStore] && (
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                                    <div className="bg-orange-50/50 border-b border-gray-200 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-orange-500">storefront</span>
+                                                {activeStore}
+                                            </h3>
+                                            <p className="text-sm text-gray-500 mt-1">Gồm <strong>{grouped[activeStore].length}</strong> báo cáo kiểm kiểm trong dải ngày này</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 space-y-3 bg-gray-50/30 flex-1">
+                                        {grouped[activeStore].map(report => {
+                                            const statusText = report.status === 'COMPLETED' ? 'Hoàn thành' : 'Đang thực hiện';
+                                            const statusColor = report.status === 'COMPLETED' ? 'text-green-600 bg-green-50 border-green-200' : 'text-orange-600 bg-orange-50 border-orange-200';
+                                            return (
+                                                <div key={report.id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:shadow-md hover:border-blue-300 transition-all gap-4 cursor-pointer group" onClick={() => handleViewDetails(report)}>
+                                                    <div className="flex items-start sm:items-center gap-4">
+                                                        <div className="w-12 h-12 bg-blue-50 shrink-0 rounded-xl flex items-center justify-center text-blue-500 font-bold group-hover:scale-105 transition-transform">
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 24 }}>category</span>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-gray-800 flex items-center gap-2 text-base group-hover:text-blue-600 transition-colors">
+                                                                {report.category?.name || 'Danh mục chưa tên'}
+                                                            </h4>
+                                                            <div className="flex flex-wrap items-center gap-3 text-xs mt-1.5">
+                                                                <span className="text-gray-500 font-medium flex items-center gap-1">
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>calendar_today</span>
+                                                                    {new Date(report.check_date).toLocaleDateString('vi-VN')}
+                                                                </span>
+                                                                <span className="text-gray-500 font-medium flex items-center gap-1">
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>schedule</span>
+                                                                    Ca {report.shift}
+                                                                </span>
+                                                                <span className={`px-2 py-0.5 rounded-full font-bold border ${statusColor}`}>
+                                                                    {statusText}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2 shrink-0 border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0 mt-2 sm:mt-0 w-full sm:w-auto">
+                                                        <div className="text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                                                            Đã kiểm: <span className="font-bold text-gray-800">{report.checked_count || 0}</span> / <span className="font-medium">{report.result_count || 0}</span> SP
+                                                        </div>
+                                                        <span className="text-xs font-bold text-blue-500 flex items-center gap-1 group-hover:underline">
+                                                            Xem chi tiết <span className="material-symbols-outlined" style={{ fontSize: 14 }}>arrow_forward</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+            {selectedReport && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[9999]" onClick={(e) => { if (e.target === e.currentTarget) setSelectedReport(null); }}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-blue-500">assignment</span>
+                                    Chi Tiết Lô Lỗi: {selectedReport.category?.name}
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Cửa hàng: {selectedReport.store?.name} | Ngày: {new Date(selectedReport.check_date).toLocaleDateString('vi-VN')} - Ca {selectedReport.shift}
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedReport(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
+                                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
                             </button>
                         </div>
-                    );
-                })}
+                        <div className="p-0 overflow-y-auto flex-1 bg-white">
+                            {loadingDetails ? (
+                                <div className="p-8 text-center text-gray-500 flex flex-col items-center justify-center gap-3">
+                                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <p>Đang tải chi tiết...</p>
+                                </div>
+                            ) : reportDetails.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500">Không có sản phẩm nào được kiểm trong danh mục này.</div>
+                            ) : (
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10 text-xs uppercase shadow-sm">
+                                        <tr>
+                                            <th className="px-6 py-3 font-bold">Mã SP / Barcode</th>
+                                            <th className="px-6 py-3 font-bold">Tên Sản Phẩm</th>
+                                            <th className="px-6 py-3 font-bold text-right">Tồn Máy</th>
+                                            <th className="px-6 py-3 font-bold">Hạn Sử Dụng</th>
+                                            <th className="px-6 py-3 font-bold">Ghi chú</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {reportDetails.map((item, idx) => {
+                                            const isChecked = item.qty !== null;
+                                            return (
+                                                <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-blue-50/30 transition-colors`}>
+                                                    <td className="px-6 py-3 text-gray-600 font-medium">{item.product?.sp || item.product?.barcode}</td>
+                                                    <td className="px-6 py-3 text-gray-800 font-bold max-w-[250px] truncate whitespace-normal leading-tight">{item.product?.name}</td>
+                                                    <td className="px-6 py-3 text-right">
+                                                        {isChecked ? (
+                                                            <span className="font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded">{item.qty}</span>
+                                                        ) : (
+                                                            <span className="text-gray-400 italic text-xs">Chưa kiểm</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-3">
+                                                        {item.expiry_date ? (
+                                                            <span className="font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">{new Date(item.expiry_date).toLocaleDateString('vi-VN')}</span>
+                                                        ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-3 text-gray-600 text-xs whitespace-normal max-w-[200px]">
+                                                        {item.note || '-'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

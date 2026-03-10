@@ -1,17 +1,20 @@
 import { supabase } from '../../lib/supabase';
 
-export interface StockCheckCategory {
+export interface ExpiryCheckCategory {
     id: string;
     name: string;
     description: string | null;
     is_active: boolean;
     sort_order: number;
+    near_expiry_days?: number;
+    production_threshold?: number;
+    stores?: string[] | null;
     created_at: string;
     updated_at: string;
     item_count?: number;
 }
 
-export interface StockCheckCategoryItem {
+export interface ExpiryCheckCategoryItem {
     id: string;
     category_id: string;
     product_id: string;
@@ -24,7 +27,7 @@ export interface StockCheckCategoryItem {
     } | null;
 }
 
-export interface StockCheckSession {
+export interface ExpiryCheckSession {
     id: string;
     category_id: string;
     store_id: string;
@@ -43,13 +46,14 @@ export interface StockCheckSession {
     checked_count?: number;
 }
 
-export interface StockCheckResult {
+export interface ExpiryCheckResult {
     id: string;
     session_id: string;
     product_id: string;
-    system_qty: number | null;
-    actual_qty: number | null;
-    diff: number | null;
+    mfg_date: string | null;
+    expiry_date: string | null;
+    qty: number | null;
+    status: string | null;
     note: string | null;
     checked_at: string | null;
     product?: {
@@ -74,10 +78,10 @@ export interface DailySummaryRow {
     }[];
 }
 
-export async function getCategories(): Promise<{ success: boolean; data: StockCheckCategory[] }> {
+export async function getCategories(): Promise<{ success: boolean; data: ExpiryCheckCategory[] }> {
     const { data, error } = await supabase
-        .from('stock_check_categories')
-        .select('*, stock_check_category_items(count)')
+        .from('expiry_check_categories')
+        .select('*, expiry_check_category_items(count)')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -85,7 +89,7 @@ export async function getCategories(): Promise<{ success: boolean; data: StockCh
 
     const mapped = (data || []).map((c: any) => ({
         ...c,
-        item_count: c.stock_check_category_items?.[0]?.count ?? 0,
+        item_count: c.expiry_check_category_items?.[0]?.count ?? 0,
     }));
 
     return { success: true, data: mapped };
@@ -95,10 +99,20 @@ export async function createCategory(payload: {
     name: string;
     description?: string;
     is_active?: boolean;
-}): Promise<{ success: boolean; data?: StockCheckCategory; error?: string }> {
+    near_expiry_days?: number;
+    production_threshold?: number;
+    stores?: string[] | null;
+}): Promise<{ success: boolean; data?: ExpiryCheckCategory; error?: string }> {
     const { data, error } = await supabase
-        .from('stock_check_categories')
-        .insert({ name: payload.name.trim(), description: payload.description || null, is_active: payload.is_active ?? true })
+        .from('expiry_check_categories')
+        .insert({
+            name: payload.name.trim(),
+            description: payload.description || null,
+            is_active: payload.is_active ?? true,
+            near_expiry_days: payload.near_expiry_days ?? 30,
+            production_threshold: payload.production_threshold ?? 0,
+            stores: payload.stores ?? [],
+        })
         .select()
         .single();
 
@@ -111,9 +125,12 @@ export async function updateCategory(id: string, patch: Partial<{
     description: string;
     is_active: boolean;
     sort_order: number;
+    near_expiry_days: number;
+    production_threshold: number;
+    stores: string[] | null;
 }>): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase
-        .from('stock_check_categories')
+        .from('expiry_check_categories')
         .update(patch)
         .eq('id', id);
 
@@ -123,7 +140,7 @@ export async function updateCategory(id: string, patch: Partial<{
 
 export async function deleteCategory(id: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase
-        .from('stock_check_categories')
+        .from('expiry_check_categories')
         .delete()
         .eq('id', id);
 
@@ -131,9 +148,9 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; er
     return { success: true };
 }
 
-export async function getCategoryItems(categoryId: string): Promise<{ success: boolean; data: StockCheckCategoryItem[] }> {
+export async function getCategoryItems(categoryId: string): Promise<{ success: boolean; data: ExpiryCheckCategoryItem[] }> {
     const { data, error } = await supabase
-        .from('stock_check_category_items')
+        .from('expiry_check_category_items')
         .select('*, product:products(id, name, sp, barcode)')
         .eq('category_id', categoryId)
         .order('sort_order', { ascending: true });
@@ -161,33 +178,61 @@ export async function searchInventoryProducts(query: string): Promise<{ success:
     return { success: true, data: mapped };
 }
 
-export async function updateCategoryItems(categoryId: string, productIds: string[]): Promise<{ success: boolean; error?: string }> {
-    const { error: delError } = await supabase
-        .from('stock_check_category_items')
-        .delete()
-        .eq('category_id', categoryId);
+export async function updateCategoryItems(categoryId: string, itemIds: string[]): Promise<{ success: boolean; error?: string }> {
+    const { data: existing } = await supabase.from('expiry_check_category_items').select('product_id').eq('category_id', categoryId);
+    const existingIds = new Set((existing || []).map(x => x.product_id));
 
-    if (delError) return { success: false, error: delError.message };
+    const newIdsStr = new Set(itemIds);
+    const toAdd = itemIds.filter(id => !existingIds.has(id));
+    const toRemove = [...existingIds].filter(id => !newIdsStr.has(id));
 
-    if (productIds.length > 0) {
-        const payload = productIds.map((pid, idx) => ({
+    if (toRemove.length > 0) {
+        await supabase.from('expiry_check_category_items').delete().eq('category_id', categoryId).in('product_id', toRemove);
+    }
+    if (toAdd.length > 0) {
+        const insertData = toAdd.map((pid, idx) => ({
             category_id: categoryId,
             product_id: pid,
             sort_order: idx
         }));
-        const { error: insError } = await supabase
-            .from('stock_check_category_items')
-            .insert(payload);
+        await supabase.from('expiry_check_category_items').insert(insertData);
+    }
+    return { success: true };
+}
 
-        if (insError) return { success: false, error: insError.message };
+export async function addProductsByBarcodes(categoryId: string, barcodes: string[]): Promise<{ success: boolean; error?: string; addedCount?: number; missingBarcodes?: string[] }> {
+    if (!barcodes.length) return { success: true, addedCount: 0, missingBarcodes: [] };
+
+    const { data: products, error } = await supabase
+        .from('products')
+        .select('id, barcode')
+        .in('barcode', barcodes);
+
+    if (error) return { success: false, error: error.message };
+
+    const foundIds = (products || []).map(p => p.id);
+    const foundBarcodes = new Set((products || []).map(p => p.barcode));
+    const missingBarcodes = barcodes.filter(b => !foundBarcodes.has(b));
+
+    const { data: existing } = await supabase.from('expiry_check_category_items').select('product_id').eq('category_id', categoryId);
+    const existingIds = new Set((existing || []).map(x => x.product_id));
+
+    const toAdd = foundIds.filter(id => !existingIds.has(id));
+    if (toAdd.length > 0) {
+        const insertData = toAdd.map((pid, idx) => ({
+            category_id: categoryId,
+            product_id: pid,
+            sort_order: existingIds.size + idx
+        }));
+        await supabase.from('expiry_check_category_items').insert(insertData);
     }
 
-    return { success: true };
+    return { success: true, addedCount: toAdd.length, missingBarcodes };
 }
 
 export async function addItemToCategory(categoryId: string, productId: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase
-        .from('stock_check_category_items')
+        .from('expiry_check_category_items')
         .insert({ category_id: categoryId, product_id: productId });
 
     if (error) {
@@ -199,7 +244,7 @@ export async function addItemToCategory(categoryId: string, productId: string): 
 
 export async function removeItemFromCategory(itemId: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase
-        .from('stock_check_category_items')
+        .from('expiry_check_category_items')
         .delete()
         .eq('id', itemId);
 
@@ -209,7 +254,7 @@ export async function removeItemFromCategory(itemId: string): Promise<{ success:
 
 export async function reorderCategoryItems(items: { id: string; sort_order: number }[]): Promise<{ success: boolean }> {
     const updates = items.map(({ id, sort_order }) =>
-        supabase.from('stock_check_category_items').update({ sort_order }).eq('id', id)
+        supabase.from('expiry_check_category_items').update({ sort_order }).eq('id', id)
     );
     await Promise.all(updates);
     return { success: true };
@@ -221,14 +266,14 @@ export async function getSessions(filters: {
     dateTo?: string;
     categoryId?: string;
     status?: string;
-} = {}): Promise<{ success: boolean; data: StockCheckSession[] }> {
+} = {}): Promise<{ success: boolean; data: ExpiryCheckSession[] }> {
     let q = supabase
-        .from('stock_check_sessions')
+        .from('expiry_check_sessions')
         .select(`
             *,
-            category:stock_check_categories(name),
+            category:expiry_check_categories(name),
             store:stores(name),
-            stock_check_results(count)
+            expiry_check_results(count)
         `)
         .order('check_date', { ascending: false })
         .order('started_at', { ascending: false });
@@ -244,7 +289,7 @@ export async function getSessions(filters: {
 
     const mapped = (data || []).map((s: any) => ({
         ...s,
-        result_count: s.stock_check_results?.[0]?.count ?? 0,
+        result_count: s.expiry_check_results?.[0]?.count ?? 0,
     }));
 
     return { success: true, data: mapped };
@@ -255,9 +300,9 @@ export async function getSession(payload: {
     storeId: string;
     checkDate: string;
     shift: number;
-}): Promise<{ success: boolean; session?: StockCheckSession; error?: string }> {
+}): Promise<{ success: boolean; session?: ExpiryCheckSession; error?: string }> {
     const { data: existing, error } = await supabase
-        .from('stock_check_sessions')
+        .from('expiry_check_sessions')
         .select('*')
         .eq('category_id', payload.categoryId)
         .eq('store_id', payload.storeId)
@@ -266,7 +311,7 @@ export async function getSession(payload: {
         .maybeSingle();
 
     if (error) return { success: false, error: error.message };
-    return { success: true, session: existing as StockCheckSession | undefined };
+    return { success: true, session: existing as ExpiryCheckSession | undefined };
 }
 
 export async function createSession(payload: {
@@ -275,9 +320,9 @@ export async function createSession(payload: {
     checkDate: string;
     shift: number;
     userId?: string;
-}): Promise<{ success: boolean; session?: StockCheckSession; error?: string }> {
+}): Promise<{ success: boolean; session?: ExpiryCheckSession; error?: string }> {
     const { data: newSession, error } = await supabase
-        .from('stock_check_sessions')
+        .from('expiry_check_sessions')
         .insert({
             category_id: payload.categoryId,
             store_id: payload.storeId,
@@ -291,12 +336,12 @@ export async function createSession(payload: {
     if (error) return { success: false, error: error.message };
 
     const { data: catItems } = await supabase
-        .from('stock_check_category_items')
+        .from('expiry_check_category_items')
         .select('product_id')
         .eq('category_id', payload.categoryId);
 
     if (catItems && catItems.length > 0) {
-        await supabase.from('stock_check_results').insert(
+        await supabase.from('expiry_check_results').insert(
             catItems.map((ci: any) => ({
                 session_id: newSession.id,
                 product_id: ci.product_id,
@@ -304,12 +349,12 @@ export async function createSession(payload: {
         );
     }
 
-    return { success: true, session: newSession as StockCheckSession };
+    return { success: true, session: newSession as ExpiryCheckSession };
 }
 
-export async function getSessionResults(sessionId: string): Promise<{ success: boolean; data: StockCheckResult[] }> {
+export async function getSessionResults(sessionId: string): Promise<{ success: boolean; data: ExpiryCheckResult[] }> {
     const { data, error } = await supabase
-        .from('stock_check_results')
+        .from('expiry_check_results')
         .select('*, product:products(id, name, sp, barcode)')
         .eq('session_id', sessionId)
         .order('product(name)', { ascending: true });
@@ -319,12 +364,15 @@ export async function getSessionResults(sessionId: string): Promise<{ success: b
 }
 
 export async function updateResult(resultId: string, patch: {
-    actual_qty?: number | null;
+    mfg_date?: string | null;
+    expiry_date?: string | null;
+    qty?: number | null;
+    status?: string;
     note?: string;
     checked_at?: string;
 }): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase
-        .from('stock_check_results')
+        .from('expiry_check_results')
         .update({ ...patch, checked_at: patch.checked_at || new Date().toISOString() })
         .eq('id', resultId);
 
@@ -332,52 +380,9 @@ export async function updateResult(resultId: string, patch: {
     return { success: true };
 }
 
-export async function syncSystemQtyFromInventory(session: StockCheckSession): Promise<{ success: boolean; synced: number; error?: string }> {
-    const { data: results } = await supabase
-        .from('stock_check_results')
-        .select('id, product_id')
-        .eq('session_id', session.id);
-
-    if (!results || results.length === 0) return { success: true, synced: 0 };
-
-    const productIds = results.map((r: any) => r.product_id);
-
-    const { data: invItems } = await supabase
-        .from('inventory_items')
-        .select('product_id, system_stock, check_date, shift')
-        .eq('store_id', session.store_id)
-        .eq('check_date', session.check_date)
-        .eq('shift', session.shift)
-        .in('product_id', productIds);
-
-    const qtyMap: Record<string, number> = {};
-    (invItems || []).forEach((item: any) => {
-        qtyMap[item.product_id] = item.system_stock ?? 0;
-    });
-
-    let synced = 0;
-    for (const result of results) {
-        const qty = qtyMap[(result as any).product_id];
-        if (qty !== undefined) {
-            await supabase
-                .from('stock_check_results')
-                .update({ system_qty: qty })
-                .eq('id', (result as any).id);
-            synced++;
-        }
-    }
-
-    await supabase
-        .from('stock_check_sessions')
-        .update({ synced_at: new Date().toISOString() })
-        .eq('id', session.id);
-
-    return { success: true, synced };
-}
-
 export async function completeSession(sessionId: string, userId?: string): Promise<{ success: boolean; error?: string }> {
     const { error } = await supabase
-        .from('stock_check_sessions')
+        .from('expiry_check_sessions')
         .update({ status: 'COMPLETED', completed_by: userId || null, completed_at: new Date().toISOString() })
         .eq('id', sessionId);
 
@@ -389,14 +394,14 @@ export async function getDailySummary(filters: {
     dateFrom: string;
     dateTo: string;
     storeId?: string;
-}): Promise<{ success: boolean; data: StockCheckSession[] }> {
+}): Promise<{ success: boolean; data: ExpiryCheckSession[] }> {
     let q = supabase
-        .from('stock_check_sessions')
+        .from('expiry_check_sessions')
         .select(`
             *,
-            category:stock_check_categories(id, name),
+            category:expiry_check_categories(id, name),
             store:stores(id, name, code),
-            stock_check_results(count)
+            expiry_check_results(count)
         `)
         .gte('check_date', filters.dateFrom)
         .lte('check_date', filters.dateTo)
@@ -412,17 +417,20 @@ export async function getDailySummary(filters: {
         success: true,
         data: (data || []).map((s: any) => ({
             ...s,
-            result_count: s.stock_check_results?.[0]?.count ?? 0,
+            result_count: s.expiry_check_results?.[0]?.count ?? 0,
         }))
     };
 }
 
-export const StockCheckService = {
+export const ExpiryCheckService = {
     getCategories,
     createCategory,
     updateCategory,
     deleteCategory,
     getCategoryItems,
+    searchInventoryProducts,
+    updateCategoryItems,
+    addProductsByBarcodes,
     addItemToCategory,
     removeItemFromCategory,
     reorderCategoryItems,
@@ -431,11 +439,8 @@ export const StockCheckService = {
     createSession,
     getSessionResults,
     updateResult,
-    syncSystemQtyFromInventory,
     completeSession,
     getDailySummary,
-    searchInventoryProducts,
-    updateCategoryItems,
 };
 
-export default StockCheckService;
+export default ExpiryCheckService;

@@ -7,8 +7,7 @@ export { InventoryService, DIFF_REASON_OPTIONS, REPORT_STATUS } from './inventor
 export type { InventoryProduct, MasterItem, DiffReason, ReportStatus, ReportSummary, ReviewResult, BulkReviewResult } from './inventory';
 
 // Expiry
-export { ExpiryService } from './expiry';
-export type { ExpiryProduct, ExpiryConfig, ExpiryReport } from './expiry';
+export * from './expiryCheck';
 
 // Dashboard
 export { DashboardService } from './dashboard';

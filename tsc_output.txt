@@ -1,2 +1,0 @@
-src/pages/Expiry/ExpiryHQ.tsx(45,34): error TS2353: Object literal may only specify known properties, and 'icon' does not exist in type 'SubSidebarItem'.
-src/pages/Expiry/ExpiryHQ.tsx(46,33): error TS2353: Object literal may only specify known properties, and 'icon' does not exist in type 'SubSidebarItem'.

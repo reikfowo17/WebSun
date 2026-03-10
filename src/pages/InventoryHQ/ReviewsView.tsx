@@ -3,10 +3,12 @@ import { InventoryService } from '../../services';
 import { REPORT_STATUS, type ReportSummary } from '../../services/inventory';
 import { User } from '../../types';
 import { SystemService, StoreConfig } from '../../services/system';
+import { NotificationService } from '../../services/notification';
 import ConfirmModal from '../../components/ConfirmModal';
 import PromptModal from '../../components/PromptModal';
 import ReportDetailModal from './components/ReportDetailModal';
 import ItemsDetailPanel from './components/ItemsDetailPanel';
+import * as XLSX from 'xlsx';
 
 interface ToastFn {
     success: (msg: string) => void;
@@ -55,11 +57,28 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
     const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+    const [markAllKiotOpen, setMarkAllKiotOpen] = useState(false);
 
     const abortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         SystemService.getStores().then(setStores);
+    }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (approveReportId || rejectReportId || deleteReportId || detailReportId || expandedReportId) {
+                    setApproveReportId(null);
+                    setRejectReportId(null);
+                    setDeleteReportId(null);
+                    setDetailReportId(null);
+                    setExpandedReportId(null);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
     /* ── Data Loading ── */
@@ -112,10 +131,8 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
     const displayed = useMemo(() => {
         let list = [...reports];
 
-        if (viewMode === 'HISTORY') {
-            if (dateFrom) list = list.filter(r => r.date >= dateFrom);
-            if (dateTo) list = list.filter(r => r.date <= dateTo);
-        }
+        if (dateFrom) list = list.filter(r => r.date >= dateFrom);
+        if (dateTo) list = list.filter(r => r.date <= dateTo);
 
         if (search.trim()) {
             const q = search.toLowerCase();
@@ -225,6 +242,8 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         setBulkRejectOpen(false);
         setProcessing(true);
         try {
+            const selectedReports = reports.filter(r => selectedIds.has(r.id));
+            
             const res = await InventoryService.bulkReviewReports(
                 [...selectedIds],
                 REPORT_STATUS.REJECTED,
@@ -232,8 +251,47 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                 reason,
                 user.role
             );
-            if (res.processed > 0) toast.warning(`Đã yêu cầu kiểm lại ${res.processed} báo cáo`);
+            
+            if (res.processed > 0) {
+                toast.warning(`Đã yêu cầu kiểm lại ${res.processed} báo cáo`);
+                
+                for (const report of selectedReports) {
+                    if (report.submittedById) {
+                        await NotificationService.createNotification({
+                            user_id: report.submittedById,
+                            type: 'REPORT_REJECTED',
+                            title: 'Báo cáo bị từ chối',
+                            message: `Báo cáo kiểm kho ${storeName(report.store)} - Ca ${report.shift} ngày ${report.date} cần kiểm lại. Lý do: ${reason}`,
+                            reference_id: report.id,
+                            reference_type: 'inventory_report',
+                        });
+                    }
+                }
+            }
             if (res.failed > 0) toast.error(`${res.failed} báo cáo xử lý thất bại`);
+            setSelectedIds(new Set());
+            loadReports();
+            onReviewDone?.();
+        } catch { toast.error('Lỗi hệ thống'); }
+        finally { setProcessing(false); }
+    };
+
+    const doMarkAllAsKiot = async () => {
+        if (selectedIds.size === 0) return;
+        setMarkAllKiotOpen(false);
+        setProcessing(true);
+        try {
+            const res = await InventoryService.batchUpdateItemsResolution(
+                [...selectedIds],
+                'STOCK_ADJUSTMENT',
+                'Admin đánh dấu đã cân KiotViet'
+            );
+            if (res.success && res.processed > 0) {
+                toast.success(`Đã đánh dấu ${res.processed} báo cáo đã cân Kiot`);
+            }
+            if (res.failed > 0) {
+                toast.error(`${res.failed} báo cáo xử lý thất bại`);
+            }
             setSelectedIds(new Set());
             loadReports();
             onReviewDone?.();
@@ -288,6 +346,41 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         if (fail > 0) toast.error(`${fail} báo cáo xóa thất bại`);
         setSelectedIds(new Set());
         onReviewDone?.();
+    };
+
+    const handleExportExcel = () => {
+        if (displayed.length === 0) {
+            toast.error('Không có dữ liệu để export');
+            return;
+        }
+
+        const data = displayed.map(r => ({
+            'Cửa hàng': storeName(r.store),
+            'Ca': `Ca ${r.shift}`,
+            'Ngày': r.date,
+            'Người nộp': r.submittedBy,
+            'Tổng SP': r.total,
+            'Khớp': r.matched,
+            'Thiếu': r.missing,
+            'Thừa': r.over,
+            'Trạng thái': r.status === 'PENDING' ? 'Chờ xử lý' : r.status === 'APPROVED' ? 'Đã xử lý' : 'Cần kiểm lại',
+            'Ngày nộp': r.submittedAt || '',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'BaoCaoKiemKho');
+
+        const colWidths = [
+            { wch: 20 }, { wch: 8 }, { wch: 12 }, { wch: 18 },
+            { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+            { wch: 15 }, { wch: 18 },
+        ];
+        ws['!cols'] = colWidths;
+
+        const fileName = `BaoCaoKiemKho_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        toast.success(`Đã export ${data.length} báo cáo`);
     };
 
     /* ── Selection helpers ── */
@@ -430,7 +523,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                             <span className="material-symbols-outlined rv2-select-chevron">expand_more</span>
                         </div>
 
-                        {viewMode === 'HISTORY' && (
+                        {(viewMode === 'PENDING' || viewMode === 'HISTORY') && (
                             <div className="rv2-date-filter">
                                 <input
                                     type="date"
@@ -473,6 +566,14 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                     Xác nhận {selectedIds.size}
                                 </button>
                                 <button
+                                    className="rv2-btn-bulk-kiot"
+                                    onClick={() => setMarkAllKiotOpen(true)}
+                                    disabled={processing}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>balance</span>
+                                    Đã cân Kiot {selectedIds.size}
+                                </button>
+                                <button
                                     className="rv2-btn-bulk-reject"
                                     onClick={() => setBulkRejectOpen(true)}
                                     disabled={processing}
@@ -492,6 +593,18 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_sweep</span>
                                 Xóa {selectedIds.size} mục
+                            </button>
+                        )}
+
+                        {/* Export Excel */}
+                        {displayed.length > 0 && (
+                            <button
+                                className="rv2-btn-export"
+                                onClick={handleExportExcel}
+                                title="Export Excel"
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>
+                                Export
                             </button>
                         )}
                     </div>
@@ -749,6 +862,18 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                 onCancel={() => setBulkRejectOpen(false)}
             />
 
+            <ConfirmModal
+                isOpen={markAllKiotOpen}
+                title={`Đánh dấu đã cân Kiot`}
+                message={`Xác nhận đánh dấu ${selectedIds.size} báo cáo đã được cân kho trên KiotViet? Tất cả sản phẩm trong các báo cáo này sẽ được đánh dấu là "STOCK_ADJUSTMENT".`}
+                variant="warning"
+                confirmText="Đánh dấu đã cân"
+                cancelText="Hủy"
+                onConfirm={doMarkAllAsKiot}
+                onCancel={() => setMarkAllKiotOpen(false)}
+                loading={processing}
+            />
+
             {detailReportId && (
                 <ReportDetailModal
                     reportId={detailReportId}
@@ -808,6 +933,9 @@ const CSS_TEXT = `
 .rv2-btn-bulk-approve { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #86efac; border-radius:10px; background:#f0fdf4; color:#16a34a; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
 .rv2-btn-bulk-approve:hover { background:#dcfce7; border-color:#4ade80; transform:translateY(-1px); box-shadow:0 2px 8px rgba(22,163,74,.15); }
 .rv2-btn-bulk-approve:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.rv2-btn-bulk-kiot { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #6ee7b7; border-radius:10px; background:#ecfdf5; color:#059669; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.rv2-btn-bulk-kiot:hover { background:#d1fae5; border-color:#34d399; transform:translateY(-1px); box-shadow:0 2px 8px rgba(5,150,105,.15); }
+.rv2-btn-bulk-kiot:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
 .rv2-btn-bulk-reject { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #fca5a5; border-radius:10px; background:#fef2f2; color:#dc2626; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
 .rv2-btn-bulk-reject:hover { background:#fee2e2; border-color:#f87171; transform:translateY(-1px); box-shadow:0 2px 8px rgba(220,38,38,.15); }
 .rv2-btn-bulk-reject:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
@@ -816,13 +944,15 @@ const CSS_TEXT = `
 .rv2-btn-bulk-delete { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #fca5a5; border-radius:10px; background:#fef2f2; color:#dc2626; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; }
 .rv2-btn-bulk-delete:hover { background:#fee2e2; border-color:#f87171; transform:translateY(-1px); }
 .rv2-btn-bulk-delete:disabled { opacity:.5; cursor:not-allowed; }
+.rv2-btn-export { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border:1.5px solid #93c5fd; border-radius:10px; background:#eff6ff; color:#2563eb; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; white-space:nowrap; margin-left:auto; }
+.rv2-btn-export:hover { background:#dbeafe; border-color:#60a5fa; transform:translateY(-1px); box-shadow:0 2px 8px rgba(37,99,235,.15); }
 
 /* ── Table Card ── */
 .rv2-table-card { flex:1; display:flex; flex-direction:column; min-height:0; background:#fff; border-radius:14px; border:1px solid #e5e7eb; overflow:hidden; }
 .rv2-table-scroll { flex:1; overflow:auto; }
 
 .rv2-table { width:100%; border-collapse:collapse; font-size:13px; }
-.rv2-th { padding:8px 10px; text-align:left; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; background:#f8fafc; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:2; white-space:nowrap; user-select:none; }
+.rv2-th { padding:8px 10px; text-align:left; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.04em; background:#f8fafc; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:10; white-space:nowrap; user-select:none; box-shadow:0 1px 0 #e5e7eb; }
 .rv2-th-sort { cursor:pointer; transition:color .15s; }
 .rv2-th-sort:hover { color:#4f46e5; }
 .rv2-th-num { text-align:center; }
@@ -902,4 +1032,9 @@ const CSS_TEXT = `
 /* Skeleton */
 .rv2-skel { background:#f1f5f9; border-radius:6px; animation:rv2Pulse 1.5s ease-in-out infinite; }
 @keyframes rv2Pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Button loading spinner */
+.rv2-btn-loading { position:relative; pointer-events:none; }
+.rv2-btn-loading::after { content:''; position:absolute; right:8px; top:50%; width:14px; height:14px; margin-top:-7px; border:2px solid transparent; border-top-color:currentColor; border-radius:50%; animation:rv2Spin .7s linear infinite; }
+@keyframes rv2Spin { to { transform:rotate(360deg); } }
 `;

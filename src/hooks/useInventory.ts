@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { InventoryProduct, User } from "../types";
 import { InventoryService } from "../services";
 import { SystemService, ShiftConfig } from "../services/system";
@@ -105,18 +105,28 @@ export const useInventory = (user: User) => {
     title: string;
   }>({ show: false, message: "", title: "" });
 
+  const storeCode = user.store;
+  const userRole = user.role || "EMPLOYEE";
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  
   const loadProducts = useCallback(async () => {
+    if (!storeCode) {
+      setLoading(false);
+      toast.error("Không xác định được cửa hàng");
+      return;
+    }
+    
     setLoading(true);
     setShiftSubmitted({ submitted: false });
     try {
       const reportStatus = await InventoryService.getReportStatus(
-        user.store || "BEE",
+        storeCode,
         shift,
       );
       if (reportStatus.submitted && reportStatus.report) {
         const isRejected = reportStatus.report.status === "REJECTED";
         setShiftSubmitted({
-          submitted: !isRejected,
+          submitted: true,
           submittedBy: reportStatus.report.submittedBy,
           submittedAt: reportStatus.report.submittedAt,
           status: reportStatus.report.status,
@@ -125,7 +135,7 @@ export const useInventory = (user: User) => {
       }
 
       const result = await InventoryService.getItems(
-        user.store || "BEE",
+        storeCode,
         shift,
       );
       if (result.success && result.products) {
@@ -136,11 +146,17 @@ export const useInventory = (user: User) => {
     } finally {
       setLoading(false);
     }
-  }, [user.store, shift, toast]);
+  }, [storeCode, shift, toast]);
 
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimers.current).forEach(timer => clearTimeout(timer));
+    };
+  }, []);
 
   const updateField = useCallback(
     (productId: string, field: string, value: string) => {
@@ -170,27 +186,31 @@ export const useInventory = (user: User) => {
           } else if (field === "note") {
             updated.note = value;
           } else if (field === "diffReason") {
-            (updated as any).diffReason = value || null;
+            updated.diffReason = value || null;
           }
 
-          const backendField =
-            field === "actualStock"
-              ? "actual_stock"
-              : field === "diffReason"
-                ? "diff_reason"
-                : field;
-          InventoryService.updateItem(
-            String(p.id),
-            backendField,
-            value,
-            user.id,
-            (user as any).role || "EMPLOYEE",
-          );
+          clearTimeout(saveTimers.current[productId + field]);
+          saveTimers.current[productId + field] = setTimeout(() => {
+            const backendField =
+              field === "actualStock"
+                ? "actual_stock"
+                : field === "diffReason"
+                  ? "diff_reason"
+                  : field;
+            InventoryService.updateItem(
+              String(p.id),
+              backendField,
+              value,
+              user.id,
+              userRole,
+            );
+          }, 800);
+
           return updated;
         }),
       );
     },
-    [user.id, user],
+    [user.id, userRole],
   );
 
   const stats = useMemo(
@@ -230,11 +250,16 @@ export const useInventory = (user: User) => {
   }, [stats]);
 
   const doSubmit = useCallback(async () => {
+    if (!storeCode) {
+      toast.error("Không xác định được cửa hàng");
+      return;
+    }
+    
     setConfirmSubmit({ show: false, message: "", title: "" });
     setSubmitting(true);
     try {
       const res = await InventoryService.submitReport(
-        user.store || "BEE",
+        storeCode,
         shift,
         user.id,
       );
@@ -254,7 +279,7 @@ export const useInventory = (user: User) => {
     } finally {
       setSubmitting(false);
     }
-  }, [user.store, shift, user.id, user.name, toast]);
+  }, [storeCode, shift, user.id, user.name, toast]);
 
   const handlePrint = useCallback(() => {
     if (products.length === 0) {
@@ -288,9 +313,9 @@ export const useInventory = (user: User) => {
 
     const printCSS = `*{box-sizing:border-box}@media print{body{margin:0;padding:3mm;font-size:9px}.no-print{display:none}@page{size:80mm auto;margin:2mm}}body{font-family:"Segoe UI","Arial Unicode MS","Tahoma","Arial",sans-serif;margin:0;padding:3mm;font-size:9px;width:100%;max-width:80mm;line-height:1.2;color:#000}.header{text-align:center;margin-bottom:1mm;border-bottom:2px solid #000;padding-bottom:0.5mm}.header h2{margin:0;font-size:12px;font-weight:800;text-transform:uppercase;padding:0.5mm 1mm}.info{margin-bottom:2mm;font-size:8px;border-bottom:1px solid #ccc;padding:1mm 2mm}.info p{margin:1px 0;font-weight:500}.product-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:2mm}.product-table th{background:#fff;color:#000;font-weight:900;text-align:center;padding:1mm;border-bottom:1px solid #000;font-size:9px;text-transform:uppercase;white-space:nowrap}.product-table td{padding:1mm;border-bottom:1px solid #ccc;vertical-align:top;font-weight:600;color:#000}.product-table tr:nth-child(even){background:#f8f8f8}.stt-col{width:7%;text-align:center;font-weight:900;font-size:10px}.name-col{width:42%;text-align:left;padding-left:2mm;word-wrap:break-word;line-height:1.4;font-weight:700;font-size:9px}.barcode-col{width:15%;text-align:center;font-weight:800;font-size:10px;color:#333}.sapo-col,.thucte-col{width:18%;text-align:center;font-weight:800;font-size:10px}.checked-row{background:#e8f5e8!important}.checked-row .sapo-col,.checked-row .thucte-col{background:#d4edda;font-weight:bold;color:#155724}.footer{margin-top:2mm;text-align:center;font-size:7px;border-top:1px solid #ccc;padding:1mm}.footer p{margin:1px 0}`;
 
-    const html = `<!DOCTYPE html><html><head><title>Danh sách kiểm tra - ${user.store}</title><meta charset="UTF-8"><style>${printCSS}</style></head><body>
+    const html = `<!DOCTYPE html><html><head><title>Danh sách kiểm tra - ${storeCode}</title><meta charset="UTF-8"><style>${printCSS}</style></head><body>
       <div class="header"><h2>DANH SÁCH KIỂM TRA SẢN PHẨM</h2></div>
-      <div class="info"><p><strong>Ca:</strong> ${currentShiftInfo.name} (${currentShiftInfo.time}) | <strong>Cửa hàng:</strong> ${user.store} | <strong>Tổng SP:</strong> ${products.length}</p></div>
+      <div class="info"><p><strong>Ca:</strong> ${currentShiftInfo.name} (${currentShiftInfo.time}) | <strong>Cửa hàng:</strong> ${storeCode} | <strong>Tổng SP:</strong> ${products.length}</p></div>
       <table class="product-table">
         <thead><tr><th class="stt-col">STT</th><th class="name-col">TÊN SẢN PHẨM</th><th class="barcode-col">BARCODE</th><th class="sapo-col">SAPO</th><th class="thucte-col">THỰC TẾ</th></tr></thead>
         <tbody>${tableRows}</tbody>
@@ -318,19 +343,24 @@ export const useInventory = (user: User) => {
         iframe.contentWindow?.print();
       }, 300);
     }
-  }, [products, shift, user.store, toast]);
+  }, [products, shift, storeCode, toast]);
 
   const handleSync = useCallback(async () => {
+    if (!storeCode) {
+      toast.error("Không xác định được cửa hàng");
+      return;
+    }
+    
     setShowSyncModal(false);
     setSyncing(true);
     try {
       const result = await InventoryService.syncKiotVietStock(
-        user.store || "BEE",
+        storeCode,
         shift,
       );
       if (result.success) {
         toast.success(result.message || "Đồng bộ thành công!");
-        await loadProducts(); // reload to show updated system_stock
+        await loadProducts();
       } else {
         toast.error(result.message || "Đồng bộ thất bại");
       }
@@ -339,7 +369,7 @@ export const useInventory = (user: User) => {
     } finally {
       setSyncing(false);
     }
-  }, [user.store, shift, toast, loadProducts]);
+  }, [storeCode, shift, toast, loadProducts]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {

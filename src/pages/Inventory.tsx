@@ -263,7 +263,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                 </div>
               ) : (
                 <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto scrollbar-thin">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
                       <thead className="bg-gray-50/50 dark:bg-[#111]">
                         <tr>

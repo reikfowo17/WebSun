@@ -8,8 +8,6 @@ import '../../styles/settings.css';
 import { SettingsShifts } from './SettingsShifts';
 import { SettingsStores } from './SettingsStores';
 import { SettingsEmployees } from './SettingsEmployees';
-import { SettingsExpiryConfig } from './SettingsExpiryConfig';
-import { SettingsProducts } from './SettingsProducts';
 import { SettingsNotifications } from './SettingsNotifications';
 import { SettingsGeneral } from './SettingsGeneral';
 import { SettingsDataLifecycle } from './SettingsDataLifecycle';
@@ -18,13 +16,11 @@ interface SettingsTabProps {
     toast: ToastContextType;
 }
 
-type SettingsSection = 'shifts' | 'stores' | 'employees' | 'expiry' | 'products' | 'notifications' | 'general' | 'lifecycle';
+type SettingsSection = 'shifts' | 'stores' | 'employees' | 'notifications' | 'general' | 'lifecycle';
 
 const SECTION_META: Record<SettingsSection, { label: string; desc: string; icon: string }> = {
     shifts: { label: 'Ca Làm Việc', desc: 'Khung giờ & quy trình', icon: 'schedule' },
     stores: { label: 'Cửa Hàng', desc: 'Danh sách cơ sở', icon: 'storefront' },
-    products: { label: 'Sản Phẩm', desc: 'Danh mục & quản lý SP', icon: 'inventory_2' },
-    expiry: { label: 'Cấu hình HSD', desc: 'Kiểm soát hạn sử dụng', icon: 'event_available' },
     employees: { label: 'Nhân Viên', desc: 'Phân quyền & chi nhánh', icon: 'badge' },
     notifications: { label: 'Thông Báo', desc: 'Cấu hình thông báo', icon: 'notifications' },
     general: { label: 'Cài Đặt Chung', desc: 'Tên hệ thống, múi giờ', icon: 'tune' },
@@ -35,8 +31,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const [shifts, setShifts] = useState<ShiftConfig[]>([]);
     const [stores, setStores] = useState<StoreConfig[]>([]);
     const [employees, setEmployees] = useState<EmployeeConfig[]>([]);
-    const [expiryConfigs, setExpiryConfigs] = useState<ExpiryConfigItem[]>([]);
-    const [products, setProducts] = useState<ProductConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeSection, setActiveSection] = useState<SettingsSection>('shifts');
 
@@ -47,18 +41,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [fetchedShifts, fetchedStores, fetchedEmployees, fetchedExpiry, fetchedProducts] = await Promise.all([
+            const [fetchedShifts, fetchedStores, fetchedEmployees] = await Promise.all([
                 SystemService.getShifts(),
                 SystemService.getStores(),
                 SystemService.getEmployees(),
-                SystemService.getExpiryConfigs(),
-                SystemService.getProducts(),
             ]);
             setShifts(fetchedShifts);
             setStores(fetchedStores);
             setEmployees(fetchedEmployees);
-            setExpiryConfigs(fetchedExpiry);
-            setProducts(fetchedProducts);
         } catch (e: unknown) {
             toast.error('Lỗi khi tải cấu hình: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
@@ -72,13 +62,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
             items: [
                 { id: 'shifts', label: 'Ca Làm Việc', badge: shifts.length },
                 { id: 'stores', label: 'Cửa Hàng', badge: stores.length },
-            ]
-        },
-        {
-            label: 'KIỂM SOÁT',
-            items: [
-                { id: 'products', label: 'Sản Phẩm', badge: products.length },
-                { id: 'expiry', label: 'Cấu hình HSD', badge: expiryConfigs.length },
             ]
         },
         {
@@ -134,10 +117,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
                 return <SettingsStores toast={toast} initialStores={stores} />;
             case 'employees':
                 return <SettingsEmployees toast={toast} initialEmployees={employees} allStores={stores} />;
-            case 'expiry':
-                return <SettingsExpiryConfig toast={toast} initialConfigs={expiryConfigs} allStores={stores} />;
-            case 'products':
-                return <SettingsProducts toast={toast} initialProducts={products} />;
             case 'notifications':
                 return <SettingsNotifications toast={toast} />;
             case 'general':

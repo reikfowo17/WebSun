@@ -52,6 +52,7 @@ export async function getReports(status?: string, storeCode?: string): Promise<{
             .from('inventory_reports')
             .select(`
                     id,
+                    submitted_by,
                     check_date,
                     shift,
                     status,
@@ -64,6 +65,7 @@ export async function getReports(status?: string, storeCode?: string): Promise<{
                         name
                     ),
                     users!inventory_reports_submitted_by_fkey (
+                        id,
                         name
                     ),
                     reviewer:users!inventory_reports_reviewed_by_fkey (
@@ -111,6 +113,7 @@ export async function getReports(status?: string, storeCode?: string): Promise<{
                 shift: report.shift,
                 date: report.check_date,
                 submittedBy: report.users?.name || 'Unknown',
+                submittedById: report.users?.id || report.submitted_by || undefined,
                 submittedAt: report.created_at,
                 status: report.status as ReportStatus,
                 total: stats?.total_items || 0,

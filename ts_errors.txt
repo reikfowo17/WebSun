@@ -1,0 +1,1 @@
+src/pages/Expiry/ExpiryCheckAdmin.tsx(685,30): error TS1005: ':' expected.
