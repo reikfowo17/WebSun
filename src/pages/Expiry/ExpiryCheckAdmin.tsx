@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ExpiryCheckService, { ExpiryCheckCategory } from '../../services/expiryCheck';
 import { InventoryService } from '../../services';
 import { SystemService } from '../../services/system';
 import { MultiStoreSelect } from '../../components/MultiStoreSelect';
 import { useToast } from '../../contexts';
+import * as XLSX from 'xlsx';
 
 // ─── Constants & CSS ──────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ const ExpiryCheckAdmin: React.FC = () => {
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [addCode, setAddCode] = useState('');
     const [addText, setAddText] = useState('');
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         loadData();
@@ -233,6 +236,51 @@ const ExpiryCheckAdmin: React.FC = () => {
         }
     };
 
+    const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            let added = 0;
+            setSelectedItems(prev => {
+                const next = new Map(prev);
+                // Assume first row is header
+                json.slice(1).forEach((row) => {
+                    const col1 = String(row[0] || '').trim(); // Barcode
+                    const col2 = String(row[1] || '').trim(); // Ma SP
+                    const col3 = String(row[2] || '').trim(); // Ten SP
+
+                    const barcode = col1 || col2 || '';
+                    const sp = col2 || col1 || '';
+                    const name = col3 || '';
+
+                    const finalCode = barcode || sp;
+                    if (finalCode && name) {
+                        next.set(finalCode, { id: finalCode, barcode, sp, name, isNew: true });
+                        added++;
+                    }
+                });
+                return next;
+            });
+
+            if (added > 0) toast.success(`Đã biên dịch thành công ${added} dòng sản phẩm!`);
+            else toast.warning('Không tìm thấy dữ liệu hợp lệ trong file');
+        } catch (err) {
+            toast.error('Lỗi khi đọc file Excel, vui lòng kiểm tra định dạng');
+        } finally {
+            setIsImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+
     const toggleItem = (product: any) => {
         setSelectedItems(prev => {
             const next = new Map(prev);
@@ -280,37 +328,57 @@ const ExpiryCheckAdmin: React.FC = () => {
             {/* Main Content */}
             <div className="flex-1 bg-white rounded-2xl border border-violet-100 shadow-[0_2px_15px_rgba(124,58,237,0.04)] flex flex-col overflow-hidden min-w-0 relative">
                 {!selectedCat ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
-                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 mb-6 group-hover:scale-105 transition-transform">
-                            <span className="material-symbols-outlined text-[48px] text-violet-200">inventory_2</span>
+                    <div className="flex-1 flex flex-col items-center justify-center bg-gray-50/30 relative overflow-hidden">
+                        {/* Soft Background Blurs */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-violet-400/10 blur-[80px] rounded-full pointer-events-none"></div>
+
+                        {/* Icon Container */}
+                        <div className="relative mb-8 group">
+                            <div className="absolute inset-0 bg-violet-400/20 rounded-3xl blur-xl scale-125 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                            <div className="relative w-20 h-20 bg-white shadow-xl shadow-violet-100/60 rounded-2xl border border-violet-50 flex items-center justify-center transform group-hover:-translate-y-1 transition-transform duration-300">
+                                <div className="absolute -inset-2 bg-violet-50 rounded-[24px] -z-10 bg-opacity-70"></div>
+                                <span className="material-symbols-outlined text-[40px] text-violet-600">inventory_2</span>
+                            </div>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-700">Chưa chọn danh mục</h3>
-                        <p className="font-medium text-gray-500 mt-2">Chọn một danh mục bên trái hoặc tạo mới để bắt đầu cấu hình.</p>
+
+                        {/* Text Content */}
+                        <h3 className="text-[20px] font-bold text-gray-900 mb-2.5 relative z-10">Quản lý Danh Mục Kiểm Date</h3>
+                        <p className="text-[14px] text-gray-500 max-w-[340px] text-center mb-8 leading-relaxed relative z-10">
+                            Chọn một danh mục bên trái để xem chi tiết hoặc tạo mới danh mục cần theo dõi.
+                        </p>
+
+                        {/* Action Button */}
+                        <button
+                            onClick={handleOpenCreateCategory}
+                            className="h-10 px-6 rounded-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-[13px] shadow-lg shadow-violet-200/50 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 relative z-10"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">add</span>
+                            Tạo Danh Mục Tồn Mới
+                        </button>
                     </div>
                 ) : (
                     <>
                         {/* Header Box (Toolbar 1 - Settings & Info) */}
-                        <div className="px-5 py-3 border-b border-gray-200 bg-white shrink-0 flex flex-wrap items-center justify-between gap-4 shadow-sm z-20">
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <h2 className="text-[16px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                                    {selectedCat.name}
-                                    <button onClick={handleOpenEditCategory} className="text-gray-400 hover:text-violet-600 transition-colors">
+                        <div className="px-5 py-3 border-b border-gray-200 bg-white shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm z-20">
+                            <div className="flex flex-col gap-2 w-full md:w-auto overflow-hidden">
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-[18px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                        {selectedCat.name}
+                                    </h2>
+                                    <button onClick={handleOpenEditCategory} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                         <span className="material-symbols-outlined text-[16px]">edit</span>
                                     </button>
-                                </h2>
-
-                                {/* Quick Settings inline */}
-                                <div className="hidden sm:flex items-center gap-2">
                                     <div
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[12px] font-bold cursor-pointer transition-all border ${selectedCat.is_active ? 'bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0] hover:bg-[#dcfce7]' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[12px] font-bold cursor-pointer transition-all border ${selectedCat.is_active ? 'bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0] hover:bg-[#dcfce7]' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                                         onClick={handleOpenEditCategory}
                                     >
                                         <div className={`w-2 h-2 rounded-full ${selectedCat.is_active ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
                                         {selectedCat.is_active ? 'Hoạt Động' : 'Tạm Dừng'}
                                     </div>
-
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
                                     <button
-                                        className="text-amber-800 flex items-center gap-1.5 font-bold bg-amber-50 px-3 py-1.5 rounded-[4px] border border-amber-200 hover:bg-amber-100/80 text-[11px] transition-colors cursor-pointer group"
+                                        className="text-amber-800 flex items-center gap-1.5 font-bold bg-amber-50 px-2.5 py-1 rounded border border-amber-200 hover:bg-amber-100/80 text-[11px] transition-colors cursor-pointer group"
                                         onClick={handleOpenEditCategory}
                                     >
                                         <span className="material-symbols-outlined text-[14px] text-amber-600 group-hover:scale-110 transition-transform">warning</span>
@@ -318,21 +386,27 @@ const ExpiryCheckAdmin: React.FC = () => {
                                     </button>
 
                                     <button
-                                        className="text-blue-800 flex items-center gap-1.5 font-bold bg-blue-50 px-3 py-1.5 rounded-[4px] border border-blue-200 hover:bg-blue-100/80 text-[11px] transition-colors cursor-pointer group"
+                                        className="text-blue-800 flex items-center gap-1.5 font-bold bg-blue-50 px-2.5 py-1 rounded border border-blue-200 hover:bg-blue-100/80 text-[11px] transition-colors cursor-pointer group"
                                         onClick={handleOpenEditCategory}
                                     >
                                         <span className="material-symbols-outlined text-[14px] text-blue-600 group-hover:scale-110 transition-transform">history_toggle_off</span>
                                         NSX ngắn: {selectedCat.production_threshold ?? 0} ngày
                                     </button>
 
-                                    <span className="text-violet-700 font-bold bg-violet-50 px-2.5 py-1.5 rounded border border-violet-200 text-[11px] whitespace-nowrap inline-flex items-center">
+                                    <span className="text-violet-700 flex flex-shrink-0 items-center gap-1 font-bold bg-violet-50 px-2.5 py-1 rounded border border-violet-200 text-[11px] whitespace-nowrap">
+                                        <span className="material-symbols-outlined text-[13px] text-violet-600">inventory_2</span>
                                         Tổng: {selectedItems.size} SP
+                                    </span>
+
+                                    <span className="text-gray-700 flex flex-shrink-0 items-center gap-1 font-bold bg-gray-50 px-2.5 py-1 rounded border border-gray-200 text-[11px] whitespace-nowrap">
+                                        <span className="material-symbols-outlined text-[13px] text-gray-500">storefront</span>
+                                        {selectedCat.stores && selectedCat.stores.length > 0 ? `Áp dụng: ${selectedCat.stores.length} CH` : 'Chưa gán cửa hàng'}
                                     </span>
                                 </div>
                             </div>
 
                             <button
-                                className="h-8 px-4 rounded font-bold flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-[12px] shadow-sm ml-auto"
+                                className="h-9 px-5 rounded-lg font-bold flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-[12px] shadow-sm ml-auto md:ml-0"
                                 onClick={handleSaveCatItems}
                                 disabled={isSaving}
                             >
@@ -362,8 +436,9 @@ const ExpiryCheckAdmin: React.FC = () => {
 
                             {/* Actions */}
                             <div className="flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                                <input type="file" ref={fileInputRef} onChange={handleExcelUpload} accept=".xlsx,.xls,.csv" hidden />
                                 <button
-                                    onClick={() => document.getElementById('excel-upload')?.click()}
+                                    onClick={() => fileInputRef.current?.click()}
                                     disabled={isImporting}
                                     className="h-9 px-4 rounded-[4px] border border-gray-300 bg-white text-gray-700 text-[13px] font-bold flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
                                 >
@@ -500,80 +575,91 @@ const ExpiryCheckAdmin: React.FC = () => {
             />
 
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                            <h3 className="text-lg font-bold text-gray-800">{selectedCat ? 'Chỉnh Sửa Danh Mục Kiểm' : 'Tạo Danh Mục Kiểm Mới'}</h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                <span className="material-symbols-outlined">close</span>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 opacity-100 transition-opacity">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] scale-100 transition-transform">
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between text-gray-800 bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shadow-inner border border-violet-100/50">
+                                    <span className="material-symbols-outlined text-violet-600 text-[22px]">tune</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">{selectedCat ? 'Chỉnh Sửa Danh Mục Kiểm' : 'Tạo Danh Mục Tồn Mới'}</h3>
+                                    <p className="text-[13px] text-gray-500 font-medium">Cấu hình thông số và cửa hàng</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors">
+                                <span className="material-symbols-outlined text-[20px]">close</span>
                             </button>
                         </div>
-                        <div className="p-6 overflow-y-auto flex flex-col gap-5">
-                            <div className="flex flex-col gap-2">
+                        <div className="px-5 py-4 overflow-y-auto flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
                                 <label className="text-[13px] font-bold text-gray-700">Tên danh mục <span className="text-red-500">*</span></label>
                                 <input
-                                    className="w-full h-10 px-3 rounded-xl border border-gray-200 text-[14px] focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none transition-all"
+                                    className="w-full h-9 px-3 rounded border border-gray-300 text-[13px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
                                     autoFocus
                                     value={editForm.name}
                                     onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                                     placeholder="Ví dụ: Sữa Tươi, Đồ Hộp..."
                                 />
                             </div>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-1.5">
                                 <label className="text-[13px] font-bold text-gray-700">Mô tả / Ghi chú</label>
                                 <textarea
-                                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-[14px] focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none transition-all resize-none"
+                                    className="w-full px-3 py-2 rounded border border-gray-300 text-[13px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all resize-none"
                                     rows={2}
                                     value={editForm.description}
                                     onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                                     placeholder="Nhập ghi chú thêm về khối hàng này..."
                                 />
                             </div>
-                            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200 mt-2">
-                                <label className="text-[13px] font-bold text-gray-700 w-32 flex-shrink-0">Trạng thái Bật/Tắt</label>
-                                <div
-                                    className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${editForm.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                                    onClick={() => setEditForm(prev => ({ ...prev, is_active: !prev.is_active }))}
-                                >
-                                    <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow transform transition-transform ${editForm.is_active ? 'left-[26px]' : 'left-1'}`}></div>
+
+                            <div className="flex items-center justify-between bg-gray-50 px-4 py-2.5 rounded border border-gray-200">
+                                <label className="text-[13px] font-bold text-gray-700">Trạng thái Bật/Tắt</label>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[12px] font-medium ${editForm.is_active ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                        {editForm.is_active ? 'Đang hoạt động' : 'Tạm dừng'}
+                                    </span>
+                                    <div
+                                        className={`w-10 h-5 rounded-full cursor-pointer relative transition-colors ${editForm.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                                        onClick={() => setEditForm(prev => ({ ...prev, is_active: !prev.is_active }))}
+                                    >
+                                        <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow transform transition-transform ${editForm.is_active ? 'left-[22px]' : 'left-0.5'}`}></div>
+                                    </div>
                                 </div>
-                                <span className={`text-[12px] font-medium ${editForm.is_active ? 'text-emerald-600' : 'text-gray-500'}`}>
-                                    {editForm.is_active ? 'Đang hoạt động' : 'Đã tạm dừng'}
-                                </span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[13px] font-bold text-gray-700">Ngưỡng cảnh báo (ngày)</label>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[13px] font-bold text-gray-700">Ngưỡng cảnh báo</label>
                                     <div className="relative">
                                         <input
-                                            className="w-full h-10 pl-3 pr-8 rounded-xl border border-amber-200 bg-amber-50/30 text-[14px] font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                                            className="w-full h-9 pl-3 pr-10 rounded border border-gray-300 text-[13px] font-medium focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all"
                                             type="number"
                                             value={editForm.near_expiry_days}
                                             onChange={e => setEditForm(prev => ({ ...prev, near_expiry_days: Number(e.target.value) }))}
                                             placeholder="30"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-400 font-medium">ngày</span>
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-500">ngày</span>
                                     </div>
-                                    <p className="text-[11px] text-gray-500 leading-tight">Cảnh báo khi SP còn X ngày tới hạn HSD</p>
+                                    <p className="text-[11px] text-gray-500 leading-tight">Báo khi SP còn X ngày tới HSD</p>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[13px] font-bold text-gray-700">Ngưỡng NSX (ngắn ngày)</label>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[13px] font-bold text-gray-700">Ngưỡng NSX (ngắn)</label>
                                     <div className="relative">
                                         <input
-                                            className="w-full h-10 pl-3 pr-8 rounded-xl border border-blue-200 bg-blue-50/30 text-[14px] font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                            className="w-full h-9 pl-3 pr-10 rounded border border-gray-300 text-[13px] font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
                                             type="number"
                                             value={editForm.production_threshold}
                                             onChange={e => setEditForm(prev => ({ ...prev, production_threshold: Number(e.target.value) }))}
                                             placeholder="7"
                                         />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-400 font-medium">ngày</span>
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-500">ngày</span>
                                     </div>
-                                    <p className="text-[11px] text-gray-500 leading-tight">Cảnh báo nếu NSX cách hiện tại quá X ngày</p>
+                                    <p className="text-[11px] text-gray-500 leading-tight">Báo nếu NSX cách HT quá X ngày</p>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-1.5">
                                 <label className="text-[13px] font-bold text-gray-700">Cửa hàng áp dụng</label>
-                                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="border border-gray-300 rounded overflow-hidden">
                                     <MultiStoreSelect
                                         stores={storesList}
                                         selectedStoreIds={editForm.stores}
@@ -582,14 +668,15 @@ const ExpiryCheckAdmin: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
-                            <button className="h-10 px-5 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors" onClick={() => setShowModal(false)}>Hủy</button>
+                        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
+                            <button className="h-9 px-4 rounded font-semibold text-gray-600 hover:bg-gray-200 transition-colors text-[13px]" onClick={() => setShowModal(false)}>Hủy</button>
                             <button
-                                className="h-10 px-6 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="h-9 px-5 rounded font-bold bg-[#3b82f6] hover:bg-[#2563eb] text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 text-[13px]"
                                 onClick={handleSaveCategory}
                                 disabled={!editForm.name.trim()}
                             >
-                                Lưu Thay Đổi
+                                <span className="material-symbols-outlined text-[16px]">check</span>
+                                Lưu Cấu Hình
                             </button>
                         </div>
                     </div>
@@ -599,19 +686,24 @@ const ExpiryCheckAdmin: React.FC = () => {
 
             {
                 showImportModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
-                                <div className="flex items-center gap-2 text-blue-800">
-                                    <span className="material-symbols-outlined text-[20px]">content_paste</span>
-                                    <h3 className="text-lg font-bold">Dán Nhanh Danh Sách Mã</h3>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 opacity-100 transition-opacity">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col scale-100 transition-transform">
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between text-gray-800 bg-gray-50/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shadow-inner border border-orange-100/50">
+                                        <span className="material-symbols-outlined text-orange-600 text-[22px]">content_paste</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Dán Danh Sách Mã</h3>
+                                        <p className="text-[13px] text-gray-500 font-medium">Nhập mã vạch sản phẩm (mỗi mã 1 dòng)</p>
+                                    </div>
                                 </div>
-                                <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                    <span className="material-symbols-outlined">close</span>
+                                <button onClick={() => setShowImportModal(false)} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors">
+                                    <span className="material-symbols-outlined text-[20px]">close</span>
                                 </button>
                             </div>
                             <div className="p-6 flex flex-col gap-3">
-                                <p className="text-[13px] text-gray-600 leading-relaxed">Nhập mã vạch sản phẩm (mỗi mã 1 dòng) để thêm nhanh vào danh mục <strong className="text-gray-800">{selectedCat?.name}</strong>.</p>
+                                <p className="text-[13px] text-gray-600 leading-relaxed">Sẽ được thêm trực tiếp vào danh mục <strong className="text-gray-800">{selectedCat?.name}</strong>.</p>
                                 <textarea
                                     className="w-full h-48 rounded-xl border border-gray-200 p-4 text-[13px] font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder-gray-300 shadow-inner"
                                     value={importText}
@@ -627,7 +719,7 @@ const ExpiryCheckAdmin: React.FC = () => {
                             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
                                 <button className="h-10 px-5 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors" onClick={() => setShowImportModal(false)}>Đóng</button>
                                 <button
-                                    className="h-10 px-6 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                    className="h-10 px-6 rounded-xl font-bold bg-[#ea580c] hover:bg-[#c2410c] text-white shadow-md shadow-orange-200/50 transition-all flex items-center gap-2 disabled:opacity-50"
                                     onClick={handleImportBarcodes}
                                     disabled={!importText.trim() || isImporting}
                                 >
@@ -641,18 +733,23 @@ const ExpiryCheckAdmin: React.FC = () => {
             }
 
             {showAddProductModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-[8px] shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between text-gray-800">
-                            <h3 className="text-base font-bold flex items-center gap-2">
-                                <span className="material-symbols-outlined text-blue-600 text-[20px]">add_box</span>
-                                Thêm Sản Phẩm
-                            </h3>
-                            <button onClick={() => setShowAddProductModal(false)} className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-gray-100 transition-colors">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 opacity-100 transition-opacity">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col scale-100 transition-transform">
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between text-gray-800 bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shadow-inner border border-blue-100/50">
+                                    <span className="material-symbols-outlined text-blue-600 text-[22px]">add_box</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Thêm Sản Phẩm</h3>
+                                    <p className="text-[13px] text-gray-500 font-medium">Bổ sung vào danh sách</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowAddProductModal(false)} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 rounded-full transition-colors">
                                 <span className="material-symbols-outlined text-[20px]">close</span>
                             </button>
                         </div>
-                        <div className="p-5 flex flex-col gap-4">
+                        <div className="p-6 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[13px] font-bold text-gray-700">Mã Vạch / Mã SP <span className="text-red-500">*</span></label>
                                 <div className="relative">
@@ -696,10 +793,10 @@ const ExpiryCheckAdmin: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
-                            <button onClick={() => setShowAddProductModal(false)} className="h-9 px-4 rounded font-semibold text-gray-600 hover:bg-gray-100 transition-colors text-[13px]">Đóng</button>
+                        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
+                            <button onClick={() => setShowAddProductModal(false)} className="h-10 px-5 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-colors">Đóng</button>
                             <button
-                                className="h-9 px-5 rounded font-bold bg-[#3b82f6] hover:bg-[#2563eb] text-white shadow-sm transition-all disabled:opacity-50 text-[13px] flex items-center gap-1.5"
+                                className="h-10 px-6 rounded-xl font-bold bg-[#3b82f6] hover:bg-[#2563eb] text-white shadow-md shadow-blue-200/50 transition-all disabled:opacity-50 flex items-center gap-2"
                                 disabled={!addCode.trim() || !addText.trim()}
                                 onClick={() => {
                                     const code = addCode.trim();
@@ -717,7 +814,7 @@ const ExpiryCheckAdmin: React.FC = () => {
                                     toast.success('Đã thêm sản phẩm tạm vào danh sách');
                                 }}
                             >
-                                <span className="material-symbols-outlined text-[16px]">check</span>
+                                <span className="material-symbols-outlined text-[18px]">check</span>
                                 Thêm SP
                             </button>
                         </div>

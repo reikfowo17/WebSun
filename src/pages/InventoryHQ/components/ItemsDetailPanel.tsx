@@ -7,6 +7,10 @@ import {
     type DiscrepancyResolution,
     type ReportItem,
 } from '../../../services/inventory';
+import { ResolutionSelect } from './ResolutionSelect';
+import { RecoveryForm } from './RecoveryForm';
+import { RecheckDateField } from './RecheckDateField';
+import { AdminNoteField } from './AdminNoteField';
 
 export { ResolutionSelect } from './ResolutionSelect';
 export { RecoveryForm } from './RecoveryForm';
@@ -44,16 +48,6 @@ const REPORT_STATUS_MAP: Record<string, { label: string; color: string; bg: stri
 };
 
 const getStatusInfo = (s: string) => STATUS_MAP[s] || STATUS_MAP.UNCHECKED;
-
-const RESOLUTION_ORDER: DiscrepancyResolution[] = [
-    'PENDING',
-    'LOST_GOODS',
-    'MISPLACED',
-    'STOCK_ADJUSTMENT',
-    'INPUT_ERROR',
-    'RETURN_GOODS',
-    'RESOLVED_INTERNAL',
-];
 
 interface ItemActionPanelProps {
     item: ReportItem;
@@ -116,141 +110,46 @@ const ItemActionPanel: React.FC<ItemActionPanelProps> = ({ item, reportId, store
         }
     };
 
-    const handleCreateRecovery = async () => {
-        if (!unitPrice || Number(unitPrice) < 0) return;
-        setSavingRecovery(true);
-        try {
-            const res = await InventoryService.createRecoveryFromDiscrepancy({
-                itemId: item.id,
-                reportId: reportId || '',
-                storeId,
-                quantity: absQty,
-                unitPrice: Number(unitPrice),
-                reason: adminNote || `Mất hàng – ${item.product_name} (lệch ${diff})`,
-            });
-            if (res.success) {
-                setRecoveryDone(true);
-                onUpdated({ resolution: 'LOST_GOODS' });
-            }
-        } finally {
-            setSavingRecovery(false);
+    const handleCreateRecovery = async (unitPriceValue: number) => {
+        const res = await InventoryService.createRecoveryFromDiscrepancy({
+            itemId: item.id,
+            reportId: reportId || '',
+            storeId,
+            quantity: absQty,
+            unitPrice: unitPriceValue,
+            reason: adminNote || `Mất hàng – ${item.product_name} (lệch ${diff})`,
+        });
+        if (res.success) {
+            onUpdated({ resolution: 'LOST_GOODS' });
         }
     };
 
     return (
         <div className="iap-root">
-            <div className="iap-field">
-                <label className="iap-label">
-                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>category</span>
-                    Phân loại xử lý
-                    {saving && <span className="iap-saving-dot" />}
-                </label>
-                <div className="iap-select-wrap">
-                    <select
-                        className="iap-select"
-                        style={{
-                            borderColor: RESOLUTION_CONFIG[resolution].color + '60',
-                            color: RESOLUTION_CONFIG[resolution].color,
-                            background: RESOLUTION_CONFIG[resolution].bg,
-                        }}
-                        value={resolution}
-                        onChange={e => handleResolutionChange(e.target.value as DiscrepancyResolution)}
-                    >
-                        {RESOLUTION_ORDER.map(r => (
-                            <option key={r} value={r}>
-                                {RESOLUTION_CONFIG[r].label}
-                            </option>
-                        ))}
-                    </select>
-                    <span className="iap-select-icon material-symbols-outlined">{RESOLUTION_CONFIG[resolution].icon}</span>
-                </div>
-                <p className="iap-desc">{RESOLUTION_CONFIG[resolution].description}</p>
-            </div>
+            <ResolutionSelect
+                value={resolution}
+                onChange={handleResolutionChange}
+            />
 
             {needsRecheck && (
-                <div className="iap-field iap-field--recheck">
-                    <label className="iap-label">
-                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>event</span>
-                        Ngày kiểm tra lại
-                    </label>
-                    <input
-                        type="date"
-                        className="iap-date-input"
-                        value={recheckDate}
-                        min={new Date().toISOString().split('T')[0]}
-                        onChange={e => handleRecheckDateChange(e.target.value)}
-                    />
-                    {item.recheck_completed_at && (
-                        <span className="iap-recheck-done">
-                            <span className="material-symbols-outlined" style={{ fontSize: 13 }}>check_circle</span>
-                            Đã kiểm {new Date(item.recheck_completed_at).toLocaleDateString('vi-VN')}
-                        </span>
-                    )}
-                </div>
+                <RecheckDateField
+                    value={recheckDate}
+                    onChange={handleRecheckDateChange}
+                    completedAt={item.recheck_completed_at}
+                />
             )}
 
             {needsRecovery && (
-                <div className="iap-field iap-field--recovery">
-                    <label className="iap-label">
-                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>payments</span>
-                        Tạo phiếu truy thu
-                    </label>
-                    {recoveryDone ? (
-                        <div className="iap-recovery-done">
-                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#16a34a' }}>check_circle</span>
-                            Đã tạo phiếu truy thu
-                        </div>
-                    ) : (
-                        <div className="iap-recovery-form">
-                            <div className="iap-recovery-qty">
-                                <span className="iap-qty-label">SL mất:</span>
-                                <span className="iap-qty-val">{absQty}</span>
-                            </div>
-                            <div className="iap-recovery-price-row">
-                                <input
-                                    type="number"
-                                    className="iap-price-input"
-                                    placeholder="Đơn giá (VND)"
-                                    value={unitPrice}
-                                    min="0"
-                                    onChange={e => setUnitPrice(e.target.value)}
-                                />
-                                {unitPrice && Number(unitPrice) > 0 && (
-                                    <span className="iap-total">
-                                        = {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(absQty * Number(unitPrice))}
-                                    </span>
-                                )}
-                            </div>
-                            <button
-                                className="iap-btn-recovery"
-                                disabled={!unitPrice || Number(unitPrice) <= 0 || savingRecovery}
-                                onClick={handleCreateRecovery}
-                            >
-                                {savingRecovery ? (
-                                    <span className="iap-spinner" />
-                                ) : (
-                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>add_card</span>
-                                )}
-                                Tạo phiếu truy thu
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <RecoveryForm
+                    quantity={absQty}
+                    onCreateRecovery={handleCreateRecovery}
+                />
             )}
 
-            <div className="iap-field">
-                <label className="iap-label">
-                    <span className="material-symbols-outlined" style={{ fontSize: 13 }}>edit_note</span>
-                    Ghi chú admin
-                </label>
-                <textarea
-                    className="iap-note"
-                    placeholder="Ghi chú thêm..."
-                    rows={2}
-                    value={adminNote}
-                    onChange={e => handleNoteChange(e.target.value)}
-                />
-            </div>
+            <AdminNoteField
+                value={adminNote}
+                onChange={handleNoteChange}
+            />
         </div>
     );
 };
