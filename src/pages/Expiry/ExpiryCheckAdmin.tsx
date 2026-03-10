@@ -29,7 +29,7 @@ const ExpiryCheckAdmin: React.FC = () => {
     // Create/Edit modal
     const [showModal, setShowModal] = useState(false);
     const [editForm, setEditForm] = useState({
-        name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: [] as string[]
+        name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: [] as string[], is_active: true
     });
 
     // Import modal
@@ -38,6 +38,7 @@ const ExpiryCheckAdmin: React.FC = () => {
     const [isImporting, setIsImporting] = useState(false);
 
     // Manual add
+    const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [addCode, setAddCode] = useState('');
     const [addText, setAddText] = useState('');
 
@@ -159,7 +160,8 @@ const ExpiryCheckAdmin: React.FC = () => {
                 description: editForm.description,
                 near_expiry_days: editForm.near_expiry_days,
                 production_threshold: editForm.production_threshold,
-                stores: editForm.stores ?? []
+                stores: editForm.stores ?? [],
+                is_active: editForm.is_active
             });
         } else {
             res = await ExpiryCheckService.createCategory({
@@ -167,7 +169,8 @@ const ExpiryCheckAdmin: React.FC = () => {
                 description: editForm.description,
                 near_expiry_days: editForm.near_expiry_days,
                 production_threshold: editForm.production_threshold,
-                stores: editForm.stores
+                stores: editForm.stores,
+                is_active: editForm.is_active
             });
         }
 
@@ -183,7 +186,7 @@ const ExpiryCheckAdmin: React.FC = () => {
 
     const handleOpenCreateCategory = () => {
         setSelectedCat(null);
-        setEditForm({ name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: [] });
+        setEditForm({ name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: [], is_active: true });
         setShowModal(true);
     };
 
@@ -194,7 +197,8 @@ const ExpiryCheckAdmin: React.FC = () => {
             description: selectedCat.description || '',
             near_expiry_days: selectedCat.near_expiry_days ?? 30,
             production_threshold: selectedCat.production_threshold ?? 0,
-            stores: selectedCat.stores ?? []
+            stores: selectedCat.stores ?? [],
+            is_active: selectedCat.is_active ?? true
         });
         setShowModal(true);
     }
@@ -285,161 +289,96 @@ const ExpiryCheckAdmin: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        {/* Header Box */}
-                        <div className="px-6 py-5 border-b border-violet-50 bg-white shrink-0 flex flex-col gap-4">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex flex-col gap-1 min-w-0">
-                                    <div className="flex items-center gap-3">
-                                        <h2 className="text-2xl font-bold text-gray-900 truncate leading-tight">{selectedCat.name}</h2>
-                                        <button onClick={handleOpenEditCategory} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 hover:bg-violet-100 text-gray-400 hover:text-violet-600 transition-colors shrink-0" title="Chỉnh sửa danh mục">
-                                            <span className="material-symbols-outlined text-[16px]">edit</span>
-                                        </button>
+                        {/* Header Box (Toolbar 1 - Settings & Info) */}
+                        <div className="px-5 py-3 border-b border-gray-200 bg-white shrink-0 flex flex-wrap items-center justify-between gap-4 shadow-sm z-20">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <h2 className="text-[16px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                    {selectedCat.name}
+                                    <button onClick={handleOpenEditCategory} className="text-gray-400 hover:text-violet-600 transition-colors">
+                                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                                    </button>
+                                </h2>
+
+                                {/* Quick Settings inline */}
+                                <div className="hidden sm:flex items-center gap-2">
+                                    <div
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] text-[12px] font-bold cursor-pointer transition-all border ${selectedCat.is_active ? 'bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0] hover:bg-[#dcfce7]' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                        onClick={handleOpenEditCategory}
+                                    >
+                                        <div className={`w-2 h-2 rounded-full ${selectedCat.is_active ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
+                                        {selectedCat.is_active ? 'Hoạt Động' : 'Tạm Dừng'}
                                     </div>
-                                    {selectedCat.description && <p className="text-[13px] text-gray-500 line-clamp-1">{selectedCat.description}</p>}
-                                </div>
 
-                                <button
-                                    className="h-10 px-6 rounded-xl font-bold flex items-center gap-2 bg-[#F97316] hover:bg-[#ea580c] shadow-md shadow-[#F97316]/20 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm shrink-0"
-                                    onClick={handleSaveCatItems}
-                                    disabled={isSaving}
-                                >
-                                    {isSaving ? <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> : <span className="material-symbols-outlined text-[18px]">save</span>}
-                                    {isSaving ? 'Đang lưu...' : 'Lưu Danh Sách'}
-                                </button>
+                                    <button
+                                        className="text-amber-800 flex items-center gap-1.5 font-bold bg-amber-50 px-3 py-1.5 rounded-[4px] border border-amber-200 hover:bg-amber-100/80 text-[11px] transition-colors cursor-pointer group"
+                                        onClick={handleOpenEditCategory}
+                                    >
+                                        <span className="material-symbols-outlined text-[14px] text-amber-600 group-hover:scale-110 transition-transform">warning</span>
+                                        Cảnh báo trước: {selectedCat.near_expiry_days ?? 0} ngày
+                                    </button>
+
+                                    <button
+                                        className="text-blue-800 flex items-center gap-1.5 font-bold bg-blue-50 px-3 py-1.5 rounded-[4px] border border-blue-200 hover:bg-blue-100/80 text-[11px] transition-colors cursor-pointer group"
+                                        onClick={handleOpenEditCategory}
+                                    >
+                                        <span className="material-symbols-outlined text-[14px] text-blue-600 group-hover:scale-110 transition-transform">history_toggle_off</span>
+                                        NSX ngắn: {selectedCat.production_threshold ?? 0} ngày
+                                    </button>
+
+                                    <span className="text-violet-700 font-bold bg-violet-50 px-2.5 py-1.5 rounded border border-violet-200 text-[11px] whitespace-nowrap inline-flex items-center">
+                                        Tổng: {selectedItems.size} SP
+                                    </span>
+                                </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-3 mt-1">
-                                <div
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-bold cursor-pointer transition-colors border ${selectedCat.is_active ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
-                                    onClick={handleToggleActive}
-                                >
-                                    <div className={`w-2 h-2 rounded-full ${selectedCat.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
-                                    {selectedCat.is_active ? 'Trạng thái: Hoạt Động' : 'Trạng thái: Tạm Dừng'}
-                                </div>
-
-                                <span className="text-amber-700 flex items-center gap-1 font-semibold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 text-[12px]">
-                                    <span className="material-symbols-outlined text-[14px]">warning</span>
-                                    Cảnh báo trước: {selectedCat.near_expiry_days} ngày
-                                </span>
-
-                                <span className="text-blue-700 flex items-center gap-1 font-semibold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 text-[12px]">
-                                    <span className="material-symbols-outlined text-[14px]">history_toggle_off</span>
-                                    NSX ngắn: {selectedCat.production_threshold} ngày
-                                </span>
-
-                                <span className="text-violet-700 font-bold bg-violet-50 px-3 py-1.5 rounded-lg border border-violet-100 text-[12px] ml-auto">
-                                    Tổng: {selectedItems.size} SP
-                                </span>
-                            </div>
+                            <button
+                                className="h-8 px-4 rounded font-bold flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-[12px] shadow-sm ml-auto"
+                                onClick={handleSaveCatItems}
+                                disabled={isSaving}
+                            >
+                                {isSaving ? <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span> : <span className="material-symbols-outlined text-[16px]">save</span>}
+                                {isSaving ? 'Đang lưu...' : 'Lưu Danh Sách'}
+                            </button>
                         </div>
 
-                        {/* Toolbar: Search & Add */}
-                        <div className="px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-between gap-4 shrink-0">
-                            {/* Search Box */}
-                            <div className="relative w-full max-w-xs shrink-0 group">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 text-[18px] group-focus-within:text-violet-500 transition-colors">search</span>
+                        {/* Toolbar 2 - Search & Actions (Minimal) */}
+                        <div className="px-5 py-2.5 border-b border-gray-200 bg-white flex flex-wrap items-center justify-between gap-3 shrink-0 z-10 relative shadow-sm">
+                            {/* Filter Box */}
+                            <div className="relative w-full sm:w-80 shrink-0 group">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 text-[18px] group-focus-within:text-blue-500 transition-colors">search</span>
                                 <input
                                     type="text"
-                                    placeholder="Tìm Tên, Mã SP, Barcode..."
-                                    className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 outline-none transition-all bg-white shadow-sm"
+                                    placeholder="Tìm Tên, Mã, Barcode..."
+                                    className="w-full h-9 pl-9 pr-3 rounded-[4px] border border-gray-300 text-[13px] font-medium text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 shadow-inner"
                                     value={searchQ}
                                     onChange={e => setSearchQ(e.target.value)}
                                 />
+                                {searchQ && (
+                                    <button onClick={() => setSearchQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                                        <span className="material-symbols-outlined text-[14px]">close</span>
+                                    </button>
+                                )}
                             </div>
 
-                            {/* Action Tools */}
-                            <div className="flex items-center gap-3 w-full sm:w-auto overflow-hidden">
-                                {/* Inline Manual Add Form */}
-                                <div className="flex items-center bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-violet-100 focus-within:border-violet-500 transition-all">
-                                    <div className="relative border-r border-gray-100">
-                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-300 text-[16px]">qr_code_scanner</span>
-                                        <input
-                                            type="text"
-                                            placeholder="Mã Vạch/SP"
-                                            className="h-10 w-28 sm:w-32 pl-8 pr-2 text-[12px] font-mono outline-none bg-transparent"
-                                            value={addCode} onChange={e => setAddCode(e.target.value)}
-                                        />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Tên sản phẩm..."
-                                        className="h-10 w-32 sm:w-48 px-3 text-[12px] font-medium outline-none bg-transparent"
-                                        value={addText} onChange={e => setAddText(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter') {
-                                                const code = addCode.trim();
-                                                const name = addText.trim();
-                                                if (!code || !name) {
-                                                    toast.warning('Vui lòng nhập đủ mã và tên sản phẩm');
-                                                    return;
-                                                }
-                                                const next = new Map(selectedItems);
-                                                next.set(code, { id: code, barcode: code, sp: code, name: name, isNew: true });
-                                                setSelectedItems(next);
-                                                setAddCode('');
-                                                setAddText('');
-                                                toast.success('Đã thêm sản phẩm tạm vào danh sách');
-                                            }
-                                        }}
-                                    />
-                                    <button
-                                        className="h-10 px-4 flex items-center gap-1.5 bg-[#4C1D95] hover:bg-[#5b21b6] text-white text-[13px] font-bold transition-colors"
-                                        onClick={() => {
-                                            const code = addCode.trim();
-                                            const name = addText.trim();
-                                            if (!code || !name) {
-                                                toast.warning('Vui lòng nhập đủ mã và tên sản phẩm');
-                                                return;
-                                            }
-                                            const next = new Map(selectedItems);
-                                            next.set(code, { id: code, barcode: code, sp: code, name: name, isNew: true });
-                                            setSelectedItems(next);
-                                            setAddCode('');
-                                            setAddText('');
-                                            toast.success('Đã thêm sản phẩm tạm vào danh sách');
-                                        }}
-                                    >
-                                        <span className="material-symbols-outlined text-[16px]">add</span>
-                                        Thêm
-                                    </button>
-                                </div>
-
-                                {/* Excel/Paste Actions */}
-                                <div className="flex items-center bg-white rounded-xl border border-gray-200 shadow-sm p-1 shrink-0">
-                                    <button
-                                        className="h-8 px-3 flex items-center gap-1.5 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 text-[12px] font-bold rounded-lg transition-colors group"
-                                        title="Tải lên file Excel"
-                                        onClick={() => document.getElementById('excel-upload')?.click()}
-                                    >
-                                        {isImporting ? <span className="material-symbols-outlined text-[16px] text-emerald-500 animate-spin">progress_activity</span>
-                                            : <span className="material-symbols-outlined text-[16px] text-emerald-600 group-hover:-translate-y-0.5 transition-transform duration-200">upload_file</span>}
-                                        Excel
-                                    </button>
-                                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
-                                    <button
-                                        className="h-8 px-3 flex items-center gap-1.5 hover:bg-blue-50 text-gray-700 hover:text-blue-700 text-[12px] font-bold rounded-lg transition-colors group"
-                                        title="Dán nhanh danh sách Code"
-                                        onClick={() => setShowImportModal(true)}
-                                    >
-                                        <span className="material-symbols-outlined text-[16px] text-blue-500 group-hover:scale-110 transition-transform duration-200">content_paste</span>
-                                        Dán Danh Sách
-                                    </button>
-                                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
-                                    <button
-                                        className="h-8 px-2 flex items-center hover:bg-gray-100 text-gray-500 hover:text-gray-800 rounded-lg transition-colors"
-                                        title="Tải Template Excel"
-                                        onClick={() => {
-                                            import('xlsx').then(XLSX => {
-                                                const ws = XLSX.utils.json_to_sheet([{ 'Mã barcode': '', 'Mã hàng SP': '', 'Tên sản phẩm': '' }]);
-                                                const wb = XLSX.utils.book_new();
-                                                XLSX.utils.book_append_sheet(wb, ws, "Template");
-                                                XLSX.writeFile(wb, "Template_Import_SP.xlsx");
-                                            });
-                                        }}
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">download</span>
-                                    </button>
-                                </div>
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                                <button
+                                    onClick={() => document.getElementById('excel-upload')?.click()}
+                                    disabled={isImporting}
+                                    className="h-9 px-4 rounded-[4px] border border-gray-300 bg-white text-gray-700 text-[13px] font-bold flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                        {isImporting ? 'sync' : 'upload'}
+                                    </span>
+                                    Import
+                                </button>
+                                <button
+                                    onClick={() => setShowAddProductModal(true)}
+                                    className="h-9 px-4 rounded-[4px] bg-[#3b82f6] text-white text-[13px] font-bold flex items-center justify-center gap-1.5 hover:bg-[#2563eb] transition-colors shadow-sm"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">add</span>
+                                    Thêm SP
+                                </button>
                             </div>
                         </div>
 
@@ -590,6 +529,18 @@ const ExpiryCheckAdmin: React.FC = () => {
                                     placeholder="Nhập ghi chú thêm về khối hàng này..."
                                 />
                             </div>
+                            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200 mt-2">
+                                <label className="text-[13px] font-bold text-gray-700 w-32 flex-shrink-0">Trạng thái Bật/Tắt</label>
+                                <div
+                                    className={`w-12 h-6 rounded-full cursor-pointer relative transition-colors ${editForm.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                                    onClick={() => setEditForm(prev => ({ ...prev, is_active: !prev.is_active }))}
+                                >
+                                    <div className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow transform transition-transform ${editForm.is_active ? 'left-[26px]' : 'left-1'}`}></div>
+                                </div>
+                                <span className={`text-[12px] font-medium ${editForm.is_active ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                    {editForm.is_active ? 'Đang hoạt động' : 'Đã tạm dừng'}
+                                </span>
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-2">
                                     <label className="text-[13px] font-bold text-gray-700">Ngưỡng cảnh báo (ngày)</label>
@@ -688,6 +639,91 @@ const ExpiryCheckAdmin: React.FC = () => {
                     </div>
                 )
             }
+
+            {showAddProductModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-[8px] shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between text-gray-800">
+                            <h3 className="text-base font-bold flex items-center gap-2">
+                                <span className="material-symbols-outlined text-blue-600 text-[20px]">add_box</span>
+                                Thêm Sản Phẩm
+                            </h3>
+                            <button onClick={() => setShowAddProductModal(false)} className="text-gray-400 hover:text-gray-600 rounded-lg p-1 hover:bg-gray-100 transition-colors">
+                                <span className="material-symbols-outlined text-[20px]">close</span>
+                            </button>
+                        </div>
+                        <div className="p-5 flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[13px] font-bold text-gray-700">Mã Vạch / Mã SP <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 text-[16px]">qr_code</span>
+                                    <input
+                                        className="w-full h-10 pl-9 pr-3 rounded border border-gray-300 text-[13px] font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400"
+                                        value={addCode}
+                                        onChange={e => setAddCode(e.target.value)}
+                                        placeholder="Nhập mã sản phẩm..."
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[13px] font-bold text-gray-700">Tên Sản Phẩm <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 text-[16px]">inventory</span>
+                                    <input
+                                        className="w-full h-10 pl-9 pr-3 rounded border border-gray-300 text-[13px] font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400"
+                                        value={addText}
+                                        onChange={e => setAddText(e.target.value)}
+                                        placeholder="Nhập tên sản phẩm..."
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                const code = addCode.trim();
+                                                const name = addText.trim();
+                                                if (!code || !name) {
+                                                    toast.warning('Vui lòng nhập đủ thông tin!');
+                                                    return;
+                                                }
+                                                const next = new Map(selectedItems);
+                                                next.set(code, { id: code, barcode: code, sp: code, name: name, isNew: true });
+                                                setSelectedItems(next);
+                                                setAddCode('');
+                                                setAddText('');
+                                                setShowAddProductModal(false);
+                                                toast.success('Đã thêm sản phẩm tạm vào danh sách');
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/50">
+                            <button onClick={() => setShowAddProductModal(false)} className="h-9 px-4 rounded font-semibold text-gray-600 hover:bg-gray-100 transition-colors text-[13px]">Đóng</button>
+                            <button
+                                className="h-9 px-5 rounded font-bold bg-[#3b82f6] hover:bg-[#2563eb] text-white shadow-sm transition-all disabled:opacity-50 text-[13px] flex items-center gap-1.5"
+                                disabled={!addCode.trim() || !addText.trim()}
+                                onClick={() => {
+                                    const code = addCode.trim();
+                                    const name = addText.trim();
+                                    if (!code || !name) {
+                                        toast.warning('Vui lòng nhập đủ thông tin!');
+                                        return;
+                                    }
+                                    const next = new Map(selectedItems);
+                                    next.set(code, { id: code, barcode: code, sp: code, name: name, isNew: true });
+                                    setSelectedItems(next);
+                                    setAddCode('');
+                                    setAddText('');
+                                    setShowAddProductModal(false);
+                                    toast.success('Đã thêm sản phẩm tạm vào danh sách');
+                                }}
+                            >
+                                <span className="material-symbols-outlined text-[16px]">check</span>
+                                Thêm SP
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

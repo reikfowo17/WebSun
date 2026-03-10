@@ -1,1 +1,4 @@
-src/pages/Expiry/ExpiryCheckAdmin.tsx(685,30): error TS1005: ':' expected.
+src/pages/Expiry/ExpiryCheckAdmin.tsx(320,89): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Expiry/ExpiryCheckAdmin.tsx(338,84): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Expiry/ExpiryCheckAdmin.tsx(412,88): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Expiry/ExpiryCheckAdmin.tsx(431,84): error TS2554: Expected 1 arguments, but got 2.
