@@ -40,6 +40,7 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     const [loading, setLoading] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
+    const [dateMap, setDateMap] = useState<Record<string, string>>({});
     const [noteMap, setNoteMap] = useState<Record<string, string>>({});
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -98,12 +99,15 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
             if (rRes.success) {
                 setResults(rRes.data);
                 const initQty: Record<string, string> = {};
+                const initDate: Record<string, string> = {};
                 const initNote: Record<string, string> = {};
                 rRes.data.forEach(r => {
                     initQty[r.id] = r.qty !== null ? String(r.qty) : '';
+                    initDate[r.id] = r.expiry_date || '';
                     initNote[r.id] = r.note || '';
                 });
                 setQtyMap(initQty);
+                setDateMap(initDate);
                 setNoteMap(initNote);
             }
         } else {
@@ -137,8 +141,8 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     const selectedCat = categories.find(c => c.id === selectedCatId);
     const nearExpiryDays = selectedCat?.near_expiry_days || 30;
 
-    const getExpiryInfo = (result: ExpiryCheckResult): { status: string; label: string; daysLeft: number | null } => {
-        const dateStr = result.expiry_date;
+    const getExpiryInfo = (resultId: string): { status: string; label: string; daysLeft: number | null } => {
+        const dateStr = dateMap[resultId];
         if (!dateStr) return { status: 'UNKNOWN', label: 'Chưa có', daysLeft: null };
         const expiryMs = new Date(dateStr + 'T00:00:00').getTime();
         if (isNaN(expiryMs)) return { status: 'UNKNOWN', label: 'Chưa có', daysLeft: null };
@@ -150,13 +154,15 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     };
 
     /* ── Handle field changes with auto-save ── */
-    const handleFieldChange = (resultId: string, field: 'qty' | 'note', val: string) => {
+    const handleFieldChange = (resultId: string, field: 'qty' | 'date' | 'note', val: string) => {
         if (field === 'qty') setQtyMap(prev => ({ ...prev, [resultId]: val }));
+        else if (field === 'date') setDateMap(prev => ({ ...prev, [resultId]: val }));
         else setNoteMap(prev => ({ ...prev, [resultId]: val }));
 
         clearTimeout(saveTimers.current[`${resultId}_${field}`]);
         saveTimers.current[`${resultId}_${field}`] = setTimeout(async () => {
             const qtyVal = field === 'qty' ? val : qtyMap[resultId];
+            const dateVal = field === 'date' ? val : dateMap[resultId];
             const noteVal = field === 'note' ? val : noteMap[resultId];
             const num = qtyVal === '' ? null : parseFloat(qtyVal);
 
@@ -164,11 +170,12 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
 
             await ExpiryCheckService.updateResult(resultId, {
                 qty: num,
+                expiry_date: dateVal || null,
                 note: noteVal,
                 checked_at: new Date().toISOString(),
             });
             setResults(prev => prev.map(r => r.id === resultId
-                ? { ...r, qty: num, note: noteVal }
+                ? { ...r, qty: num, expiry_date: dateVal || null, note: noteVal }
                 : r
             ));
         }, 600);
@@ -211,7 +218,7 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
             const qtyStr = qtyMap[r.id] ?? (r.qty !== null ? String(r.qty) : '');
             const noteVal = noteMap[r.id] || '';
             const hasData = qtyStr || noteVal;
-            const info = getExpiryInfo(r);
+            const info = getExpiryInfo(r.id);
 
             return `<tr class="${hasData ? "checked-row" : ""}">
             <td class="stt-col">${i + 1}</td>
@@ -277,11 +284,11 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     /* ── Enhanced results with expiry info ── */
     const enhancedResults = useMemo(() => {
         return results.map(r => {
-            const hasVal = r.qty !== null || !!qtyMap[r.id] || !!noteMap[r.id];
-            const expiryInfo = getExpiryInfo(r);
+            const hasVal = r.qty !== null || !!qtyMap[r.id] || !!dateMap[r.id] || !!noteMap[r.id];
+            const expiryInfo = getExpiryInfo(r.id);
             return { ...r, hasVal, expiryInfo };
         });
-    }, [results, qtyMap, noteMap]);
+    }, [results, qtyMap, dateMap, noteMap]);
 
     const stats = useMemo(() => {
         return {
@@ -411,39 +418,34 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         
                         {/* Compact Category Selector */}
-                        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] border border-gray-200/80 dark:border-gray-800 p-2 sm:p-2.5 flex items-center justify-between min-h-[64px]">
-                            
-                            {/* Category dropdown */}
-                            <div className="bg-gray-50 dark:bg-[#0a0a0a] rounded-lg border border-gray-100 dark:border-gray-800 p-1 flex items-center flex-1 max-w-[280px] relative group h-[44px]">
-                                <div className="absolute inset-1 bg-white dark:bg-[#1a1a1a] rounded-md shadow-sm border border-gray-100 dark:border-gray-800"></div>
-                                
-                                <span className="material-symbols-outlined text-emerald-500 dark:text-emerald-400 text-[18px] ml-3 shrink-0 relative z-10 flex items-center h-full">style</span>
-                                <div className="relative flex-1 h-full z-10 flex items-center">
-                                    <select 
-                                        className="w-full appearance-none bg-transparent border-none py-0 pl-2 pr-8 text-[14px] font-bold text-gray-800 dark:text-gray-200 focus:ring-0 cursor-pointer outline-none truncate h-full"
-                                        value={selectedCatId} 
-                                        onChange={e => setSelectedCatId(e.target.value)}
-                                    >
-                                        {categories.length === 0 && <option value="">Chọn danh mục</option>}
-                                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                    <span className="material-symbols-outlined absolute right-2 pointer-events-none text-gray-400 group-hover:text-gray-600 transition-colors text-[18px] bg-white dark:bg-[#1a1a1a]">unfold_more</span>
-                                </div>
+                        <div className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] border border-gray-200/80 dark:border-gray-800 p-4 flex flex-col justify-center min-h-[64px]" ref={catPopoverRef}>
+                            <div className="flex items-center gap-1.5 mb-2.5">
+                                <span className="material-symbols-outlined text-[18px] text-gray-400">inventory_2</span>
+                                <h3 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider">Danh mục sản phẩm</h3>
                             </div>
-
-                            {/* Category list popover */}
-                            <div className="relative" ref={catPopoverRef}>
+                            
+                            {/* Custom category dropdown */}
+                            <div className="relative">
                                 <button
                                     onClick={() => setCatPopoverOpen(!catPopoverOpen)}
-                                    className="pr-3 pl-2 flex items-center gap-1.5 text-gray-500 dark:text-gray-400 whitespace-nowrap overflow-hidden hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all cursor-pointer"
-                                    title="Xem tất cả danh mục"
+                                    className="w-full bg-gray-50 dark:bg-[#0a0a0a] rounded-lg border border-gray-100 dark:border-gray-800 p-1 flex items-center relative group h-[44px] hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-pointer"
                                 >
-                                    <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-                                    <span className="text-[13px] font-medium hidden sm:inline truncate">Danh mục kiểm kê</span>
-                                    <span className="material-symbols-outlined text-[14px]">{catPopoverOpen ? 'expand_less' : 'expand_more'}</span>
+                                    <div className="absolute inset-1 bg-white dark:bg-[#1a1a1a] rounded-md shadow-sm border border-gray-100 dark:border-gray-800"></div>
+                                    
+                                    <span className="material-symbols-outlined text-emerald-500 dark:text-emerald-400 text-[18px] ml-3 shrink-0 relative z-10">style</span>
+                                    <span className="relative z-10 flex-1 text-left pl-2 pr-8 text-[14px] font-bold text-gray-800 dark:text-gray-200 truncate">
+                                        {selectedCat?.name || 'Chọn danh mục'}
+                                    </span>
+                                    {selectedCat?.item_count !== undefined && (
+                                        <span className="relative z-10 mr-8 text-[11px] font-semibold text-gray-400 whitespace-nowrap">{selectedCat.item_count} SP</span>
+                                    )}
+                                    <span className="material-symbols-outlined absolute right-3 text-gray-400 group-hover:text-emerald-500 transition-colors text-[18px] z-10">
+                                        {catPopoverOpen ? 'expand_less' : 'unfold_more'}
+                                    </span>
                                 </button>
+
                                 {catPopoverOpen && (
-                                    <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-[#1a1a1a] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                                    <div className="absolute left-0 top-full mt-2 w-full min-w-[280px] bg-white dark:bg-[#1a1a1a] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
                                         <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
                                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Danh mục kiểm date</span>
                                         </div>
@@ -599,9 +601,10 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                                                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-10">#</th>
                                                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tên sản phẩm</th>
                                                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Barcode</th>
-                                                    <th className="px-3 py-3 text-center text-xs font-bold text-orange-600 dark:text-orange-500 uppercase tracking-wider w-28">Số lượng</th>
+                                                    <th className="px-3 py-3 text-center text-xs font-bold text-orange-600 dark:text-orange-500 uppercase tracking-wider w-24">Số lượng</th>
+                                                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-28">HSD</th>
                                                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-36">Trạng thái</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-48">Ghi chú</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-44">Ghi chú</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -658,6 +661,32 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                                                                             'bg-gray-50 dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-orange-500'
                                                                         }`}
                                                                         placeholder="-"
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                            
+                                                            {/* HSD */}
+                                                            <td className="px-3 py-3 text-center">
+                                                                {!canEdit ? (
+                                                                    <span className={`text-[13px] font-bold ${
+                                                                        isExpired ? 'text-red-600 dark:text-red-400' :
+                                                                        isNearExpiry ? 'text-orange-600 dark:text-orange-400' :
+                                                                        'text-gray-700 dark:text-gray-300'
+                                                                    }`}>
+                                                                        {dateMap[r.id] ? new Date(dateMap[r.id] + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                                                                    </span>
+                                                                ) : (
+                                                                    <input
+                                                                        type="date"
+                                                                        value={dateMap[r.id] || ''}
+                                                                        onChange={e => handleFieldChange(r.id, 'date', e.target.value)}
+                                                                        className={`w-full h-10 text-center text-[13px] font-semibold border rounded-lg focus:ring-2 outline-none transition-shadow ${
+                                                                            dateMap[r.id] 
+                                                                                ? isExpired ? 'bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 focus:ring-red-500'
+                                                                                : isNearExpiry ? 'bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 focus:ring-orange-500'
+                                                                                : 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50 text-gray-900 dark:text-white focus:ring-emerald-500'
+                                                                            : 'bg-gray-50 dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-orange-500'
+                                                                        }`}
                                                                     />
                                                                 )}
                                                             </td>
