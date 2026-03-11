@@ -57,6 +57,8 @@ export interface InventoryProduct {
     status: string;
     note?: string;
     diffReason?: string;
+    resolution?: string;
+    recheckDueDate?: string | null;
 }
 
 

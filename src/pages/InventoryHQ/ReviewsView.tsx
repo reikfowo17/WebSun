@@ -46,6 +46,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
 
     const [dateFrom, setDateFrom] = useState<string>('');
     const [dateTo, setDateTo] = useState<string>('');
+    const [filterHasIssues, setFilterHasIssues] = useState<boolean | null>(null);
 
     // Modal states
     const [approveReportId, setApproveReportId] = useState<string | null>(null);
@@ -134,6 +135,12 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
         if (dateFrom) list = list.filter(r => r.date >= dateFrom);
         if (dateTo) list = list.filter(r => r.date <= dateTo);
 
+        if (filterHasIssues === true) {
+            list = list.filter(r => r.missing > 0 || r.over > 0);
+        } else if (filterHasIssues === false) {
+            list = list.filter(r => r.missing === 0 && r.over === 0);
+        }
+
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(r =>
@@ -150,7 +157,7 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
             return sortAsc ? cmp : -cmp;
         });
         return list;
-    }, [reports, search, sortField, sortAsc, viewMode, dateFrom, dateTo]);
+    }, [reports, search, sortField, sortAsc, viewMode, dateFrom, dateTo, filterHasIssues]);
 
     const getApprovalSummary = useCallback((reportId: string) => {
         const report = reports.find(r => r.id === reportId);
@@ -553,6 +560,32 @@ const ReviewsView: React.FC<ReviewsViewProps> = ({ toast, user, onReviewDone }) 
                                 )}
                             </div>
                         )}
+
+                        {/* Filter: Has issues */}
+                        <div className="rv2-mode-toggle" role="group" aria-label="Lọc theo trạng thái">
+                            <button
+                                className={`rv2-mode-btn ${filterHasIssues === null ? 'active' : ''}`}
+                                onClick={() => setFilterHasIssues(null)}
+                            >
+                                Tất cả
+                            </button>
+                            <button
+                                className={`rv2-mode-btn ${filterHasIssues === true ? 'active' : ''}`}
+                                onClick={() => setFilterHasIssues(true)}
+                                style={filterHasIssues === true ? { color: '#dc2626' } : {}}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>warning</span>
+                                Có lệch
+                            </button>
+                            <button
+                                className={`rv2-mode-btn ${filterHasIssues === false ? 'active' : ''}`}
+                                onClick={() => setFilterHasIssues(false)}
+                                style={filterHasIssues === false ? { color: '#16a34a' } : {}}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>
+                                Khớp all
+                            </button>
+                        </div>
 
                         {/* U1-FIX: Bulk actions cho PENDING mode */}
                         {viewMode === 'PENDING' && selectedIds.size > 0 && (

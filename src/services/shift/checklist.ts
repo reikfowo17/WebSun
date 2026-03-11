@@ -61,7 +61,7 @@ export const ChecklistService = {
         const { data, error } = await supabase
             .from('shift_checklist_responses')
             .update({
-                completed,
+                is_completed: completed, 
                 completed_by: userId,
                 completed_at: completed ? new Date().toISOString() : null,
                 note: note || null,

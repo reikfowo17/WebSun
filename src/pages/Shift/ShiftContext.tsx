@@ -378,10 +378,17 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
     const getCashDiff = useCallback(() => getDenomTotal() - getCashExpected(), [getDenomTotal, getCashExpected]);
     const handleToggleChecklist = useCallback(async (response: ChecklistResponse) => {
         if (!shift || isCompleted) return;
+        const newStatus = !response.is_completed;
+        
+        setResponses(prev => prev.map(r => r.id === response.id ? { ...r, is_completed: newStatus } : r));
+        
         try {
-            const updated = await ChecklistService.toggleItem(response.id, !response.is_completed, user.id);
+            const updated = await ChecklistService.toggleItem(response.id, newStatus, user.id);
             setResponses(prev => prev.map(r => r.id === updated.id ? updated : r));
-        } catch (err) { console.error('[ShiftContext] Toggle error:', err); }
+        } catch (err) { 
+            console.error('[ShiftContext] Toggle error:', err);
+            setResponses(prev => prev.map(r => r.id === response.id ? { ...r, is_completed: !newStatus } : r));
+        }
     }, [shift, isCompleted, user.id]);
 
     const handleAssetCheck = useCallback(async (assetId: string, okCount: number | null, damagedCount: number) => {

@@ -62,6 +62,59 @@ export const HandoverService = {
         return data || [];
     },
 
+    async syncKiotVietHandover(storeId: string, shiftId: string): Promise<{ success: boolean; message?: string; synced?: number }> {
+        if (!storeId || !shiftId) return { success: false, message: 'Thiếu thông tin' };
+        try {
+            const { data: store, error: storeErr } = await supabase
+                .from('stores')
+                .select('code, kiotviet_branch_name')
+                .eq('id', storeId)
+                .single();
+            if (storeErr || !store || !store.code) return { success: false, message: 'Không tìm thấy cửa hàng' };
+
+            const branchName = store.kiotviet_branch_name || store.code;
+            const { data: fnData, error: fnErr } = await supabase.functions.invoke('kiotviet-stock', {
+                body: { storeCode: store.code, branchName: branchName }
+            });
+
+            if (fnErr || !fnData?.stockMap) {
+                return { success: false, message: fnData?.error || 'Không thể kết nối KiotViet' };
+            }
+
+            const stockMap: Record<string, number> = fnData.stockMap;
+            const items = await this.getItems(shiftId);
+            if (!items.length) return { success: false, message: 'Chưa có sản phẩm nào' };
+
+            const updates: { id: string; system_qty: number }[] = [];
+            for (const item of items) {
+                if (item.barcode && stockMap[item.barcode] !== undefined) {
+                    updates.push({ id: item.id, system_qty: stockMap[item.barcode] });
+                }
+            }
+
+            if (updates.length > 0) {
+                 const stockGroups = new Map<number, string[]>();
+                for (const u of updates) {
+                    const existing = stockGroups.get(u.system_qty) || [];
+                    existing.push(u.id);
+                    stockGroups.set(u.system_qty, existing);
+                }
+
+                const batchPromises = Array.from(stockGroups.entries()).map(([stock, itemIds]) =>
+                    supabase
+                        .from('shift_inventory_handover')
+                        .update({ system_qty: stock })
+                        .in('id', itemIds)
+                );
+                await Promise.all(batchPromises);
+            }
+
+            return { success: true, synced: updates.length, message: `Đã đồng bộ ${updates.length}/${items.length} sản phẩm` };
+        } catch (e: any) {
+            return { success: false, message: e.message || 'Lỗi hệ thống' };
+        }
+    },
+
     async updateItem(id: string, updates: Partial<ShiftInventoryHandover>): Promise<ShiftInventoryHandover> {
         const { difference, ...cleanUpdates } = updates as any;
         const { data, error } = await supabase

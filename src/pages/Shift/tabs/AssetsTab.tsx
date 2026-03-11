@@ -1,5 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useShiftContext } from '../ShiftContext';
+import type { ShiftAsset, ShiftAssetCheck } from '../../../types/shift';
+
+const AssetRow = ({ 
+    asset, check, idx, isLocked, onUpdate, fmt 
+}: { 
+    asset: ShiftAsset; 
+    check?: ShiftAssetCheck; 
+    idx: number; 
+    isLocked: boolean; 
+    onUpdate: (assetId: string, okCount: number | null, damagedCount: number) => void; 
+    fmt: (n: number) => string 
+}) => {
+    const [okValue, setOkValue] = useState<string>(check?.ok_count != null ? check.ok_count.toString() : '');
+    const [damValue, setDamValue] = useState<string>(check?.damaged_count != null ? check.damaged_count.toString() : '');
+
+    useEffect(() => {
+        setOkValue(check?.ok_count != null ? check.ok_count.toString() : '');
+        setDamValue(check?.damaged_count != null ? check.damaged_count.toString() : '');
+    }, [check?.ok_count, check?.damaged_count]);
+
+    const handleBlur = () => {
+        const updatedOk = okValue === '' ? null : parseInt(okValue);
+        const updatedDam = damValue === '' ? 0 : parseInt(damValue);
+        
+        if (updatedOk !== check?.ok_count || updatedDam !== (check?.damaged_count || 0)) {
+            onUpdate(asset.id, updatedOk, updatedDam);
+        }
+    };
+
+    const hasDamage = (check?.damaged_count || 0) > 0;
+    return (
+        <tr className={hasDamage ? 'at-row-damaged' : ''}>
+            <td className="at-td-idx">{idx + 1}</td>
+            <td className="at-td-product">{asset.name}</td>
+            <td className="at-td-value">{fmt(asset.unit_value || 0)}</td>
+            <td style={{ textAlign: 'center' }}>
+                <span className="at-td-expected">{asset.expected_ok}</span>
+            </td>
+            <td style={{ textAlign: 'center' }}>
+                <input type="number" className="at-td-input"
+                    value={okValue}
+                    onChange={e => setOkValue(e.target.value)}
+                    onBlur={handleBlur}
+                    min="0" inputMode="numeric" disabled={isLocked}
+                />
+            </td>
+            <td style={{ textAlign: 'center' }}>
+                <input type="number" className={`at-td-input ${hasDamage ? 'damaged' : ''}`}
+                    value={damValue}
+                    onChange={e => setDamValue(e.target.value)}
+                    onBlur={handleBlur}
+                    min="0" inputMode="numeric" placeholder="0" disabled={isLocked}
+                />
+            </td>
+        </tr>
+    );
+};
 
 const AssetsTab: React.FC = () => {
     const { assets, assetChecks, isCompleted, handleAssetCheck, fmt, cash } = useShiftContext();
@@ -40,30 +97,16 @@ const AssetsTab: React.FC = () => {
                             <tbody>
                                 {assets.map((asset, idx) => {
                                     const check = assetChecks.find(c => c.asset_id === asset.id);
-                                    const hasDamage = (check?.damaged_count || 0) > 0;
                                     return (
-                                        <tr key={asset.id} className={hasDamage ? 'at-row-damaged' : ''}>
-                                            <td className="at-td-idx">{idx + 1}</td>
-                                            <td className="at-td-product">{asset.name}</td>
-                                            <td className="at-td-value">{fmt(asset.unit_value || 0)}</td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <span className="at-td-expected">{asset.expected_ok}</span>
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <input type="number" className="at-td-input"
-                                                    value={check?.ok_count ?? ''}
-                                                    onChange={e => handleAssetCheck(asset.id, parseInt(e.target.value) || 0, check?.damaged_count || 0)}
-                                                    min="0" inputMode="numeric" disabled={isLocked}
-                                                />
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <input type="number" className={`at-td-input ${hasDamage ? 'damaged' : ''}`}
-                                                    value={check?.damaged_count || ''}
-                                                    onChange={e => handleAssetCheck(asset.id, check?.ok_count ?? asset.expected_ok, parseInt(e.target.value) || 0)}
-                                                    min="0" inputMode="numeric" placeholder="0" disabled={isLocked}
-                                                />
-                                            </td>
-                                        </tr>
+                                        <AssetRow
+                                            key={asset.id}
+                                            asset={asset}
+                                            check={check}
+                                            idx={idx}
+                                            isLocked={isLocked!}
+                                            onUpdate={handleAssetCheck}
+                                            fmt={fmt}
+                                        />
                                     );
                                 })}
                             </tbody>

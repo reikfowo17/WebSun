@@ -234,8 +234,8 @@ const ShiftPageInner: React.FC = () => {
                     footer={shiftInfoFooter}
                 />
 
-                <div className="hq-content">
-                    <div className="hq-section-animate">
+                <div className="hq-content" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+                    <div className="hq-section-animate sp-content-scroll" style={{ flex: 1, overflowY: 'auto' }}>
                         <Suspense fallback={<TabLoading />}>
                             {activeTab === 'tasks' && <TasksTab />}
                             {activeTab === 'cash' && <CashTab />}
@@ -246,18 +246,20 @@ const ShiftPageInner: React.FC = () => {
 
                     {/* End-shift bar */}
                     {!isCompleted && (
-                        <div className="sp-endbar">
-                            <div className="sp-endbar-info">
-                                <span style={{ color: checkProgress.pct === 100 ? '#10b981' : '#f59e0b', fontWeight: 700 }}>
-                                    {checkProgress.pct}% nhiệm vụ
-                                </span>
-                                <span style={{ color: '#d1d5db' }}>•</span>
-                                <span style={{ color: '#6b7280' }}>Két: {fmt(getDenomTotal())}</span>
+                        <div className="sp-endbar-wrapper" style={{ flexShrink: 0, background: 'var(--hq-content-bg)' }}>
+                            <div className="sp-endbar" style={{ marginTop: 0 }}>
+                                <div className="sp-endbar-info">
+                                    <span style={{ color: checkProgress.pct === 100 ? '#10b981' : '#f59e0b', fontWeight: 700 }}>
+                                        {checkProgress.pct}% nhiệm vụ
+                                    </span>
+                                    <span style={{ color: '#d1d5db' }}>•</span>
+                                    <span style={{ color: '#6b7280' }}>Két: {fmt(getDenomTotal())}</span>
+                                </div>
+                                <button className="sp-end-btn" onClick={handleEndShift} disabled={ending}>
+                                    <span className="material-symbols-outlined">stop_circle</span>
+                                    {ending ? 'Đang kết ca...' : 'Kết Ca & Gửi Báo Cáo'}
+                                </button>
                             </div>
-                            <button className="sp-end-btn" onClick={handleEndShift} disabled={ending}>
-                                <span className="material-symbols-outlined">stop_circle</span>
-                                {ending ? 'Đang kết ca...' : 'Kết Ca & Gửi Báo Cáo'}
-                            </button>
                         </div>
                     )}
                 </div>

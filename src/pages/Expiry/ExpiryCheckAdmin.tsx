@@ -98,14 +98,15 @@ const ExpiryCheckAdmin: React.FC = () => {
         loadData();
     };
 
-    const handleSaveCatItems = async () => {
+    const handleSaveCatItems = async (mapToSave?: Map<string, any>) => {
         if (!selectedCat) return;
         setIsSaving(true);
 
+        const targetMap = mapToSave || selectedItems;
         const newItems: any[] = [];
         const existingProductIds: string[] = [];
 
-        selectedItems.forEach((val, key) => {
+        targetMap.forEach((val, key) => {
             if (val.isNew) {
                 newItems.push({
                     barcode: val.barcode,
@@ -138,7 +139,7 @@ const ExpiryCheckAdmin: React.FC = () => {
         const res = await ExpiryCheckService.updateCategoryItems(selectedCat.id, existingProductIds);
         setIsSaving(false);
         if (res.success) {
-            toast.success('Đã lưu danh sách sản phẩm cấu hình thành công!');
+            toast.success('Danh sách sản phẩm đã được đồng bộ lên máy chủ');
             // Reload to get real shapes
             const loadRes = await ExpiryCheckService.getCategoryItems(selectedCat.id);
             if (loadRes.success) {
@@ -249,29 +250,32 @@ const ExpiryCheckAdmin: React.FC = () => {
             const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
             let added = 0;
-            setSelectedItems(prev => {
-                const next = new Map(prev);
-                // Assume first row is header
-                json.slice(1).forEach((row) => {
-                    const col1 = String(row[0] || '').trim(); // Barcode
-                    const col2 = String(row[1] || '').trim(); // Ma SP
-                    const col3 = String(row[2] || '').trim(); // Ten SP
+            const next = new Map(selectedItems);
+            // Assume first row is header
+            json.slice(1).forEach((row) => {
+                const col1 = String(row[0] || '').trim(); // Barcode
+                const col2 = String(row[1] || '').trim(); // Ma SP
+                const col3 = String(row[2] || '').trim(); // Ten SP
 
-                    const barcode = col1 || col2 || '';
-                    const sp = col2 || col1 || '';
-                    const name = col3 || '';
+                const barcode = col1 || col2 || '';
+                const sp = col2 || col1 || '';
+                const name = col3 || '';
 
-                    const finalCode = barcode || sp;
-                    if (finalCode && name) {
-                        next.set(finalCode, { id: finalCode, barcode, sp, name, isNew: true });
-                        added++;
-                    }
-                });
-                return next;
+                const finalCode = barcode || sp;
+                if (finalCode && name) {
+                    next.set(finalCode, { id: finalCode, barcode, sp, name, isNew: true });
+                    added++;
+                }
             });
 
-            if (added > 0) toast.success(`Đã biên dịch thành công ${added} dòng sản phẩm!`);
-            else toast.warning('Không tìm thấy dữ liệu hợp lệ trong file');
+            setSelectedItems(next);
+
+            if (added > 0) {
+                toast.success(`Đã biên dịch thành công ${added} dòng sản phẩm!`);
+                handleSaveCatItems(next);
+            } else {
+                toast.warning('Không tìm thấy dữ liệu hợp lệ trong file');
+            }
         } catch (err) {
             toast.error('Lỗi khi đọc file Excel, vui lòng kiểm tra định dạng');
         } finally {
@@ -407,7 +411,7 @@ const ExpiryCheckAdmin: React.FC = () => {
 
                             <button
                                 className="h-9 px-5 rounded-lg font-bold flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-[12px] shadow-sm ml-auto md:ml-0"
-                                onClick={handleSaveCatItems}
+                                onClick={() => handleSaveCatItems()}
                                 disabled={isSaving}
                             >
                                 {isSaving ? <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span> : <span className="material-symbols-outlined text-[16px]">save</span>}
@@ -508,6 +512,7 @@ const ExpiryCheckAdmin: React.FC = () => {
                                                                 const next = new Map(selectedItems);
                                                                 next.delete(p.id);
                                                                 setSelectedItems(next);
+                                                                handleSaveCatItems(next);
                                                             }}
                                                             title="Xóa khỏi danh sách"
                                                         >
@@ -523,56 +528,6 @@ const ExpiryCheckAdmin: React.FC = () => {
                     </>
                 )}
             </div>
-
-            {/* Hidden file input for Excel */}
-            <input
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                style={{ display: 'none' }}
-                id="excel-upload"
-                onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setIsImporting(true);
-                    try {
-                        const XLSX = await import('xlsx');
-                        const data = await file.arrayBuffer();
-                        const workbook = XLSX.read(data);
-                        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                        const rawJson = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-
-                        let added = 0;
-                        setSelectedItems(prev => {
-                            const next = new Map(prev);
-                            rawJson.slice(1).forEach((row: any[]) => {
-                                if (!row || !row.length) return;
-                                const col1 = row[0]?.toString().trim();
-                                const col2 = row[1]?.toString().trim();
-                                const col3 = row[2]?.toString().trim();
-
-                                const barcode = col1 || '';
-                                const sp = col2 || '';
-                                const name = col3 || '';
-
-                                const finalCode = barcode || sp;
-                                if (finalCode && name) {
-                                    next.set(finalCode, { id: finalCode, barcode, sp, name, isNew: true });
-                                    added++;
-                                }
-                            });
-                            return next;
-                        });
-
-                        if (added > 0) toast.success(`Đã biên dịch thành công ${added} dòng sản phẩm!`);
-                        else toast.warning('Không tìm thấy dữ liệu hợp lệ trong file');
-                    } catch (err) {
-                        toast.error('Lỗi khi đọc file Excel, vui lòng kiểm tra lại định dạng');
-                    } finally {
-                        setIsImporting(false);
-                        if (e.target) e.target.value = '';
-                    }
-                }}
-            />
 
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 opacity-100 transition-opacity">
@@ -786,7 +741,7 @@ const ExpiryCheckAdmin: React.FC = () => {
                                                 setAddCode('');
                                                 setAddText('');
                                                 setShowAddProductModal(false);
-                                                toast.success('Đã thêm sản phẩm tạm vào danh sách');
+                                                handleSaveCatItems(next);
                                             }
                                         }}
                                     />
@@ -811,7 +766,7 @@ const ExpiryCheckAdmin: React.FC = () => {
                                     setAddCode('');
                                     setAddText('');
                                     setShowAddProductModal(false);
-                                    toast.success('Đã thêm sản phẩm tạm vào danh sách');
+                                    handleSaveCatItems(next);
                                 }}
                             >
                                 <span className="material-symbols-outlined text-[18px]">check</span>

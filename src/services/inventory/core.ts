@@ -29,6 +29,8 @@ export async function getItems(store: string, shift: number): Promise<{ success:
             shift,
             diff_reason,
             snapshot_at,
+            resolution,
+            recheck_due_date,
             products (
               id,
               name,
@@ -57,6 +59,8 @@ export async function getItems(store: string, shift: number): Promise<{ success:
                 note: item.note || '',
                 diffReason: item.diff_reason || null,
                 snapshotAt: item.snapshot_at || null,
+                resolution: item.resolution || null,
+                recheckDueDate: item.recheck_due_date || null,
             }));
 
             return { success: true, products };
@@ -838,6 +842,47 @@ export async function batchUpdateItemsResolution(
     } catch (e: unknown) {
         console.error('[Inventory] Batch update resolution error:', e);
         return { success: false, processed: 0, failed: 0, message: 'Lỗi hệ thống' };
+    }
+}
+
+export async function cancelReportSubmission(
+    storeCode: string,
+    shift: number
+): Promise<{ success: boolean; message?: string }> {
+    if (!isSupabaseConfigured()) return { success: false, message: 'Database disconnected' };
+
+    try {
+        const { data: report, error: findError } = await supabase
+            .from('inventory_reports')
+            .select('id, status')
+            .eq('store_id', storeCode)
+            .eq('shift', shift)
+            .in('status', ['PENDING', 'REJECTED'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (findError || !report) {
+            return { success: false, message: 'Không tìm thấy báo cáo để hủy' };
+        }
+
+        const { error: deleteError } = await supabase
+            .from('inventory_reports')
+            .delete()
+            .eq('id', report.id);
+
+        if (deleteError) throw deleteError;
+
+        await supabase
+            .from('inventory_items')
+            .update({ actual_stock: null, diff: null, status: 'PENDING', note: null, diff_reason: null })
+            .eq('store_id', storeCode)
+            .eq('shift', shift);
+
+        return { success: true, message: 'Đã hủy báo cáo thành công' };
+    } catch (e: unknown) {
+        console.error('[Inventory] Cancel submission error:', e);
+        return { success: false, message: 'Lỗi khi hủy báo cáo' };
     }
 }
 

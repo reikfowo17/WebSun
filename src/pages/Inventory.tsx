@@ -10,13 +10,14 @@ interface InventoryProps {
   onBack?: () => void;
 }
 
-const makeFilterTabs = (stats: { total: number; checked: number; missing: number; over: number }, editable: boolean) => {
+const makeFilterTabs = (stats: { total: number; checked: number; missing: number; over: number; recheck: number }, editable: boolean) => {
   const tabs: { key: string; label: string; count: number; accent: string }[] = [
     { key: 'ALL', label: 'Tất cả', count: stats.total, accent: 'bg-gray-600 dark:bg-gray-200 text-white dark:text-gray-800' },
   ];
   if (editable) tabs.push({ key: 'PENDING', label: 'Chưa kiểm', count: stats.total - stats.checked, accent: 'bg-gray-400 text-white' });
   tabs.push({ key: 'MISSING', label: 'Thiếu', count: stats.missing, accent: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' });
   tabs.push({ key: 'OVER', label: 'Thừa', count: stats.over, accent: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' });
+  if (stats.recheck > 0) tabs.push({ key: 'RECHECK', label: 'Cần kiểm lại', count: stats.recheck, accent: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' });
   return tabs;
 };
 
@@ -30,7 +31,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
     shiftSubmitted, setShiftSubmitted,
     confirmSubmit, setConfirmSubmit,
     stats, filteredProducts, progressPercent, currentShift,
-    updateField, handleSubmit, doSubmit, handlePrint, handleSync
+    updateField, handleSubmit, doSubmit, handleCancelSubmit, handlePrint, handleSync
   } = useInventory(user);
 
   if (shiftsLoading) {
@@ -83,6 +84,19 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                 {submitting ? 'progress_activity' : 'send'}
               </span>
               <span className="hidden sm:inline">Nộp báo cáo</span>
+            </button>
+          )}
+
+          {shiftSubmitted.submitted && shiftSubmitted.status !== 'APPROVED' && (
+            <button
+              onClick={handleCancelSubmit}
+              disabled={submitting}
+              className="flex items-center gap-2 px-4 py-1.5 ml-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold shadow-sm shadow-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className={`material-symbols-outlined text-lg ${submitting ? 'animate-spin' : ''}`}>
+                {submitting ? 'progress_activity' : 'close'}
+              </span>
+              <span className="hidden sm:inline">Hủy nộp</span>
             </button>
           )}
         </div>
@@ -184,14 +198,17 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
           ) : (
             /* Table Area */
             <div className="space-y-4">
-              {shiftSubmitted.status === 'REJECTED' && !shiftSubmitted.submitted && (
+              {shiftSubmitted.status === 'REJECTED' && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 p-4 rounded-xl flex items-start gap-3 shadow-sm">
                   <span className="material-symbols-outlined mt-0.5 text-red-500">warning</span>
-                  <div>
-                    <h3 className="font-bold">Yêu cầu từ Admin: Cần kiểm lại</h3>
+                  <div className="flex-1">
+                    <h3 className="font-bold">Báo cáo bị từ chối - Cần kiểm lại</h3>
                     {shiftSubmitted.rejectionReason && (
-                      <p className="text-sm mt-1">{shiftSubmitted.rejectionReason}</p>
+                      <p className="text-sm mt-1">Lý do: {shiftSubmitted.rejectionReason}</p>
                     )}
+                    <p className="text-xs mt-2 text-red-600 dark:text-red-400">
+                      Bạn có thể chỉnh sửa và nộp lại báo cáo
+                    </p>
                   </div>
                 </div>
               )}
@@ -276,11 +293,13 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Lý do chênh lệch</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filteredProducts.map((p, i) => {
-                          const isSubmitted = shiftSubmitted.submitted;
-                          const d = p.diff;
-                          const hasDiff = d != null && d !== 0;
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {filteredProducts.map((p, i) => {
+                            const isSubmitted = shiftSubmitted.submitted;
+                            const isRejected = shiftSubmitted.status === 'REJECTED';
+                            const canEdit = !isSubmitted || isRejected; // Cho phép chỉnh sửa khi chưa nộp HOẶC bị reject
+                            const d = p.diff;
+                            const hasDiff = d != null && d !== 0;
 
                           const rowClass = hasDiff
                             ? 'bg-yellow-50/30 dark:bg-yellow-900/10 hover:bg-yellow-50/60 dark:hover:bg-yellow-900/20'
@@ -299,7 +318,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                                 {p.systemStock ?? '-'}
                               </td>
                               <td className="px-4 py-3 text-center">
-                                {isSubmitted ? (
+                                {!canEdit ? (
                                   <span className="font-extrabold text-base text-gray-900 dark:text-white">{p.actualStock ?? '-'}</span>
                                 ) : (
                                   <input
@@ -334,7 +353,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                {isSubmitted ? (
+                                {!canEdit ? (
                                   <span className="text-sm text-gray-600 dark:text-gray-400">{p.note || '—'}</span>
                                 ) : (
                                   <input
@@ -347,7 +366,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                {isSubmitted ? (
+                                {!canEdit ? (
                                   <span className="text-sm text-gray-600 dark:text-gray-400">{p.diffReason || '—'}</span>
                                 ) : (
                                   <select

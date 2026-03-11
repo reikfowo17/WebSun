@@ -14,16 +14,29 @@ export const MultiStoreSelect: React.FC<MultiStoreSelectProps> = ({ stores, sele
     const [search, setSearch] = useState('');
     const buttonRef = useRef<HTMLButtonElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, bottom: -1, width: 260 });
 
-    // Calculate dropdown position relative to button
     const updatePosition = useCallback(() => {
         if (buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
-            setDropdownPos({
-                top: rect.bottom + 4,
-                left: rect.left,
-            });
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+
+            if (spaceBelow < 320 && spaceAbove > spaceBelow) {
+                setDropdownPos({
+                    top: -1,
+                    left: rect.left,
+                    bottom: window.innerHeight - rect.top + 4,
+                    width: rect.width
+                });
+            } else {
+                setDropdownPos({
+                    top: rect.bottom + 4,
+                    left: rect.left,
+                    bottom: -1,
+                    width: rect.width
+                });
+            }
         }
     }, []);
 
@@ -96,15 +109,16 @@ export const MultiStoreSelect: React.FC<MultiStoreSelectProps> = ({ stores, sele
             ref={dropdownRef}
             style={{
                 position: 'fixed',
-                top: dropdownPos.top,
+                top: dropdownPos.top !== -1 ? dropdownPos.top : 'auto',
+                bottom: dropdownPos.bottom !== -1 ? dropdownPos.bottom : 'auto',
                 left: dropdownPos.left,
-                width: 260,
+                width: dropdownPos.width,
                 maxHeight: 300,
                 background: 'var(--stg-bg-element, #fff)',
                 border: '1px solid var(--stg-border, #e5e7eb)',
                 borderRadius: 8,
                 boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                zIndex: 9999,
+                zIndex: 99999,
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden'

@@ -68,20 +68,22 @@ export const useInventory = (user: User) => {
   const toast = useToast();
   const [shifts, setShifts] = useState<ShiftConfig[]>([]);
   const [shiftsLoading, setShiftsLoading] = useState(true);
-
-  const [shift, setShift] = useState(1);
+  const [shift, setShift] = useState<number | null>(null);
 
   useEffect(() => {
     SystemService.getShifts().then((data) => {
       const loadedShifts =
         data && data.length > 0 ? data : INVENTORY_CONFIG.SHIFTS;
-      setShifts(loadedShifts);
-      setShiftsLoading(false);
 
       const hour = new Date().getHours();
-      if (hour >= 6 && hour < 14) setShift(loadedShifts[0]?.id || 1);
-      else if (hour >= 14 && hour < 22) setShift(loadedShifts[1]?.id || 2);
-      else setShift(loadedShifts[2]?.id || 3);
+      let autoShift: number;
+      if (hour >= 6 && hour < 14) autoShift = loadedShifts[0]?.id ?? 1;
+      else if (hour >= 14 && hour < 22) autoShift = loadedShifts[1]?.id ?? 2;
+      else autoShift = loadedShifts[2]?.id ?? 3;
+
+      setShifts(loadedShifts);
+      setShift(autoShift);
+      setShiftsLoading(false);
     });
   }, []);
   const [products, setProducts] = useState<InventoryProduct[]>([]);
@@ -110,6 +112,7 @@ export const useInventory = (user: User) => {
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   
   const loadProducts = useCallback(async () => {
+    if (shift === null) return;
     if (!storeCode) {
       setLoading(false);
       toast.error("Không xác định được cửa hàng");
@@ -124,7 +127,6 @@ export const useInventory = (user: User) => {
         shift,
       );
       if (reportStatus.submitted && reportStatus.report) {
-        const isRejected = reportStatus.report.status === "REJECTED";
         setShiftSubmitted({
           submitted: true,
           submittedBy: reportStatus.report.submittedBy,
@@ -221,6 +223,7 @@ export const useInventory = (user: User) => {
       missing: products.filter((p) => p.status === "MISSING").length,
       over: products.filter((p) => p.status === "OVER").length,
       pending: products.filter((p) => p.status === "PENDING").length,
+      recheck: products.filter((p) => p.resolution === "MISPLACED").length,
       missingValue: products
         .filter((p) => p.status === "MISSING")
         .reduce((sum, p) => sum + Math.abs(p.diff || 0), 0),
@@ -250,9 +253,17 @@ export const useInventory = (user: User) => {
   }, [stats]);
 
   const doSubmit = useCallback(async () => {
-    if (!storeCode) {
+    if (!storeCode || shift === null) {
       toast.error("Không xác định được cửa hàng");
       return;
+    }
+    
+    const uncheckedProducts = products.filter(p => p.actualStock == null);
+    if (uncheckedProducts.length > 0) {
+      const confirmMessage = `Còn ${uncheckedProducts.length} sản phẩm chưa nhập số lượng thực tế. Bạn có muốn nộp báo cáo không?`;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
     }
     
     setConfirmSubmit({ show: false, message: "", title: "" });
@@ -279,7 +290,34 @@ export const useInventory = (user: User) => {
     } finally {
       setSubmitting(false);
     }
-  }, [storeCode, shift, user.id, user.name, toast]);
+  }, [storeCode, shift, user.id, user.name, toast, products]);
+
+  const handleCancelSubmit = useCallback(async () => {
+    if (!storeCode || shift === null) {
+      toast.error("Không xác định được cửa hàng");
+      return;
+    }
+    
+    if (!confirm("Bạn có chắc muốn hủy báo cáo đã nộp? Hành động này sẽ xóa dữ liệu kiểm kho.")) {
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const res = await InventoryService.cancelReportSubmission(storeCode, shift);
+      if (res.success) {
+        toast.success(res.message || "Đã hủy báo cáo");
+        setShiftSubmitted({ submitted: false });
+        await loadProducts();
+      } else {
+        toast.error(res.message || "Lỗi khi hủy báo cáo");
+      }
+    } catch (e) {
+      toast.error("Lỗi kết nối");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [storeCode, shift, toast, loadProducts]);
 
   const handlePrint = useCallback(() => {
     if (products.length === 0) {
@@ -346,7 +384,7 @@ export const useInventory = (user: User) => {
   }, [products, shift, storeCode, toast]);
 
   const handleSync = useCallback(async () => {
-    if (!storeCode) {
+    if (!storeCode || shift === null) {
       toast.error("Không xác định được cửa hàng");
       return;
     }
@@ -387,7 +425,7 @@ export const useInventory = (user: User) => {
       ? Math.round((stats.checked / stats.total) * 100)
       : 0;
   const currentShift =
-    shifts.find((s) => s.id === shift) || INVENTORY_CONFIG.SHIFTS[0];
+    (shift !== null ? shifts.find((s) => s.id === shift) : undefined) || INVENTORY_CONFIG.SHIFTS[0];
 
   const getStatusConfig = (status: string) => {
     return (
@@ -424,6 +462,7 @@ export const useInventory = (user: User) => {
     updateField,
     handleSubmit,
     doSubmit,
+    handleCancelSubmit,
     handlePrint,
     handleSync,
   };

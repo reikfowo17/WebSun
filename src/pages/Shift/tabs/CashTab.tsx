@@ -1,6 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useShiftContext } from '../ShiftContext';
 import { DENOMINATION_VALUES, CASH_REVENUE_FIELDS, CASH_PAYMENT_FIELDS } from '../../../types/shift';
+
+const CashInput = ({ itemKey, value, onChange, disabled, className }: { itemKey: string; value: number; onChange: (key: string, val: number) => void; disabled: boolean; className?: string }) => {
+    const [localVal, setLocalVal] = useState<string>(value ? value.toString() : '');
+    
+    useEffect(() => { setLocalVal(value ? value.toString() : ''); }, [value]);
+
+    const handleBlur = () => {
+        const parsed = parseFloat(localVal) || 0;
+        if (parsed !== value) onChange(itemKey, parsed);
+    };
+
+    return (
+        <input
+            type="number" className={className || "ck-report-input"}
+            value={localVal}
+            onChange={e => setLocalVal(e.target.value)}
+            onBlur={handleBlur}
+            placeholder="0" inputMode="numeric" disabled={disabled}
+        />
+    );
+};
+
+const DenomRow = ({ denom, qty, disabled, onChange, fmt }: { denom: number, qty: number, disabled: boolean, onChange: (k: string, v: number) => void, fmt: (v: number) => string }) => {
+    const key = `denom_${denom}`;
+    const [localQty, setLocalQty] = useState<string>(qty ? qty.toString() : '');
+
+    useEffect(() => { setLocalQty(qty ? qty.toString() : ''); }, [qty]);
+
+    const handleBlur = () => {
+        const parsed = parseInt(localQty) || 0;
+        if (parsed !== qty) onChange(key, parsed);
+    };
+
+    const displayQty = parseInt(localQty) || 0;
+
+    return (
+        <div className="ck-denom-row">
+            <span className="ck-denom-label">{fmt(denom)}</span>
+            <input
+                type="number" className="ck-denom-input" value={localQty}
+                onChange={e => setLocalQty(e.target.value)}
+                onBlur={handleBlur}
+                placeholder="0" min="0" inputMode="numeric" disabled={disabled}
+            />
+            <span className="ck-denom-total">{fmt(displayQty * denom)}</span>
+        </div>
+    );
+};
+
+const NoteInput = ({ itemKey, value, onChange, disabled, className, placeholder, isArea, autoFocus }: { itemKey: string, value: string, onChange: (k: string, v: string) => void, disabled: boolean, className: string, placeholder: string, isArea?: boolean, autoFocus?: boolean }) => {
+    const [localVal, setLocalVal] = useState(value || '');
+
+    useEffect(() => { setLocalVal(value || ''); }, [value]);
+
+    const handleBlur = () => {
+        if (localVal !== (value || '')) onChange(itemKey, localVal);
+    };
+
+    if (isArea) {
+        return <textarea className={className} value={localVal} onChange={e => setLocalVal(e.target.value)} onBlur={handleBlur} placeholder={placeholder} disabled={disabled} rows={3} />;
+    }
+    return <input type="text" className={className} value={localVal} onChange={e => setLocalVal(e.target.value)} onBlur={handleBlur} placeholder={placeholder} disabled={disabled} autoFocus={autoFocus} />;
+};
 
 const CashTab: React.FC = () => {
     const {
@@ -78,11 +141,11 @@ const CashTab: React.FC = () => {
                             <div key={item.key} className={`ck-report-row ${item.type}`}>
                                 <span className="ck-report-label">{item.label}</span>
                                 <div className="ck-report-input-group">
-                                    <input
-                                        type="number" className="ck-report-input"
-                                        value={(cash as unknown as Record<string, number>)[item.key] || ''}
-                                        onChange={e => handleCashChange(item.key, parseFloat(e.target.value) || 0)}
-                                        placeholder="0" inputMode="numeric" disabled={isCashLocked}
+                                    <CashInput
+                                        itemKey={item.key}
+                                        value={(cash as unknown as Record<string, number>)[item.key] || 0}
+                                        onChange={handleCashChange}
+                                        disabled={isCashLocked}
                                     />
                                     <button
                                         className={`ck-note-toggle ${activeNote === item.key ? 'active' : ''} ${(cash.item_notes as Record<string, string>)?.[item.key] ? 'has-note' : ''}`}
@@ -93,12 +156,14 @@ const CashTab: React.FC = () => {
                                     </button>
                                 </div>
                                 {activeNote === item.key && (
-                                    <input
-                                        type="text" className="ck-report-note"
+                                    <NoteInput
+                                        className="ck-report-note"
+                                        itemKey={item.key}
                                         value={(cash.item_notes as Record<string, string>)?.[item.key] || ''}
-                                        onChange={e => handleCashNoteChange(item.key, e.target.value)}
-                                        placeholder="Ghi chú..." disabled={isCashLocked}
-                                        autoFocus
+                                        onChange={handleCashNoteChange}
+                                        placeholder="Ghi chú..."
+                                        disabled={isCashLocked}
+                                        autoFocus={true}
                                     />
                                 )}
                             </div>
@@ -110,11 +175,12 @@ const CashTab: React.FC = () => {
                             <div key={item.key} className="ck-pay-row">
                                 <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#94a3b8' }}>{item.icon}</span>
                                 <span className="ck-pay-label">{item.label}</span>
-                                <input
-                                    type="number" className="ck-report-input sm"
-                                    value={(cash as unknown as Record<string, number>)[item.key] || ''}
-                                    onChange={e => handleCashChange(item.key, parseFloat(e.target.value) || 0)}
-                                    placeholder="0" inputMode="numeric" disabled={isCashLocked}
+                                <CashInput
+                                    className="ck-report-input sm"
+                                    itemKey={item.key}
+                                    value={(cash as unknown as Record<string, number>)[item.key] || 0}
+                                    onChange={handleCashChange}
+                                    disabled={isCashLocked}
                                 />
                             </div>
                         ))}
@@ -137,15 +203,7 @@ const CashTab: React.FC = () => {
                             const key = `denom_${denom}`;
                             const qty = (cash as unknown as Record<string, number>)[key] || 0;
                             return (
-                                <div key={denom} className="ck-denom-row">
-                                    <span className="ck-denom-label">{fmt(denom)}</span>
-                                    <input
-                                        type="number" className="ck-denom-input" value={qty || ''}
-                                        onChange={e => handleCashChange(key, parseInt(e.target.value) || 0)}
-                                        placeholder="0" min="0" inputMode="numeric" disabled={isCashLocked}
-                                    />
-                                    <span className="ck-denom-total">{fmt(qty * denom)}</span>
-                                </div>
+                                <DenomRow key={denom} denom={denom} qty={qty} disabled={isCashLocked} onChange={handleCashChange} fmt={fmt} />
                             );
                         })}
                     </div>
@@ -162,23 +220,24 @@ const CashTab: React.FC = () => {
                         <span className="ck-col-title">Nộp Kết Két</span>
                     </div>
 
-                    {/* Difference reason */}
+                        {/* Difference reason */}
                     {Math.abs(diff) > 0 && (
                         <div className="ck-diff-card">
                             <div className="ck-diff-header">
                                 <span className="material-symbols-outlined" style={{ fontSize: 14 }}>warning</span>
                                 Lý do chênh lệch (bắt buộc)
                             </div>
-                            <textarea
+                            <NoteInput
                                 className="ck-diff-input"
+                                itemKey="_diff_reason_trigger"
                                 value={cash.difference_reason || ''}
-                                onChange={e => {
-                                    setCash(prev => ({ ...prev, difference_reason: e.target.value }));
-                                    handleCashNoteChange('_diff_reason_trigger', e.target.value);
+                                onChange={(k, v) => {
+                                    setCash(prev => prev ? ({ ...prev, difference_reason: v }) : null);
+                                    handleCashNoteChange(k, v);
                                 }}
                                 placeholder="Nhập lý do chênh lệch..."
                                 disabled={isCashLocked}
-                                rows={2}
+                                isArea={true}
                             />
                         </div>
                     )}
@@ -189,13 +248,14 @@ const CashTab: React.FC = () => {
                             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit_note</span>
                             Ghi chú ca làm việc
                         </div>
-                        <textarea
+                        <NoteInput
                             className="ck-notes-input"
+                            itemKey="_shift_notes"
                             value={(cash.item_notes as Record<string, string>)?._shift_notes || ''}
-                            onChange={e => handleCashNoteChange('_shift_notes', e.target.value)}
+                            onChange={handleCashNoteChange}
                             placeholder="Ghi chú thêm về vận hành ca (nếu có)..."
                             disabled={isCashLocked}
-                            rows={3}
+                            isArea={true}
                         />
                     </div>
 
