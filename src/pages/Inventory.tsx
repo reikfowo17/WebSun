@@ -4,6 +4,7 @@ import { User } from '../types';
 import { useInventory } from '../hooks/useInventory';
 import ConfirmModal from '../components/ConfirmModal';
 import PortalHeader from '../components/PortalHeader';
+import '../styles/hq-sidebar.css';
 
 interface InventoryProps {
   user: User;
@@ -30,6 +31,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
     showSyncModal, setShowSyncModal,
     shiftSubmitted, setShiftSubmitted,
     confirmSubmit, setConfirmSubmit,
+    confirmAction, setConfirmAction,
     stats, filteredProducts, progressPercent, currentShift,
     updateField, handleSubmit, doSubmit, handleCancelSubmit, handlePrint, handleSync
   } = useInventory(user);
@@ -45,14 +47,11 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
   return (
     <div className="h-full flex flex-col dark:bg-[#0a0a0a]" style={{ background: '#F8F7F4' }}>
       <PortalHeader>
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors">
-            <span className="material-symbols-outlined">arrow_back</span>
-          </button>
-          <div className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-            <span className="material-symbols-outlined text-emerald-500">inventory_2</span>
-            <span>Kiểm Kho</span>
-          </div>
+        <div className="hq-breadcrumb">
+          <span className="material-symbols-outlined hq-breadcrumb-icon">inventory_2</span>
+          <span className="hq-breadcrumb-title cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors" onClick={() => navigate('/')}>Trang chủ</span>
+          <span className="material-symbols-outlined hq-breadcrumb-sep">chevron_right</span>
+          <span className="hq-breadcrumb-current">Kiểm Kho</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -60,7 +59,7 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
             <>
               <button
                 onClick={() => setShowSyncModal(true)}
-                disabled={syncing || loading}
+                disabled={syncing || loading || products.length === 0}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-sm font-medium ${syncing ? 'text-blue-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <span className={`material-symbols-outlined text-lg ${syncing ? 'animate-spin' : ''}`}>
@@ -437,6 +436,17 @@ const Inventory: React.FC<InventoryProps> = ({ user }) => {
         confirmText="Xác nhận nộp"
         onConfirm={doSubmit}
         onCancel={() => setConfirmSubmit({ show: false, message: '', title: '' })}
+        loading={submitting}
+      />
+
+      <ConfirmModal
+        isOpen={confirmAction.show}
+        title={confirmAction.title}
+        message={confirmAction.message}
+        variant={confirmAction.variant}
+        confirmText="Xác nhận"
+        onConfirm={confirmAction.onConfirm}
+        onCancel={() => setConfirmAction(prev => ({ ...prev, show: false }))}
         loading={submitting}
       />
     </div>

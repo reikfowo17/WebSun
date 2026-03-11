@@ -8,8 +8,6 @@ import * as XLSX from 'xlsx';
 
 // ─── Constants & CSS ──────────────────────────────────────────────────────────
 
-const EMPTY_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Cpath d='M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 14H4V7h16v12zm-8-3c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0-8c1.65 0 3 1.35 3 3s-1.35 3-3 3-3-1.35-3-3 1.35-3 3-3z'/%3E%3C/svg%3E";
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ExpiryCheckAdmin: React.FC = () => {
@@ -30,7 +28,7 @@ const ExpiryCheckAdmin: React.FC = () => {
     // Create/Edit modal
     const [showModal, setShowModal] = useState(false);
     const [editForm, setEditForm] = useState({
-        name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: [] as string[], is_active: true
+        name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: null as string[] | null, is_active: true
     });
 
     // Import modal
@@ -158,15 +156,26 @@ const ExpiryCheckAdmin: React.FC = () => {
         if (!editForm.name.trim()) return;
 
         let res;
-        if (selectedCat && editForm.name === selectedCat.name) {
+        if (selectedCat) {
             res = await ExpiryCheckService.updateCategory(selectedCat.id, {
                 name: editForm.name,
                 description: editForm.description,
                 near_expiry_days: editForm.near_expiry_days,
                 production_threshold: editForm.production_threshold,
-                stores: editForm.stores ?? [],
+                stores: editForm.stores,
                 is_active: editForm.is_active
             });
+            if (res.success) {
+                setSelectedCat({
+                    ...selectedCat,
+                    name: editForm.name,
+                    description: editForm.description,
+                    near_expiry_days: editForm.near_expiry_days,
+                    production_threshold: editForm.production_threshold,
+                    stores: editForm.stores,
+                    is_active: editForm.is_active
+                });
+            }
         } else {
             res = await ExpiryCheckService.createCategory({
                 name: editForm.name,
@@ -176,12 +185,14 @@ const ExpiryCheckAdmin: React.FC = () => {
                 stores: editForm.stores,
                 is_active: editForm.is_active
             });
+            if (res.success && res.data) {
+                setSelectedCat(res.data);
+            }
         }
 
         if (res.success) {
             setShowModal(false);
             loadData();
-            if (res.data) setSelectedCat(res.data);
             toast.success('Lưu chi tiết danh mục thành công!');
         } else {
             toast.error('Có lỗi khi lưu danh mục!');
@@ -190,7 +201,7 @@ const ExpiryCheckAdmin: React.FC = () => {
 
     const handleOpenCreateCategory = () => {
         setSelectedCat(null);
-        setEditForm({ name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: [], is_active: true });
+        setEditForm({ name: '', description: '', near_expiry_days: 30, production_threshold: 0, stores: null, is_active: true });
         setShowModal(true);
     };
 
@@ -201,7 +212,7 @@ const ExpiryCheckAdmin: React.FC = () => {
             description: selectedCat.description || '',
             near_expiry_days: selectedCat.near_expiry_days ?? 30,
             production_threshold: selectedCat.production_threshold ?? 0,
-            stores: selectedCat.stores ?? [],
+            stores: selectedCat.stores ?? null,
             is_active: selectedCat.is_active ?? true
         });
         setShowModal(true);
@@ -363,60 +374,69 @@ const ExpiryCheckAdmin: React.FC = () => {
                 ) : (
                     <>
                         {/* Header Box (Toolbar 1 - Settings & Info) */}
-                        <div className="px-5 py-3 border-b border-gray-200 bg-white shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm z-20">
-                            <div className="flex flex-col gap-2 w-full md:w-auto overflow-hidden">
-                                <div className="flex items-center gap-3">
-                                    <h2 className="text-[18px] font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                        <div className="px-5 py-4 border-b border-gray-100 bg-white min-h-[72px] flex items-center shadow-sm relative z-20">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 w-full">
+                                {/* Group 1: Name and edit */}
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <h2 className="text-[20px] font-black text-[#1e293b] uppercase tracking-tight">
                                         {selectedCat.name}
                                     </h2>
-                                    <button onClick={handleOpenEditCategory} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                                    <button onClick={handleOpenEditCategory} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100/80 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors tooltip-trigger" title="Sửa danh mục">
                                         <span className="material-symbols-outlined text-[16px]">edit</span>
                                     </button>
-                                    <div
-                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[12px] font-bold cursor-pointer transition-all border ${selectedCat.is_active ? 'bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0] hover:bg-[#dcfce7]' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
-                                        onClick={handleOpenEditCategory}
-                                    >
-                                        <div className={`w-2 h-2 rounded-full ${selectedCat.is_active ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
-                                        {selectedCat.is_active ? 'Hoạt Động' : 'Tạm Dừng'}
-                                    </div>
                                 </div>
+
+                                {/* Status */}
+                                <div
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-all border shrink-0 ${selectedCat.is_active ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                    onClick={handleOpenEditCategory}
+                                    title="Nhấn để đổi trạng thái"
+                                >
+                                    <div className={`w-2 h-2 rounded-full ${selectedCat.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`}></div>
+                                    {selectedCat.is_active ? 'Hoạt Động' : 'Tạm Dừng'}
+                                </div>
+
+                                {/* Tags */}
                                 <div className="flex flex-wrap items-center gap-2">
                                     <button
-                                        className="text-amber-800 flex items-center gap-1.5 font-bold bg-amber-50 px-2.5 py-1 rounded border border-amber-200 hover:bg-amber-100/80 text-[11px] transition-colors cursor-pointer group"
+                                        className="text-amber-700 flex items-center gap-1.5 font-bold bg-[#fffbeb] px-3 py-1.5 rounded-lg border border-amber-200/60 hover:bg-amber-100/80 text-[13px] transition-colors cursor-pointer shrink-0"
                                         onClick={handleOpenEditCategory}
                                     >
-                                        <span className="material-symbols-outlined text-[14px] text-amber-600 group-hover:scale-110 transition-transform">warning</span>
+                                        <span className="material-symbols-outlined text-[16px] text-amber-500">warning</span>
                                         Cảnh báo trước: {selectedCat.near_expiry_days ?? 0} ngày
                                     </button>
 
                                     <button
-                                        className="text-blue-800 flex items-center gap-1.5 font-bold bg-blue-50 px-2.5 py-1 rounded border border-blue-200 hover:bg-blue-100/80 text-[11px] transition-colors cursor-pointer group"
+                                        className="text-blue-700 flex items-center gap-1.5 font-bold bg-[#eff6ff] px-3 py-1.5 rounded-lg border border-blue-200/60 hover:bg-blue-100/80 text-[13px] transition-colors cursor-pointer shrink-0"
                                         onClick={handleOpenEditCategory}
                                     >
-                                        <span className="material-symbols-outlined text-[14px] text-blue-600 group-hover:scale-110 transition-transform">history_toggle_off</span>
+                                        <span className="material-symbols-outlined text-[16px] text-blue-500">history_toggle_off</span>
                                         NSX ngắn: {selectedCat.production_threshold ?? 0} ngày
                                     </button>
 
-                                    <span className="text-violet-700 flex flex-shrink-0 items-center gap-1 font-bold bg-violet-50 px-2.5 py-1 rounded border border-violet-200 text-[11px] whitespace-nowrap">
-                                        <span className="material-symbols-outlined text-[13px] text-violet-600">inventory_2</span>
+                                    <span className="text-violet-700 flex flex-shrink-0 items-center gap-1.5 font-bold bg-[#f5f3ff] px-3 py-1.5 rounded-lg border border-violet-200/60 text-[13px] whitespace-nowrap">
+                                        <span className="material-symbols-outlined text-[16px] text-violet-500">inventory_2</span>
                                         Tổng: {selectedItems.size} SP
                                     </span>
 
-                                    <span className="text-gray-700 flex flex-shrink-0 items-center gap-1 font-bold bg-gray-50 px-2.5 py-1 rounded border border-gray-200 text-[11px] whitespace-nowrap">
-                                        <span className="material-symbols-outlined text-[13px] text-gray-500">storefront</span>
-                                        {selectedCat.stores && selectedCat.stores.length > 0 ? `Áp dụng: ${selectedCat.stores.length} CH` : 'Chưa gán cửa hàng'}
+                                    <span className="text-gray-600 flex flex-shrink-0 items-center gap-1.5 font-bold bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 text-[13px] whitespace-nowrap">
+                                        <span className="material-symbols-outlined text-[16px] text-gray-400">storefront</span>
+                                        {selectedCat.stores === null 
+                                            ? 'Tất cả cửa hàng' 
+                                            : selectedCat.stores.length > 0 
+                                                ? `Áp dụng: ${selectedCat.stores.length} cửa hàng` 
+                                                : 'Chưa gán cửa hàng'}
                                     </span>
                                 </div>
+                                
+                                {/* Saving indicator */}
+                                {isSaving && (
+                                    <div className="flex items-center gap-1.5 text-orange-500 text-[13px] font-bold ml-auto shrink-0 bg-orange-50 px-3 py-1.5 border border-orange-200 rounded-lg">
+                                        <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+                                        Đang lưu...
+                                    </div>
+                                )}
                             </div>
-
-                            <button
-                                className="h-9 px-5 rounded-lg font-bold flex items-center justify-center gap-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-[12px] shadow-sm ml-auto md:ml-0"
-                                onClick={() => handleSaveCatItems()}
-                                disabled={isSaving}
-                            >
-                                {isSaving ? <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span> : <span className="material-symbols-outlined text-[16px]">save</span>}
-                                {isSaving ? 'Đang lưu...' : 'Lưu Danh Sách'}
-                            </button>
                         </div>
 
                         {/* Toolbar 2 - Search & Actions (Minimal) */}
@@ -472,42 +492,36 @@ const ExpiryCheckAdmin: React.FC = () => {
                                     <p className="font-medium text-[13px] text-gray-400 mt-1 max-w-[280px] text-center leading-relaxed">Sử dụng thanh công cụ bên trên để thêm sản phẩm thủ công hoặc tải lên hàng loạt từ file Excel.</p>
                                 </div>
                             ) : (
-                                <table className="w-full text-left border-collapse whitespace-nowrap min-w-[800px]">
-                                    <thead className="bg-[#FAF5FF] text-violet-900 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                                <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
+                                    <thead className="bg-[#FAF5FF]/80 backdrop-blur-md text-violet-800 sticky top-0 z-10 border-b border-violet-100">
                                         <tr>
-                                            <th className="px-6 py-3.5 font-bold text-[11px] uppercase tracking-wider w-16">Hình</th>
-                                            <th className="px-6 py-3.5 font-bold text-[11px] uppercase tracking-wider w-48">Mã SP / Barcode</th>
-                                            <th className="px-6 py-3.5 font-bold text-[11px] uppercase tracking-wider">Tên Sản Phẩm</th>
-                                            <th className="px-6 py-3.5 font-bold text-[11px] uppercase tracking-wider w-28 text-center">Trạng Thái</th>
-                                            <th className="px-6 py-3.5 font-bold text-[11px] uppercase tracking-wider text-right w-24">Xóa</th>
+                                            <th className="px-6 py-4 font-bold text-[11px] uppercase tracking-widest w-48">Mã SP / Barcode</th>
+                                            <th className="px-6 py-4 font-bold text-[11px] uppercase tracking-widest">Tên Sản Phẩm</th>
+                                            <th className="px-6 py-4 font-bold text-[11px] uppercase tracking-widest w-28 text-center">Trạng Thái</th>
+                                            <th className="px-6 py-4 font-bold text-[11px] uppercase tracking-widest text-center w-20"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100/60">
                                         {Array.from(selectedItems.values())
                                             .filter(p => !searchQ || (p.name || p.fullName)?.toLowerCase().includes(searchQ.toLowerCase()) || (p.barcode || p.code || p.sp)?.toLowerCase().includes(searchQ.toLowerCase()))
                                             .map((p, idx) => (
-                                                <tr key={p.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-[#FAF5FF]/30'} hover:bg-violet-50/50 transition-colors group`}>
-                                                    <td className="px-6 py-2.5">
-                                                        <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center p-1 overflow-hidden shadow-sm group-hover:border-violet-300 transition-colors">
-                                                            <img src={p.image_url || EMPTY_IMG} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                                                        </div>
+                                                <tr key={p.id} className="bg-white hover:bg-violet-50/50 transition-colors group">
+                                                    <td className="px-6 py-4">
+                                                        <div className="font-mono text-[13px] font-semibold text-violet-700 bg-violet-50/80 px-2 py-0.5 rounded inline-block border border-violet-100/50">{p.sp || p.barcode || p.code}</div>
                                                     </td>
-                                                    <td className="px-6 py-3.5">
-                                                        <div className="font-mono text-[13px] font-semibold text-gray-600 bg-gray-100/80 px-2 py-0.5 rounded inline-block border border-gray-200/50">{p.sp || p.barcode || p.code}</div>
-                                                    </td>
-                                                    <td className="px-6 py-3.5 font-semibold text-gray-800 break-words whitespace-normal leading-tight">
+                                                    <td className="px-6 py-4 font-semibold text-[13px] text-gray-800 break-words whitespace-normal leading-tight">
                                                         {p.name || p.fullName}
                                                     </td>
-                                                    <td className="px-6 py-3.5 text-center">
+                                                    <td className="px-6 py-4 text-center">
                                                         {p.isNew ? (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded border border-[#F97316]/20 bg-[#F97316]/10 text-[#F97316] text-[10px] font-bold tracking-widest uppercase">MỚI</span>
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded shadow-sm border border-emerald-500/20 bg-emerald-50 text-emerald-600 text-[10px] font-bold tracking-widest uppercase">MỚI</span>
                                                         ) : (
                                                             <span className="text-gray-300 text-[12px] font-medium">-</span>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-3.5 text-right">
+                                                    <td className="px-6 py-4 text-center">
                                                         <button
-                                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors ml-auto opacity-0 group-hover:opacity-100"
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mx-auto opacity-0 group-hover:opacity-100"
                                                             onClick={() => {
                                                                 const next = new Map(selectedItems);
                                                                 next.delete(p.id);
@@ -516,7 +530,7 @@ const ExpiryCheckAdmin: React.FC = () => {
                                                             }}
                                                             title="Xóa khỏi danh sách"
                                                         >
-                                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                            <span className="material-symbols-outlined text-[18px]">close</span>
                                                         </button>
                                                     </td>
                                                 </tr>

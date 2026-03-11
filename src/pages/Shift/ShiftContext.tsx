@@ -68,6 +68,7 @@ interface ShiftContextType {
     // Handover
     handoverItems: ShiftInventoryHandover[];
     handleHandoverUpdate: (item: ShiftInventoryHandover, field: 'system_qty' | 'actual_qty', value: number | null) => void;
+    reloadHandoverItems: () => Promise<void>;
 
     // Quick Reports
     quickReports: ShiftQuickReport[];
@@ -82,7 +83,10 @@ interface ShiftContextType {
 
     // Actions
     handleStartShift: () => Promise<void>;
-    handleEndShift: () => Promise<void>;
+    handleEndShift: () => void;
+    executeEndShift: () => Promise<void>;
+    confirmEndShift: { show: boolean; message: string };
+    clearConfirmEndShift: () => void;
 
     // Formatting
     fmt: (n: number) => string;
@@ -294,16 +298,35 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         }
     }, [storeId, user.id, toast]);
 
-    const handleEndShift = useCallback(async () => {
+    const [confirmEndShiftState, setConfirmEndShiftState] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+
+    const executeEndShift = useCallback(async () => {
         if (!shift || ending) return;
-        const denomTotal = getDenomTotal();
+        setConfirmEndShiftState({ show: false, message: '' });
+        setEnding(true);
+        try {
+            await CashService.submit(shift.id);
+            await ShiftService.endShift(shift.id, user.id);
+            setShift(prev => prev ? { ...prev, status: 'COMPLETED' } : null);
+            toast.success('Đã kết ca và gửi báo cáo két thành công!');
+        } catch (err: unknown) {
+            console.error('[ShiftContext] End error:', err);
+            toast.error(err instanceof Error ? err.message : 'Không thể kết thúc ca');
+        } finally {
+            setEnding(false);
+        }
+    }, [shift, ending, user.id, toast]);
+
+    const handleEndShift = useCallback(() => {
+        if (!shift || ending) return;
+        const denomTotal = computeDenomTotal(cashRef.current);
         if (denomTotal === 0) {
             toast.error('Vui lòng kiểm két theo mệnh giá trước khi kết ca');
             setActiveTab('cash');
             return;
         }
-        const diff = getCashDiff();
-        if (diff !== 0 && !cash.difference_reason?.trim()) {
+        const cashDiff = denomTotal - computeCashExpected(cashRef.current);
+        if (cashDiff !== 0 && !cash.difference_reason?.trim()) {
             toast.error('Có chênh lệch két — vui lòng nhập lý do trước khi kết ca');
             setActiveTab('cash');
             return;
@@ -325,22 +348,18 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
 
         const incomplete = responses.filter(r => !r.is_completed);
         if (incomplete.length > 0) {
-            const ok = confirm(`Còn ${incomplete.length} công việc chưa hoàn thành. Bạn vẫn muốn kết thúc ca?`);
-            if (!ok) return;
+            setConfirmEndShiftState({
+                show: true,
+                message: `Còn ${incomplete.length} công việc chưa hoàn thành. Bạn vẫn muốn kết thúc ca?`,
+            });
+            return;
         }
-        setEnding(true);
-        try {
-            await CashService.submit(shift.id);
-            await ShiftService.endShift(shift.id, user.id);
-            setShift(prev => prev ? { ...prev, status: 'COMPLETED' } : null);
-            toast.success('Đã kết ca và gửi báo cáo két thành công!');
-        } catch (err: unknown) {
-            console.error('[ShiftContext] End error:', err);
-            toast.error(err instanceof Error ? err.message : 'Không thể kết thúc ca');
-        } finally {
-            setEnding(false);
-        }
-    }, [shift, ending, cash, responses, user.id, toast]);
+        executeEndShift();
+    }, [shift, ending, cash, responses, user.id, toast, executeEndShift, handoverItems, assetChecks, setActiveTab]);
+
+    const clearConfirmEndShift = useCallback(() => {
+        setConfirmEndShiftState({ show: false, message: '' });
+    }, []);
 
     const debouncedSave = useCallback((updates: Partial<CashSettlement>) => {
         if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
@@ -410,6 +429,14 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         } catch (err) { console.error('[ShiftContext] Handover error:', err); }
     }, []);
 
+    const reloadHandoverItems = useCallback(async () => {
+        if (!shift?.id) return;
+        try {
+            const handover = await HandoverService.getItems(shift.id);
+            setHandoverItems(handover);
+        } catch (err) { console.error('[ShiftContext] Reload handover error:', err); }
+    }, [shift?.id]);
+
     const noteItems = useMemo(() => templates.filter(t => t.category === 'NOTE'), [templates]);
 
     const checkProgress = useMemo(() => {
@@ -436,10 +463,11 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         getDenomTotal, getCashExpected, getCashDiff,
         templates, responses, checkProgress, groupedChecklist, noteItems, handleToggleChecklist,
         assets, assetChecks, handleAssetCheck,
-        handoverItems, handleHandoverUpdate,
+        handoverItems, handleHandoverUpdate, reloadHandoverItems,
         quickReports, setQuickReports,
         todayAssignments, assignedShiftIds, shiftConfigs, isAssignedToday, registerSupportShift,
-        handleStartShift, handleEndShift,
+        handleStartShift, handleEndShift, executeEndShift,
+        confirmEndShift: confirmEndShiftState, clearConfirmEndShift,
         fmt,
     }), [
         user, shift, selectedType, loading, starting, ending,
@@ -448,10 +476,11 @@ export const ShiftProvider: React.FC<{ user: User; children: React.ReactNode }> 
         getDenomTotal, getCashExpected, getCashDiff,
         templates, responses, checkProgress, groupedChecklist, noteItems, handleToggleChecklist,
         assets, assetChecks, handleAssetCheck,
-        handoverItems, handleHandoverUpdate,
+        handoverItems, handleHandoverUpdate, reloadHandoverItems,
         quickReports,
         todayAssignments, assignedShiftIds, shiftConfigs, isAssignedToday, registerSupportShift,
-        handleStartShift, handleEndShift,
+        handleStartShift, handleEndShift, executeEndShift,
+        confirmEndShiftState, clearConfirmEndShift,
     ]);
 
     return <ShiftCtx.Provider value={value}>{children}</ShiftCtx.Provider>;

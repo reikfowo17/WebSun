@@ -58,7 +58,7 @@ const HandoverRow = ({
 
 const HandoverTab: React.FC = () => {
     const {
-        handoverItems, isCompleted, handleHandoverUpdate, cash, storeId, shift
+        handoverItems, isCompleted, handleHandoverUpdate, reloadHandoverItems, cash, storeId, shift
     } = useShiftContext();
     const toast = useToast();
     const [syncing, setSyncing] = useState(false);
@@ -70,8 +70,9 @@ const HandoverTab: React.FC = () => {
         setSyncing(true);
         const res = await HandoverService.syncKiotVietHandover(storeId, shift.id);
         if (res.success) {
-            toast.success(res.message || 'Đồng bộ Kiot thành công, đang tải lại...');
-            setTimeout(() => window.location.reload(), 1000);
+            toast.success(res.message || 'Đồng bộ Kiot thành công');
+            await reloadHandoverItems();
+            setSyncing(false);
         } else {
             toast.error(res.message || 'Lỗi đồng bộ Kiot');
             setSyncing(false);

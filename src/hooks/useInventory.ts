@@ -106,20 +106,27 @@ export const useInventory = (user: User) => {
     message: string;
     title: string;
   }>({ show: false, message: "", title: "" });
+  const [confirmAction, setConfirmAction] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }>({ show: false, title: '', message: '', variant: 'warning', onConfirm: () => {} });
 
   const storeCode = user.store;
   const userRole = user.role || "EMPLOYEE";
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (quiet = false) => {
     if (shift === null) return;
     if (!storeCode) {
-      setLoading(false);
+      if (!quiet) setLoading(false);
       toast.error("Không xác định được cửa hàng");
       return;
     }
     
-    setLoading(true);
+    if (!quiet) setLoading(true);
     setShiftSubmitted({ submitted: false });
     try {
       const reportStatus = await InventoryService.getReportStatus(
@@ -146,7 +153,7 @@ export const useInventory = (user: User) => {
     } catch (error) {
       toast.error("Không thể tải dữ liệu kho");
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, [storeCode, shift, toast]);
 
@@ -252,21 +259,14 @@ export const useInventory = (user: User) => {
     setConfirmSubmit({ show: true, message, title });
   }, [stats]);
 
-  const doSubmit = useCallback(async () => {
+  const executeSubmit = useCallback(async () => {
     if (!storeCode || shift === null) {
       toast.error("Không xác định được cửa hàng");
       return;
     }
     
-    const uncheckedProducts = products.filter(p => p.actualStock == null);
-    if (uncheckedProducts.length > 0) {
-      const confirmMessage = `Còn ${uncheckedProducts.length} sản phẩm chưa nhập số lượng thực tế. Bạn có muốn nộp báo cáo không?`;
-      if (!confirm(confirmMessage)) {
-        return;
-      }
-    }
-    
     setConfirmSubmit({ show: false, message: "", title: "" });
+    setConfirmAction(prev => ({ ...prev, show: false }));
     setSubmitting(true);
     try {
       const res = await InventoryService.submitReport(
@@ -290,18 +290,33 @@ export const useInventory = (user: User) => {
     } finally {
       setSubmitting(false);
     }
-  }, [storeCode, shift, user.id, user.name, toast, products]);
+  }, [storeCode, shift, user.id, user.name, toast]);
 
-  const handleCancelSubmit = useCallback(async () => {
+  const doSubmit = useCallback(() => {
     if (!storeCode || shift === null) {
       toast.error("Không xác định được cửa hàng");
       return;
     }
     
-    if (!confirm("Bạn có chắc muốn hủy báo cáo đã nộp? Hành động này sẽ xóa dữ liệu kiểm kho.")) {
+    const uncheckedProducts = products.filter(p => p.actualStock == null);
+    if (uncheckedProducts.length > 0) {
+      setConfirmAction({
+        show: true,
+        title: 'Còn sản phẩm chưa kiểm',
+        message: `Còn ${uncheckedProducts.length} sản phẩm chưa nhập số lượng thực tế. Bạn có muốn nộp báo cáo không?`,
+        variant: 'warning',
+        onConfirm: executeSubmit,
+      });
       return;
     }
     
+    executeSubmit();
+  }, [storeCode, shift, toast, products, executeSubmit]);
+
+  const executeCancelSubmit = useCallback(async () => {
+    if (!storeCode || shift === null) return;
+    
+    setConfirmAction(prev => ({ ...prev, show: false }));
     setSubmitting(true);
     try {
       const res = await InventoryService.cancelReportSubmission(storeCode, shift);
@@ -318,6 +333,21 @@ export const useInventory = (user: User) => {
       setSubmitting(false);
     }
   }, [storeCode, shift, toast, loadProducts]);
+
+  const handleCancelSubmit = useCallback(() => {
+    if (!storeCode || shift === null) {
+      toast.error("Không xác định được cửa hàng");
+      return;
+    }
+    
+    setConfirmAction({
+      show: true,
+      title: 'Hủy báo cáo đã nộp',
+      message: 'Bạn có chắc muốn hủy báo cáo đã nộp? Hành động này sẽ xóa dữ liệu kiểm kho.',
+      variant: 'danger',
+      onConfirm: executeCancelSubmit,
+    });
+  }, [storeCode, shift, toast, executeCancelSubmit]);
 
   const handlePrint = useCallback(() => {
     if (products.length === 0) {
@@ -398,7 +428,7 @@ export const useInventory = (user: User) => {
       );
       if (result.success) {
         toast.success(result.message || "Đồng bộ thành công!");
-        await loadProducts();
+        await loadProducts(true);
       } else {
         toast.error(result.message || "Đồng bộ thất bại");
       }
@@ -454,6 +484,8 @@ export const useInventory = (user: User) => {
     setShiftSubmitted,
     confirmSubmit,
     setConfirmSubmit,
+    confirmAction,
+    setConfirmAction,
     stats,
     filteredProducts,
     progressPercent,

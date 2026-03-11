@@ -363,6 +363,34 @@ export async function getSessionResults(sessionId: string): Promise<{ success: b
     return { success: true, data: data || [] };
 }
 
+export async function syncSessionResults(sessionId: string, categoryId: string): Promise<{ added: number }> {
+    const { data: catItems } = await supabase
+        .from('expiry_check_category_items')
+        .select('product_id')
+        .eq('category_id', categoryId);
+
+    if (!catItems || catItems.length === 0) return { added: 0 };
+
+    const { data: existingResults } = await supabase
+        .from('expiry_check_results')
+        .select('product_id')
+        .eq('session_id', sessionId);
+
+    const existingProductIds = new Set((existingResults || []).map(r => r.product_id));
+    const missingItems = catItems.filter(ci => !existingProductIds.has(ci.product_id));
+
+    if (missingItems.length === 0) return { added: 0 };
+
+    await supabase.from('expiry_check_results').insert(
+        missingItems.map(ci => ({
+            session_id: sessionId,
+            product_id: ci.product_id,
+        }))
+    );
+
+    return { added: missingItems.length };
+}
+
 export async function updateResult(resultId: string, patch: {
     mfg_date?: string | null;
     expiry_date?: string | null;
@@ -422,6 +450,46 @@ export async function getDailySummary(filters: {
     };
 }
 
+export async function syncKiotVietStock(sessionId: string, storeId: string): Promise<{ success: boolean; message?: string; syncedCount?: number }> {
+    const { data: store } = await supabase.from('stores').select('id, code, kiotviet_branch_name').eq('id', storeId).single();
+    if (!store) return { success: false, message: 'Cửa hàng không tồn tại' };
+
+    const branchName = store.kiotviet_branch_name || store.code;
+
+    const { data: fnData, error: fnErr } = await supabase.functions.invoke('kiotviet-stock', {
+        body: { storeCode: store.code, branchName: branchName }
+    });
+
+    if (fnErr || !fnData?.stockMap) {
+        return { success: false, message: fnData?.error || 'Không thể kết nối KiotViet' };
+    }
+
+    const stockMap: Record<string, number> = fnData.stockMap;
+
+    const { data: results } = await supabase
+        .from('expiry_check_results')
+        .select('id, product_id, product:products(id, barcode)')
+        .eq('session_id', sessionId);
+
+    if (!results || results.length === 0) return { success: false, message: 'Không có sản phẩm' };
+
+    const updates: { id: string; qty: number }[] = [];
+    for (const r of results) {
+        const barcode = (r as any).product?.barcode;
+        if (barcode && stockMap[barcode] !== undefined) {
+            updates.push({ id: r.id, qty: stockMap[barcode] });
+        }
+    }
+
+    if (updates.length > 0) {
+        const now = new Date().toISOString();
+        const promises = updates.map(u => supabase.from('expiry_check_results').update({ qty: u.qty, checked_at: now }).eq('id', u.id));
+        await Promise.all(promises);
+    }
+
+    return { success: true, syncedCount: updates.length, message: `Đã đồng bộ ${updates.length} sản phẩm` };
+}
+
 export const ExpiryCheckService = {
     getCategories,
     createCategory,
@@ -438,9 +506,11 @@ export const ExpiryCheckService = {
     getSession,
     createSession,
     getSessionResults,
+    syncSessionResults,
     updateResult,
     completeSession,
     getDailySummary,
+    syncKiotVietStock,
 };
 
 export default ExpiryCheckService;

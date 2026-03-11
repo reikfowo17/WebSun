@@ -5,6 +5,7 @@ import type { ShiftType } from '../../types/shift';
 import { SHIFT_LABELS, SHIFT_ICONS } from '../../types/shift';
 import { ShiftProvider, useShiftContext, TAB_LABELS } from './ShiftContext';
 import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
+import ConfirmModal from '../../components/ConfirmModal';
 import '../../styles/hq-sidebar.css';
 
 const TasksTab = React.lazy(() => import('./tabs/TasksTab'));
@@ -25,7 +26,9 @@ const ShiftPageInner: React.FC = () => {
         activeTab, setActiveTab, isCompleted,
         autoSaveStatus, checkProgress, getDenomTotal,
         assets, handoverItems,
-        handleStartShift, handleEndShift, fmt, user,
+        handleStartShift, handleEndShift, executeEndShift,
+        confirmEndShift, clearConfirmEndShift,
+        fmt, user,
         todayAssignments, assignedShiftIds, shiftConfigs, isAssignedToday, registerSupportShift,
     } = useShiftContext();
 
@@ -264,6 +267,17 @@ const ShiftPageInner: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={confirmEndShift.show}
+                title="Xác nhận kết ca"
+                message={confirmEndShift.message}
+                variant="warning"
+                confirmText="Kết thúc ca"
+                onConfirm={executeEndShift}
+                onCancel={clearConfirmEndShift}
+                loading={ending}
+            />
         </div>
     );
 };

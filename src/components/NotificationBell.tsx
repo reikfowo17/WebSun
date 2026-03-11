@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NotificationService } from '../services/notification';
 import type { Notification as NotifType } from '../types/notification';
 
@@ -35,6 +36,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ userId }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     /* ── Fetch unread count (lightweight, polled) ── */
     const fetchUnreadCount = useCallback(async () => {
@@ -88,7 +90,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ userId }) => {
         }
         // Navigate if link exists
         if (notif.link) {
-            window.location.hash = notif.link;
+            navigate(notif.link);
         }
         handleClose();
     };

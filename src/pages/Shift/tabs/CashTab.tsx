@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useShiftContext } from '../ShiftContext';
+import { useToast } from '../../../contexts';
 import { DENOMINATION_VALUES, CASH_REVENUE_FIELDS, CASH_PAYMENT_FIELDS } from '../../../types/shift';
 
 const CashInput = ({ itemKey, value, onChange, disabled, className }: { itemKey: string; value: number; onChange: (key: string, val: number) => void; disabled: boolean; className?: string }) => {
@@ -70,6 +71,7 @@ const CashTab: React.FC = () => {
         cash, isCompleted, handleCashChange, handleCashNoteChange,
         setCash, fmt, getDenomTotal, getCashExpected, getCashDiff,
     } = useShiftContext();
+    const toast = useToast();
 
     const diff = getCashDiff();
     const denomTotal = getDenomTotal();
@@ -80,7 +82,7 @@ const CashTab: React.FC = () => {
 
     const handleResubmit = async () => {
         if (!cash || !cash.difference_reason?.trim() && getCashDiff() !== 0) {
-            alert('Vui lòng nhập lý do chênh lệch trước khi bấm Nộp lại.');
+            toast.warning('Vui lòng nhập lý do chênh lệch trước khi bấm Nộp lại.');
             return;
         }
         setIsResubmitting(true);
@@ -88,9 +90,9 @@ const CashTab: React.FC = () => {
             const { CashService } = await import('../../../services/shift/cash');
             await CashService.submit(cash.shift_id);
             setCash(prev => prev ? { ...prev, status: 'SUBMITTED' } : null);
-            alert('Nộp lại báo cáo thành công!');
+            toast.success('Nộp lại báo cáo thành công!');
         } catch (e) {
-            alert('Gặp lỗi khi nộp báo cáo.');
+            toast.error('Gặp lỗi khi nộp báo cáo.');
         } finally {
             setIsResubmitting(false);
         }
