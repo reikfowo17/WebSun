@@ -1,42 +1,38 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ShiftConfig } from '../../services/system';
 import type { User } from '../../types';
+import type { StoreShift, AssignmentTag } from '../../services/schedule';
 import PortalHeader from '../../components/PortalHeader';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import { useSchedule, formatDateShort, DAY_NAMES } from '../../hooks/useSchedule';
+import { useSchedule, formatDateShort, DAY_NAMES, DAY_LABELS, TAG_CONFIG } from '../../hooks/useSchedule';
 import type { ToastFn, EmpTab } from '../../hooks/useSchedule';
 import AssignPopup from './AssignPopup';
 
 interface ScheduleProps { user: User; toast: ToastFn; }
 
-const SHIFT_ICONS: Record<string, string> = { wb_sunny: 'wb_sunny', wb_twilight: 'wb_twilight', nights_stay: 'nights_stay', dark_mode: 'nights_stay' };
-
-const SHIFT_PALETTES = [
-    { accent: 'border-l-amber-400', cardBg: 'bg-amber-50', cardBgD: 'dark:bg-amber-900/10', cardText: 'text-amber-900', cardTextD: 'dark:text-amber-200', cardBorder: 'border-amber-100', cardBorderD: 'dark:border-amber-900/20', iconColor: 'text-amber-500' },
-    { accent: 'border-l-rose-400', cardBg: 'bg-rose-50', cardBgD: 'dark:bg-rose-900/10', cardText: 'text-rose-900', cardTextD: 'dark:text-rose-200', cardBorder: 'border-rose-100', cardBorderD: 'dark:border-rose-900/20', iconColor: 'text-rose-500' },
-    { accent: 'border-l-indigo-400', cardBg: 'bg-indigo-50', cardBgD: 'dark:bg-indigo-900/10', cardText: 'text-indigo-900', cardTextD: 'dark:text-indigo-200', cardBorder: 'border-indigo-100', cardBorderD: 'dark:border-indigo-900/20', iconColor: 'text-indigo-500' },
-    { accent: 'border-l-teal-400', cardBg: 'bg-teal-50', cardBgD: 'dark:bg-teal-900/10', cardText: 'text-teal-900', cardTextD: 'dark:text-teal-200', cardBorder: 'border-teal-100', cardBorderD: 'dark:border-teal-900/20', iconColor: 'text-teal-500' },
-    { accent: 'border-l-purple-400', cardBg: 'bg-purple-50', cardBgD: 'dark:bg-purple-900/10', cardText: 'text-purple-900', cardTextD: 'dark:text-purple-200', cardBorder: 'border-purple-100', cardBorderD: 'dark:border-purple-900/20', iconColor: 'text-purple-500' },
-    { accent: 'border-l-cyan-400', cardBg: 'bg-cyan-50', cardBgD: 'dark:bg-cyan-900/10', cardText: 'text-cyan-900', cardTextD: 'dark:text-cyan-200', cardBorder: 'border-cyan-100', cardBorderD: 'dark:border-cyan-900/20', iconColor: 'text-cyan-500' },
-];
-
-function getShiftStyle(sId: number) { return SHIFT_PALETTES[(sId - 1) % SHIFT_PALETTES.length]; }
-
-const TAB_STYLES: Record<string, { active: string; }> = {
-    REGISTER: { active: 'bg-white dark:bg-[#1a1a1a] shadow-sm text-indigo-600 dark:text-indigo-400 font-bold' },
-    MY_SCHEDULE: { active: 'bg-white dark:bg-[#1a1a1a] shadow-sm text-emerald-600 dark:text-emerald-400 font-bold' },
+const SHIFT_ICONS: Record<string, string> = {
+    wb_sunny: 'wb_sunny', wb_twilight: 'wb_twilight', dark_mode: 'dark_mode',
+    nights_stay: 'dark_mode', inventory_2: 'inventory_2', local_shipping: 'local_shipping',
 };
+
+const TagLegend = () => (
+    <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-100 dark:border-gray-800">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mr-1">Chú thích:</span>
+        {(Object.keys(TAG_CONFIG) as AssignmentTag[]).map(tag => (
+            <span key={tag} className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ color: TAG_CONFIG[tag].color, background: `${TAG_CONFIG[tag].color}15` }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{TAG_CONFIG[tag].icon}</span>
+                {TAG_CONFIG[tag].label}
+            </span>
+        ))}
+    </div>
+);
+
 const SkeletonTable = () => (
     <div className="p-4 space-y-3 animate-pulse">
-        <div className="flex gap-3">
-            <div className="w-[140px] h-6 bg-gray-200 dark:bg-gray-800 rounded-lg shrink-0" />
-            {Array.from({ length: 7 }).map((_, i) => <div key={i} className="flex-1 h-6 bg-gray-100 dark:bg-gray-800/50 rounded-lg" />)}
-        </div>
         {Array.from({ length: 3 }).map((_, r) => (
             <div key={r} className="flex gap-3">
-                <div className="w-[140px] h-14 bg-gray-100 dark:bg-gray-800/30 rounded-lg shrink-0" />
-                {Array.from({ length: 7 }).map((_, c) => <div key={c} className="flex-1 h-14 bg-gray-50 dark:bg-gray-800/20 rounded-lg" />)}
+                <div className="w-[120px] h-12 bg-gray-100 dark:bg-gray-800/30 rounded-lg shrink-0" />
+                {Array.from({ length: 7 }).map((_, c) => <div key={c} className="flex-1 h-12 bg-gray-50 dark:bg-gray-800/20 rounded-lg" />)}
             </div>
         ))}
     </div>
@@ -46,93 +42,304 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
     const navigate = useNavigate();
     const isAdmin = user.role === 'ADMIN';
     const s = useSchedule(isAdmin, toast);
+    const todayShiftCards = useMemo(() => {
+        if (isAdmin) return [];
+        return s.todayAssignments.map(a => {
+            const storeShifts = s.storeShiftsMap.get(a.store_id) || [];
+            const shift = storeShifts.find(ss => ss.id === a.shift);
+            return { assignment: a, shift };
+        });
+    }, [s.todayAssignments, s.storeShiftsMap, isAdmin]);
 
-    const renderShiftRow = (shiftCfg: ShiftConfig, isSupport: boolean) => {
-        const sId = shiftCfg.id;
-        const style = getShiftStyle(shiftCfg.parent_id || sId);
-        const isEmpReg = !isAdmin && s.empTab === 'REGISTER';
+    const renderStoreSection = useCallback((storeId: string, storeName: string, storeShifts: StoreShift[]) => {
+        const mainShifts = storeShifts.filter(sh => sh.type === 'MAIN');
+        const supportShifts = storeShifts.filter(sh => sh.type === 'SUPPORT');
+        const allShifts = [...mainShifts, ...supportShifts];
 
         return (
-            <tr key={sId} className={isSupport ? 'bg-gray-50/30 dark:bg-gray-800/10' : ''}>
-                <td className={`p-3 border-r border-gray-100 dark:border-gray-800 border-l-[3px] ${isSupport ? 'border-l-transparent' : style.accent}`}>
-                    <div className={`flex items-center gap-2 ${isSupport ? 'pl-4' : ''}`}>
-                        {isSupport
-                            ? <span className="material-symbols-outlined text-lg text-gray-400">subdirectory_arrow_right</span>
-                            : <span className={`material-symbols-outlined text-xl ${style.iconColor}`}>{SHIFT_ICONS[shiftCfg.icon] || shiftCfg.icon || 'schedule'}</span>
-                        }
-                        <div>
-                            <p className={`font-bold flex items-center gap-1.5 ${isSupport ? 'text-xs text-gray-600 dark:text-gray-400' : 'text-sm text-gray-900 dark:text-white'}`}>
-                                {shiftCfg.name}
-                                {shiftCfg.max_slots ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500">{shiftCfg.max_slots} slots</span> : null}
-                            </p>
-                            <p className="text-[10px] text-gray-400 font-semibold tracking-tight">{shiftCfg.time}</p>
-                        </div>
+            <div key={storeId} className="bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                {/* Store header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800" style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #1a2f4e 100%)' }}>
+                    <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-white/80 text-lg">storefront</span>
+                        <h3 className="text-white font-bold text-sm">{storeName}</h3>
+                        <span className="text-white/40 text-xs font-semibold">{allShifts.length} ca</span>
                     </div>
-                </td>
-                {s.weekDates.map(date => {
-                    const slotRegs = s.getRegsForSlot(date, sId);
-                    const slotAsgns = s.getAsgnsForSlot(date, sId);
-                    const reg = s.isRegistered(date, sId);
-                    const asgn = s.isAssignedSlot(date, sId);
-                    const proc = s.processing === `${date}-${sId}`;
+                    <div className="flex items-center gap-1.5">
+                        <button onClick={() => s.handleAutoAssign(storeId)} disabled={!!s.processing} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white/90 bg-white/15 hover:bg-white/25 transition-colors disabled:opacity-50" title="Tự xếp">
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>auto_awesome</span>
+                            <span className="hidden sm:inline">Tự xếp</span>
+                        </button>
+                        <button onClick={() => s.handleCopyAsgns(storeId)} disabled={!!s.processing} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white/90 bg-white/15 hover:bg-white/25 transition-colors disabled:opacity-50" title="Copy tuần trước">
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>content_copy</span>
+                            <span className="hidden sm:inline">Copy</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Shift × Day table */}
+                <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="bg-gray-50/50 dark:bg-[#111]">
+                            <tr>
+                                <th className="p-3 border-r border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-left w-[130px]">Ca</th>
+                                {s.weekDates.map((d, i) => {
+                                    const isToday = d === s.today;
+                                    const dayNum = new Date(d + 'T00:00:00').getDate();
+                                    return (
+                                        <th key={d} className={`p-2 text-center border-r border-gray-100 dark:border-gray-800 last:border-r-0 ${isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wide ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`}>{DAY_LABELS[i]}</p>
+                                            {isToday
+                                                ? <span className="inline-flex w-7 h-7 items-center justify-center bg-indigo-500 text-white rounded-full text-xs font-bold shadow-md shadow-indigo-500/30">{dayNum}</span>
+                                                : <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{formatDateShort(d)}</p>
+                                            }
+                                        </th>
+                                    );
+                                })}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {allShifts.map(sh => {
+                                const isSupport = sh.type === 'SUPPORT';
+                                return (
+                                    <tr key={sh.id} className={isSupport ? 'bg-gray-50/30 dark:bg-gray-800/10' : ''}>
+                                        <td className={`p-2.5 border-r border-gray-100 dark:border-gray-800 border-l-[3px] ${isSupport ? 'border-l-blue-300' : 'border-l-amber-400'}`}>
+                                            <div className={`flex items-center gap-1.5 ${isSupport ? 'pl-2' : ''}`}>
+                                                <span className="material-symbols-outlined text-base text-gray-500">{SHIFT_ICONS[sh.icon] || sh.icon || 'schedule'}</span>
+                                                <div>
+                                                    <p className={`font-bold leading-tight ${isSupport ? 'text-[11px] text-gray-500' : 'text-xs text-gray-900 dark:text-white'}`}>{sh.name}</p>
+                                                    <p className="text-[10px] text-gray-400 font-semibold">{sh.time_start}-{sh.time_end}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {s.weekDates.map(date => {
+                                            const slotAsgns = s.getAsgnsForSlot(storeId, date, sh.id);
+                                            const slotRegs = s.getRegsForSlot(storeId, date, sh.id);
+                                            const isPast = date < s.today;
+                                            const isToday = date === s.today;
+                                            const pendingRegs = slotRegs.filter(r => !slotAsgns.some(a => a.user_id === r.user_id));
+
+                                            return (
+                                                <td key={`${date}-${sh.id}`} className={`p-1.5 border-r border-gray-100 dark:border-gray-800 last:border-r-0 align-top group ${isPast ? 'opacity-40' : ''} ${isToday ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : ''}`}>
+                                                    <div className="flex flex-col gap-1 min-h-[50px]">
+                                                        {/* Assigned employees */}
+                                                        {slotAsgns.map(a => (
+                                                            <div key={a.id} className={`px-1.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 border ${a.tag
+                                                                ? `border-transparent`
+                                                                : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/20 text-emerald-900 dark:text-emerald-300'
+                                                                }`}
+                                                                style={a.tag ? { backgroundColor: `${TAG_CONFIG[a.tag].color}15`, color: TAG_CONFIG[a.tag].color } : {}}
+                                                            >
+                                                                <span className="truncate flex-1">{a.user_name}</span>
+                                                                {(a.custom_start || a.custom_end) && (
+                                                                    <span className="text-[9px] opacity-75 whitespace-nowrap">
+                                                                        ({a.custom_start ? `từ ${a.custom_start.replace(':00', 'h')}` : ''}{a.custom_end ? ` đến ${a.custom_end.replace(':00', 'h')}` : ''})
+                                                                    </span>
+                                                                )}
+                                                                <button onClick={() => s.handleRemoveAssignment(a.id, a.user_name)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all shrink-0" disabled={s.processing === 'remove-' + a.id}>
+                                                                    <span className="material-symbols-outlined" style={{ fontSize: 12 }}>close</span>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        {/* Pending registrations */}
+                                                        {pendingRegs.map(r => (
+                                                            <div key={r.id} onClick={() => s.handleAssign(r.user_id, storeId, date, sh.id)} className="px-1.5 py-0.5 rounded-md border border-dashed border-emerald-300 dark:border-emerald-700 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer hover:bg-emerald-50 transition-colors flex items-center gap-0.5" title={`Xếp ${r.user_name}`}>
+                                                                <span className="material-symbols-outlined" style={{ fontSize: 10 }}>add</span>
+                                                                <span className="truncate">{r.user_name}</span>
+                                                            </div>
+                                                        ))}
+                                                        {/* Add button */}
+                                                        {!isPast && (
+                                                            <button onClick={() => s.setAssignPopup({ date, shift: sh.id, storeId })} className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-full border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-300 hover:border-indigo-400 hover:text-indigo-500 transition-all mx-auto mt-auto shrink-0">
+                                                                <span className="material-symbols-outlined" style={{ fontSize: 12 }}>add</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }, [s, isAdmin]);
+
+    const renderMySchedule = useCallback(() => {
+        return (
+            <div className="space-y-3">
+                {s.weekDates.map((date, di) => {
+                    const myAsgns = s.assignments.filter(a => a.work_date === date);
                     const isPast = date < s.today;
-                    const todayBg = date === s.today ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : '';
-
-                    if (isAdmin) return (
-                        <td key={`${date}-${sId}`} className={`p-2 border-r border-gray-100 dark:border-gray-800 last:border-r-0 align-top group ${isPast ? 'opacity-40' : ''} ${todayBg}`}>
-                            <div className="flex flex-col gap-1.5 min-h-[70px]">
-                                {slotAsgns.map(a => (
-                                    <div key={a.id} className={`p-1.5 ${style.cardBg} ${style.cardBgD} rounded-lg border ${style.cardBorder} ${style.cardBorderD} text-xs shadow-sm flex items-center gap-1`}>
-                                        <span className={`font-bold ${style.cardText} ${style.cardTextD} flex-1 truncate`}>{a.user_name}</span>
-                                        <button onClick={() => s.handleRemoveAssignment(a.id, a.user_name)} disabled={s.processing === 'remove-' + a.id} className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50" aria-label={`Xóa ${a.user_name}`}>
-                                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
-                                        </button>
-                                    </div>
-                                ))}
-                                {slotRegs.filter(r => !slotAsgns.some(a => a.user_id === r.user_id)).map(r => (
-                                    <div key={r.id} onClick={() => s.handleAssign(r.user_id, date, sId)} className="p-1 bg-emerald-50 dark:bg-emerald-900/10 rounded-md border border-emerald-200 dark:border-emerald-800/30 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors flex items-center gap-1" title={`Xếp ${r.user_name}`}>
-                                        <span className="material-symbols-outlined" style={{ fontSize: 12 }}>person_add</span>
-                                        <span className="truncate">{r.user_name}</span>
-                                    </div>
-                                ))}
-                                {!isPast && (
-                                    <button onClick={() => s.setAssignPopup({ date, shift: sId })} className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded-full border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-300 hover:border-indigo-400 hover:text-indigo-500 transition-all mx-auto mt-auto" aria-label="Thêm">
-                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
-                                    </button>
-                                )}
-                            </div>
-                        </td>
-                    );
-
-                    if (isEmpReg) return (
-                        <td key={`${date}-${sId}`} onClick={() => !isPast && !proc && s.toggleRegistration(date, sId)} className={`p-2 border-r border-gray-100 dark:border-gray-800 last:border-r-0 text-center align-middle transition-colors ${isPast ? 'opacity-40' : 'cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10'} ${todayBg}`}>
-                            <div className="flex items-center justify-center min-h-[50px]">
-                                {proc ? <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                                    : reg ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[11px] font-bold"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>Đã ĐK</span>
-                                        : !isPast ? <span className="w-7 h-7 rounded-full border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-300 hover:border-indigo-400 hover:text-indigo-500 transition-all flex items-center justify-center"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span></span>
-                                            : null}
-                            </div>
-                        </td>
-                    );
+                    const isToday = date === s.today;
+                    if (myAsgns.length === 0 && isPast) return null;
 
                     return (
-                        <td key={`${date}-${sId}`} className={`p-2 border-r border-gray-100 dark:border-gray-800 last:border-r-0 text-center align-middle ${isPast ? 'opacity-40' : ''} ${todayBg}`}>
-                            <div className="flex items-center justify-center min-h-[50px]">
-                                {asgn ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>verified</span>{shiftCfg.time}</span>
-                                    : <span className="text-gray-300 dark:text-gray-700">—</span>}
+                        <div key={date} className={`bg-white dark:bg-[#1a1a1a] rounded-xl overflow-hidden ${isToday ? 'ring-2 ring-indigo-500/30' : ''}`} style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.03)' }}>
+                            <div className={`px-4 py-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/10' : 'bg-gray-50/50 dark:bg-[#111]'}`}>
+                                <span className={`text-xs font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500'}`}>📅</span>
+                                <span className={`text-sm font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>
+                                    {DAY_NAMES[di]} ({formatDateShort(date)})
+                                </span>
+                                {isToday && <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md">Hôm nay</span>}
+                                {myAsgns.length > 0 && <span className="text-[10px] font-bold text-emerald-600 ml-auto">{myAsgns.length} ca</span>}
                             </div>
-                        </td>
+
+                            {myAsgns.length === 0 ? (
+                                <div className={`px-4 py-3 text-xs text-gray-400 ${isPast ? 'opacity-50' : ''}`}>Không có ca làm</div>
+                            ) : (
+                                <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                                    {myAsgns.map(a => {
+                                        const storeShifts = s.storeShiftsMap.get(a.store_id) || [];
+                                        const shiftCfg = storeShifts.find(ss => ss.id === a.shift);
+                                        const coworkers = s.coworkerAssignments.filter(
+                                            c => c.store_id === a.store_id && c.work_date === date && c.shift === a.shift && c.user_id !== a.user_id
+                                        );
+
+                                        return (
+                                            <div key={a.id} className={`px-4 py-3 ${isPast ? 'opacity-50' : ''}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        <span className="material-symbols-outlined text-amber-500 text-lg">
+                                                            {shiftCfg ? (SHIFT_ICONS[shiftCfg.icon] || shiftCfg.icon || 'schedule') : 'schedule'}
+                                                        </span>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">
+                                                                {shiftCfg?.name || `Ca ${a.shift}`}
+                                                            </p>
+                                                            <p className="text-[11px] text-gray-400 font-semibold">
+                                                                {a.custom_start || shiftCfg?.time_start || '?'} — {a.custom_end || shiftCfg?.time_end || '?'}
+                                                                {(a.custom_start || a.custom_end) && <span className="ml-1 text-blue-500">(giờ riêng)</span>}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 11 }}>storefront</span>
+                                                            {a.store_name}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {/* Coworkers */}
+                                                {coworkers.length > 0 && (
+                                                    <div className="mt-2 pl-7 flex flex-wrap items-center gap-1.5">
+                                                        <span className="text-[10px] text-gray-400 font-semibold">Cùng ca:</span>
+                                                        {coworkers.map(c => (
+                                                            <span key={c.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-[10px] font-semibold text-gray-600 dark:text-gray-400">
+                                                                <span className="w-4 h-4 rounded-full bg-gray-300 dark:bg-gray-700 text-white flex items-center justify-center text-[8px] font-bold shrink-0">{(c.user_name || '?')[0]}</span>
+                                                                {c.user_name}
+                                                                {(c.custom_start || c.custom_end) && (
+                                                                    <span className="text-blue-500 text-[9px]">
+                                                                        ({c.custom_start ? `từ ${c.custom_start.replace(':00', 'h')}` : ''}{c.custom_end ? ` đến ${c.custom_end.replace(':00', 'h')}` : ''})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {a.tag && (
+                                                    <div className="mt-1.5 pl-7">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ color: TAG_CONFIG[a.tag].color, background: `${TAG_CONFIG[a.tag].color}15` }}>
+                                                            <span className="material-symbols-outlined" style={{ fontSize: 11 }}>{TAG_CONFIG[a.tag].icon}</span>
+                                                            {TAG_CONFIG[a.tag].label}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
-            </tr>
+            </div>
         );
-    };
+    }, [s]);
 
-    const storeName = s.stores.find(st => st.id === s.selectedStore)?.name || '';
+    const renderRegistrationGrid = useCallback(() => {
+        const shifts = s.registrationShifts;
+        if (shifts.length === 0) {
+            return (
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl p-8 text-center">
+                    <span className="material-symbols-outlined text-3xl text-gray-400 mb-2">info</span>
+                    <p className="text-sm text-gray-500">Bạn chưa được gán vào cửa hàng nào. Liên hệ admin.</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="bg-gray-50/50 dark:bg-[#111]">
+                            <tr>
+                                <th className="p-3 border-r border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-left w-[130px]">Ca</th>
+                                {s.weekDates.map((d, i) => {
+                                    const isToday = d === s.today;
+                                    const dayNum = new Date(d + 'T00:00:00').getDate();
+                                    return (
+                                        <th key={d} className={`p-2 text-center border-r border-gray-100 dark:border-gray-800 last:border-r-0 ${isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
+                                            <p className={`text-[10px] font-bold uppercase ${isToday ? 'text-indigo-600' : 'text-gray-400'}`}>{DAY_LABELS[i]}</p>
+                                            {isToday
+                                                ? <span className="inline-flex w-7 h-7 items-center justify-center bg-indigo-500 text-white rounded-full text-xs font-bold">{dayNum}</span>
+                                                : <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{formatDateShort(d)}</p>
+                                            }
+                                        </th>
+                                    );
+                                })}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {shifts.map(sh => (
+                                <tr key={sh.id}>
+                                    <td className="p-2.5 border-r border-gray-100 dark:border-gray-800 border-l-[3px] border-l-amber-400">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="material-symbols-outlined text-base text-amber-500">{SHIFT_ICONS[sh.icon] || 'schedule'}</span>
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-900 dark:text-white">{sh.name}</p>
+                                                <p className="text-[10px] text-gray-400 font-semibold">{sh.time_start}-{sh.time_end}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {s.weekDates.map(date => {
+                                        const reg = s.isRegistered(date, sh.id);
+                                        const proc = s.processing === `${date}-${sh.id}`;
+                                        const isPast = date < s.today;
+                                        const isToday = date === s.today;
+
+                                        return (
+                                            <td key={`${date}-${sh.id}`}
+                                                onClick={() => !isPast && !proc && s.toggleRegistration(date, sh.id)}
+                                                className={`p-2 border-r border-gray-100 dark:border-gray-800 last:border-r-0 text-center align-middle ${isPast ? 'opacity-40' : 'cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10'} ${isToday ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : ''} transition-colors`}>
+                                                <div className="flex items-center justify-center min-h-[44px]">
+                                                    {proc
+                                                        ? <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                                        : reg
+                                                            ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[11px] font-bold"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>Đã ĐK</span>
+                                                            : !isPast
+                                                                ? <span className="w-7 h-7 rounded-full border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-300 hover:border-indigo-400 hover:text-indigo-500 transition-all"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span></span>
+                                                                : null
+                                                    }
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    }, [s]);
 
     return (
         <div className="h-full flex flex-col dark:bg-[#0a0a0a]" style={{ background: '#F8F7F4' }}>
-            {/* ── Header: Clean + Week Nav ── */}
+            {/* ── Header ── */}
             <PortalHeader>
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate('/')} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors">
@@ -140,16 +347,16 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
                     </button>
                     <div className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
                         <span className="material-symbols-outlined text-amber-500">calendar_month</span>
-                        {isAdmin ? 'Xếp Lịch' : 'Lịch Làm'}
+                        {isAdmin ? 'Xếp Lịch Tổng' : 'Lịch Làm'}
                     </div>
                 </div>
-                {/* Week Navigator in header */}
+                {/* Week Navigator */}
                 <div className="flex items-center gap-2 bg-white dark:bg-[#1a1a1a] p-1 rounded-xl" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.03)' }}>
-                    <button onClick={() => s.setWeekOffset(w => w - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors" aria-label="Tuần trước">
+                    <button onClick={() => s.setWeekOffset(w => w - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors">
                         <span className="material-symbols-outlined text-lg">chevron_left</span>
                     </button>
                     <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap px-1 min-w-[110px] text-center">{s.weekLabel}</span>
-                    <button onClick={() => s.setWeekOffset(w => w + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors" aria-label="Tuần sau">
+                    <button onClick={() => s.setWeekOffset(w => w + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors">
                         <span className="material-symbols-outlined text-lg">chevron_right</span>
                     </button>
                     <button onClick={() => s.setWeekOffset(0)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${s.weekOffset === 0 ? 'text-gray-900 shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`} style={s.weekOffset === 0 ? { background: 'linear-gradient(180deg, #FACC15, #F59E0B)' } : {}}>
@@ -161,141 +368,143 @@ const Schedule: React.FC<ScheduleProps> = ({ user, toast }) => {
             <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                 <div className="max-w-7xl mx-auto space-y-4">
 
-                    {/* ── Store Pills (L-01, V-01) — Replaces hidden dropdown ── */}
-                    <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
-                        <span className="material-symbols-outlined text-gray-400 text-lg shrink-0">storefront</span>
-                        {s.stores.map(store => {
-                            const active = store.id === s.selectedStore;
-                            return (
-                                <button
-                                    key={store.id}
-                                    onClick={() => s.setSelectedStore(store.id)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all shrink-0 ${active
-                                        ? 'text-gray-900 shadow-md'
-                                        : 'bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:text-amber-600'
-                                        }`}
-                                    style={active ? { background: 'linear-gradient(180deg, #FACC15, #F59E0B)', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' } : { border: '1px solid #EEEDE9' }}
-                                >
-                                    {store.name}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* ── Row 2: Employee tabs OR Admin action bar ── */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        {!isAdmin ? (
-                            <div className="flex p-1 bg-gray-100 dark:bg-[#111] rounded-xl">
-                                {([{ tab: 'MY_SCHEDULE' as EmpTab, icon: 'event_available', label: 'Lịch Của Tôi' }, { tab: 'REGISTER' as EmpTab, icon: 'edit_calendar', label: 'Đăng Ký Ca' }]).map(({ tab, icon, label }) => (
-                                    <button key={tab} onClick={() => s.setEmpTab(tab)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${s.empTab === tab ? TAB_STYLES[tab].active : 'text-gray-500 dark:text-gray-400 font-medium hover:text-gray-700'}`}>
-                                        <span className="material-symbols-outlined text-lg">{icon}</span>
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            /* Admin: Inline stats + actions */
-                            <div className="flex items-center gap-3 text-sm">
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 font-bold">
-                                    <span className="material-symbols-outlined text-base">task_alt</span>
-                                    {s.fillRate}%
-                                </div>
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 font-bold">
-                                    <span className="material-symbols-outlined text-base">event_busy</span>
-                                    {s.emptySlots} trống
-                                </div>
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold" style={{ background: '#FEF3C7', color: '#D97706' }}>
-                                    <span className="material-symbols-outlined text-base">schedule</span>
-                                    {Math.round(s.totalHours)}h
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-2">
-                            {isAdmin ? (<>
-                                <button onClick={s.handleAutoAssign} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 text-gray-900 text-sm font-bold rounded-xl transition-colors disabled:opacity-50" style={{ background: 'linear-gradient(180deg, #FACC15, #F59E0B)', boxShadow: '0 2px 8px rgba(245,158,11,0.2)' }}>
-                                    {s.processing === 'auto-assign' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">auto_awesome</span>}
-                                    Tự Xếp
-                                </button>
-                                <button onClick={s.handleCopyAsgns} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold rounded-xl transition-colors disabled:opacity-50">
-                                    {s.processing === 'copy-asgns' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">content_copy</span>}
-                                    <span className="hidden sm:inline">Copy tuần</span>
-                                </button>
-                            </>) : s.empTab === 'REGISTER' && (
-                                <button onClick={s.handleCopyRegs} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-xl transition-colors disabled:opacity-50" style={{ background: '#FEF3C7', color: '#D97706' }}>
-                                    {s.processing === 'copy-regs' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">content_copy</span>}
-                                    <span className="hidden sm:inline">Copy tuần</span>
-                                </button>
+                    {/* ═══ ADMIN VIEW ═══ */}
+                    {isAdmin && (
+                        <>
+                            <TagLegend />
+                            {s.loading ? (
+                                <>{Array.from({ length: 3 }).map((_, i) => <SkeletonTable key={i} />)}</>
+                            ) : (
+                                s.stores.map(store => {
+                                    const shifts = s.storeShiftsMap.get(store.id) || [];
+                                    return renderStoreSection(store.id, store.name, shifts);
+                                })
                             )}
-                        </div>
-                    </div>
-
-                    {/* ── Employee info pill ── */}
-                    {!isAdmin && (
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${s.empTab === 'REGISTER'
-                            ? 'text-amber-700 dark:text-amber-400'
-                            : 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400'
-                            }`} style={s.empTab === 'REGISTER' ? { background: '#FEF3C7' } : {}}>
-                            <span className="material-symbols-outlined text-sm">{s.empTab === 'REGISTER' ? 'info' : 'event_available'}</span>
-                            {s.empTab === 'REGISTER' ? `Nhấn ô để đăng ký. Đã ĐK ${s.regCount} ca.` : `${s.assignments.length} ca • ${Math.round(s.totalHours)} giờ tuần này tại ${storeName}`}
-                        </div>
+                        </>
                     )}
 
-                    {/* ── Calendar Grid ── */}
-                    <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-                        {s.loading ? <SkeletonTable /> : s.shiftTree.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800/50 rounded-2xl flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-3xl text-gray-400">calendar_month</span>
-                                </div>
-                                <p className="text-sm font-semibold text-gray-500">Chưa có ca làm cho {storeName}</p>
-                                <p className="text-xs text-gray-400">Vào Cài đặt hệ thống để thiết lập ca</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full">
-                                    <thead className="bg-gray-50/50 dark:bg-[#111]">
-                                        <tr>
-                                            <th className="p-4 border-r border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-left w-[150px]">Ca Làm</th>
-                                            {s.weekDates.map((d, i) => {
-                                                const isToday = d === s.today;
-                                                const dayNum = new Date(d + 'T00:00:00').getDate();
+                    {/* ═══ EMPLOYEE VIEW ═══ */}
+                    {!isAdmin && (
+                        <>
+                            {/* Today Banner */}
+                            {s.weekOffset === 0 && (
+                                todayShiftCards.length > 0 ? (
+                                    <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #1a2f4e 100%)', boxShadow: '0 8px 24px rgba(30,58,95,0.25)' }}>
+                                        <div className="px-5 pt-4 pb-3 flex items-center gap-3">
+                                            <div className="w-9 h-9 bg-white/15 rounded-xl flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-white text-xl">today</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-white/60 text-[11px] font-semibold uppercase tracking-widest">Hôm nay</p>
+                                                <p className="text-white font-bold text-base">{todayShiftCards.length} ca làm</p>
+                                            </div>
+                                        </div>
+                                        <div className="px-4 pb-4 flex flex-wrap gap-2">
+                                            {todayShiftCards.map(({ assignment: a, shift: sh }) => {
+                                                const coworkers = s.coworkerAssignments.filter(
+                                                    c => c.store_id === a.store_id && c.work_date === s.today && c.shift === a.shift && c.user_id !== a.user_id
+                                                );
                                                 return (
-                                                    <th key={d} className={`p-3 text-center border-r border-gray-100 dark:border-gray-800 last:border-r-0 ${isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}>
-                                                        <p className={`text-[10px] font-bold mb-1 uppercase tracking-wide ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`}>{DAY_NAMES[i]}</p>
-                                                        {isToday
-                                                            ? <span className="inline-flex w-8 h-8 items-center justify-center bg-indigo-500 text-white rounded-full text-sm font-bold shadow-md shadow-indigo-500/30">{dayNum}</span>
-                                                            : <p className="text-base font-bold text-gray-900 dark:text-white">{formatDateShort(d)}</p>
-                                                        }
-                                                    </th>
+                                                    <div key={a.id} className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm rounded-xl px-3.5 py-2.5 border border-white/15">
+                                                        <span className="material-symbols-outlined text-lg text-amber-400">
+                                                            {sh ? (SHIFT_ICONS[sh.icon] || 'schedule') : 'schedule'}
+                                                        </span>
+                                                        <div>
+                                                            <p className="text-white font-bold text-sm leading-tight">{sh?.name || `Ca ${a.shift}`}</p>
+                                                            <p className="text-white/60 text-[10px] font-semibold">{a.custom_start || sh?.time_start} — {a.custom_end || sh?.time_end}</p>
+                                                        </div>
+                                                        <div className="ml-1 pl-2.5 border-l border-white/20">
+                                                            <p className="text-white/80 text-[10px] font-bold">📍 {a.store_name}</p>
+                                                            {coworkers.length > 0 && (
+                                                                <p className="text-white/50 text-[9px]">+{coworkers.length} đồng nghiệp</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 );
                                             })}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                        {s.shiftTree.map(({ main, supports }) => (
-                                            <React.Fragment key={main.id}>
-                                                {renderShiftRow(main, false)}
-                                                {supports.map(sp => renderShiftRow(sp, true))}
-                                            </React.Fragment>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                                        <span className="material-symbols-outlined text-gray-400 text-xl">event_busy</span>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hôm nay bạn không có ca làm được xếp.</p>
+                                    </div>
+                                )
+                            )}
+
+                            {/* Tabs */}
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex p-1 bg-gray-100 dark:bg-[#111] rounded-xl">
+                                    {([
+                                        { tab: 'MY_SCHEDULE' as EmpTab, icon: 'event_available', label: 'Lịch Của Tôi' },
+                                        { tab: 'REGISTER' as EmpTab, icon: 'edit_calendar', label: 'Đăng Ký Ca' },
+                                    ]).map(({ tab, icon, label }) => (
+                                        <button key={tab} onClick={() => s.setEmpTab(tab)}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${s.empTab === tab
+                                                ? 'bg-white dark:bg-[#1a1a1a] shadow-sm font-bold ' + (tab === 'MY_SCHEDULE' ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400')
+                                                : 'text-gray-500 dark:text-gray-400 font-medium hover:text-gray-700'
+                                                }`}>
+                                            <span className="material-symbols-outlined text-lg">{icon}</span>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {s.empTab === 'REGISTER' && (
+                                    <button onClick={s.handleCopyRegs} disabled={!!s.processing} className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-xl transition-colors disabled:opacity-50" style={{ background: '#FEF3C7', color: '#D97706' }}>
+                                        {s.processing === 'copy-regs' ? <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_empty</span> : <span className="material-symbols-outlined text-[18px]">content_copy</span>}
+                                        Copy tuần
+                                    </button>
+                                )}
                             </div>
-                        )}
-                    </div>
+
+                            {/* Info pill */}
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${s.empTab === 'REGISTER'
+                                ? 'text-amber-700 dark:text-amber-400'
+                                : 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400'
+                                }`} style={s.empTab === 'REGISTER' ? { background: '#FEF3C7' } : {}}>
+                                <span className="material-symbols-outlined text-sm">{s.empTab === 'REGISTER' ? 'info' : 'event_available'}</span>
+                                {s.empTab === 'REGISTER'
+                                    ? `Nhấn ô để đăng ký ngày + ca bạn có thể làm. Admin sẽ xếp cửa hàng cho bạn. Đã ĐK ${s.stats.regCount} ca.`
+                                    : `${s.assignments.length} ca được xếp tuần này. Nhấn để xem đồng nghiệp.`
+                                }
+                            </div>
+
+                            {/* Tab content */}
+                            {s.loading ? <SkeletonTable /> : (
+                                s.empTab === 'MY_SCHEDULE' ? renderMySchedule() : renderRegistrationGrid()
+                            )}
+
+                            {/* Legend */}
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 px-1">
+                                <span className="flex items-center gap-1.5 font-semibold">
+                                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 font-bold text-[10px]">
+                                        <span className="material-symbols-outlined" style={{ fontSize: 11 }}>check_circle</span>Đã ĐK
+                                    </span>
+                                    Ca bạn đăng ký (chờ admin xếp)
+                                </span>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 
             {/* Popups */}
-            {s.assignPopup && (
-                <AssignPopup date={s.assignPopup.date} shift={s.assignPopup.shift} weekDates={s.weekDates} shifts={s.shifts}
-                    employees={s.employees} slotRegs={s.getRegsForSlot(s.assignPopup.date, s.assignPopup.shift)}
-                    slotAsgns={s.getAsgnsForSlot(s.assignPopup.date, s.assignPopup.shift)} processing={s.processing}
-                    onAssign={s.handleAssign} onRemove={s.handleRemoveAssignment} onClose={() => s.setAssignPopup(null)} />
-            )}
+            {s.assignPopup && (() => {
+                const apStore = s.stores.find(st => st.id === s.assignPopup!.storeId);
+                const apShifts = s.storeShiftsMap.get(s.assignPopup.storeId) || [];
+                return (
+                    <AssignPopup
+                        date={s.assignPopup.date} shift={s.assignPopup.shift} storeId={s.assignPopup.storeId}
+                        weekDates={s.weekDates} storeShifts={apShifts} storeName={apStore?.name || ''}
+                        employees={s.employees}
+                        slotRegs={s.getRegsForSlot(s.assignPopup.storeId, s.assignPopup.date, s.assignPopup.shift)}
+                        slotAsgns={s.getAsgnsForSlot(s.assignPopup.storeId, s.assignPopup.date, s.assignPopup.shift)}
+                        processing={s.processing}
+                        onAssign={s.handleAssign} onRemove={s.handleRemoveAssignment} onUpdate={s.handleUpdateAssignment}
+                        onClose={() => s.setAssignPopup(null)}
+                    />
+                );
+            })()}
             {s.confirmDialog && (
                 <ConfirmDialog title={s.confirmDialog.title} message={s.confirmDialog.message}
                     onConfirm={s.confirmDialog.onConfirm} onCancel={() => s.setConfirmDialog(null)} />

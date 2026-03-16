@@ -1,5 +1,21 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { ShiftConfig } from './system';
+
+export interface StoreShift {
+    id: number;
+    store_id: string;
+    name: string;
+    time_start: string;
+    time_end: string;
+    type: 'MAIN' | 'SUPPORT';
+    parent_id?: number;
+    icon: string;
+    color?: string;
+    max_slots: number;
+    sort_order: number;
+    is_active: boolean;
+}
+
+export type AssignmentTag = 'SPECIAL_ATTENTION' | 'VACANCY' | 'CUSTOM_HOURS' | 'EMERGENCY' | 'STAFF_CHANGE' | 'TRIAL';
 
 export interface ScheduleRegistration {
     id: string;
@@ -22,6 +38,9 @@ export interface ScheduleAssignment {
     shift: number;
     assigned_by?: string;
     note?: string;
+    custom_start?: string;
+    custom_end?: string;
+    tag?: AssignmentTag;
     created_at?: string;
     updated_at?: string;
     user_name?: string;
@@ -42,7 +61,6 @@ type ServiceResult<T = void> = {
     data?: T;
 };
 
-/** Format a Date to YYYY-MM-DD using LOCAL timezone (avoids UTC shift at night in GMT+7) */
 function formatLocalDate(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -55,10 +73,7 @@ function getWeekRange(baseDate: Date): { start: string; end: string } {
     mon.setDate(d.getDate() + diffToMon);
     const sun = new Date(mon);
     sun.setDate(mon.getDate() + 6);
-    return {
-        start: formatLocalDate(mon),
-        end: formatLocalDate(sun),
-    };
+    return { start: formatLocalDate(mon), end: formatLocalDate(sun) };
 }
 
 export function getWeekDates(baseDate: Date): string[] {
@@ -79,10 +94,43 @@ async function getCurrentUserId(): Promise<string> {
 }
 
 export const ScheduleService = {
+    async getStoreShifts(storeId: string): Promise<StoreShift[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const { data, error } = await supabase
+                .from('store_shifts')
+                .select('*')
+                .eq('store_id', storeId)
+                .eq('is_active', true)
+                .order('sort_order');
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('[Schedule] getStoreShifts error:', err);
+            return [];
+        }
+    },
+
+    async getAllStoreShifts(): Promise<StoreShift[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const { data, error } = await supabase
+                .from('store_shifts')
+                .select('*')
+                .eq('is_active', true)
+                .order('store_id')
+                .order('sort_order');
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('[Schedule] getAllStoreShifts error:', err);
+            return [];
+        }
+    },
+
     async registerAvailability(
-        storeId: string,
         workDate: string,
-        shift: number,
+        shiftId: number,
         note?: string
     ): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
@@ -91,13 +139,25 @@ export const ScheduleService = {
         }
         try {
             const userId = await getCurrentUserId();
+            const { data: userStores, error: usErr } = await supabase
+                .from('user_stores')
+                .select('store_id')
+                .eq('user_id', userId);
+            if (usErr) throw usErr;
+            if (!userStores || userStores.length === 0) {
+                return { success: false, message: 'Bạn chưa được gán vào cửa hàng nào' };
+            }
+            const rows = userStores.map(us => ({
+                user_id: userId,
+                store_id: us.store_id,
+                work_date: workDate,
+                shift: shiftId,
+                note,
+            }));
             const { error } = await supabase
                 .from('schedule_registrations')
-                .insert({ user_id: userId, store_id: storeId, work_date: workDate, shift, note });
-            if (error) {
-                if (error.code === '23505') return { success: false, message: 'Bạn đã đăng ký ca này rồi' };
-                throw error;
-            }
+                .upsert(rows, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true });
+            if (error) throw error;
             return { success: true, message: 'Đã đăng ký thành công' };
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -106,26 +166,19 @@ export const ScheduleService = {
         }
     },
 
-    async cancelRegistration(regId: string): Promise<ServiceResult> {
+    async cancelRegistration(workDate: string, shiftId: number): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
             const userId = await getCurrentUserId();
-
-            const { data: reg, error: fetchErr } = await supabase
-                .from('schedule_registrations')
-                .select('work_date')
-                .eq('id', regId)
-                .single();
-            if (fetchErr || !reg) return { success: false, message: 'Không tìm thấy ca đăng ký' };
-            if (reg.work_date < formatLocalDate(new Date())) {
+            if (workDate < formatLocalDate(new Date())) {
                 return { success: false, message: 'Không thể hủy lịch làm trong quá khứ' };
             }
-
             const { error } = await supabase
                 .from('schedule_registrations')
                 .delete()
-                .eq('id', regId)
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .eq('work_date', workDate)
+                .eq('shift', shiftId);
             if (error) throw error;
             return { success: true, message: 'Đã hủy đăng ký' };
         } catch (err: unknown) {
@@ -136,25 +189,34 @@ export const ScheduleService = {
     },
 
     async batchRegister(
-        storeId: string,
         slots: { work_date: string; shift: number }[]
     ): Promise<ServiceResult<{ added: number; skipped: number }>> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
             const userId = await getCurrentUserId();
-            const rows = slots.map(s => ({
-                user_id: userId,
-                store_id: storeId,
-                work_date: s.work_date,
-                shift: s.shift,
-            }));
+            const { data: userStores, error: usErr } = await supabase
+                .from('user_stores')
+                .select('store_id')
+                .eq('user_id', userId);
+            if (usErr) throw usErr;
+            if (!userStores || userStores.length === 0) {
+                return { success: false, message: 'Bạn chưa được gán vào cửa hàng nào' };
+            }
+            const rows = slots.flatMap(s =>
+                userStores.map(us => ({
+                    user_id: userId,
+                    store_id: us.store_id,
+                    work_date: s.work_date,
+                    shift: s.shift,
+                }))
+            );
             const { data, error } = await supabase
                 .from('schedule_registrations')
                 .upsert(rows, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true })
                 .select('id');
             if (error) throw error;
             const added = data?.length || 0;
-            return { success: true, data: { added, skipped: slots.length - added }, message: `Đã đăng ký ${added} ca` };
+            return { success: true, data: { added, skipped: rows.length - added }, message: `Đã đăng ký ${added} ca` };
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error('[Schedule] batchRegister error:', err);
@@ -162,19 +224,17 @@ export const ScheduleService = {
         }
     },
 
-    async getMyRegistrations(weekDate: Date, storeId?: string): Promise<ScheduleRegistration[]> {
+    async getMyRegistrations(weekDate: Date): Promise<ScheduleRegistration[]> {
         if (!isSupabaseConfigured()) return [];
         try {
             const userId = await getCurrentUserId();
             const { start, end } = getWeekRange(weekDate);
-            let query = supabase
+            const { data, error } = await supabase
                 .from('schedule_registrations')
                 .select('*, stores:store_id(code, name)')
                 .eq('user_id', userId)
                 .gte('work_date', start)
                 .lte('work_date', end);
-            if (storeId) query = query.eq('store_id', storeId);
-            const { data, error } = await query;
             if (error) throw error;
             return (data || []).map((r: any) => ({
                 ...r,
@@ -187,12 +247,100 @@ export const ScheduleService = {
         }
     },
 
+    async getMyAssignments(weekDate: Date): Promise<ScheduleAssignment[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const userId = await getCurrentUserId();
+            const { start, end } = getWeekRange(weekDate);
+            const { data, error } = await supabase
+                .from('schedule_full_view')
+                .select('*')
+                .eq('user_id', userId)
+                .gte('work_date', start)
+                .lte('work_date', end);
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('[Schedule] getMyAssignments error:', err);
+            return [];
+        }
+    },
+
+    async getCoworkerAssignments(storeIds: string[], weekDate: Date): Promise<ScheduleAssignment[]> {
+        if (!isSupabaseConfigured()) return [];
+        if (storeIds.length === 0) return [];
+        try {
+            const { start, end } = getWeekRange(weekDate);
+            const { data, error } = await supabase
+                .from('schedule_full_view')
+                .select('*')
+                .in('store_id', storeIds)
+                .gte('work_date', start)
+                .lte('work_date', end);
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('[Schedule] getCoworkerAssignments error:', err);
+            return [];
+        }
+    },
+
+    async getMyStores(): Promise<{ id: string; code: string; name: string }[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const userId = await getCurrentUserId();
+            const { data, error } = await supabase
+                .from('user_stores')
+                .select('stores:store_id(id, code, name)')
+                .eq('user_id', userId);
+            if (error) throw error;
+            return (data || []).map((row: any) => row.stores).filter(Boolean);
+        } catch (err) {
+            console.error('[Schedule] getMyStores error:', err);
+            return [];
+        }
+    },
+
+    async getFullWeekSchedule(weekDate: Date): Promise<WeekScheduleData> {
+        if (!isSupabaseConfigured()) return { registrations: [], assignments: [] };
+        try {
+            const { start, end } = getWeekRange(weekDate);
+
+            const [regRes, asgnRes] = await Promise.all([
+                supabase
+                    .from('schedule_registrations')
+                    .select('*, users:user_id(name, employee_id, avatar_url), stores:store_id(code, name)')
+                    .gte('work_date', start)
+                    .lte('work_date', end),
+                supabase
+                    .from('schedule_full_view')
+                    .select('*')
+                    .gte('work_date', start)
+                    .lte('work_date', end),
+            ]);
+
+            const registrations: ScheduleRegistration[] = (regRes.data || []).map((r: any) => ({
+                ...r,
+                user_name: r.users?.name,
+                store_code: r.stores?.code,
+                store_name: r.stores?.name,
+            }));
+
+            const assignments: ScheduleAssignment[] = asgnRes.data || [];
+
+            return { registrations, assignments };
+        } catch (err) {
+            console.error('[Schedule] getFullWeekSchedule error:', err);
+            return { registrations: [], assignments: [] };
+        }
+    },
+
     async assignShift(
         userId: string,
         storeId: string,
         workDate: string,
         shift: number,
-        note?: string
+        opts?: { note?: string; custom_start?: string; custom_end?: string; tag?: AssignmentTag }
     ): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
@@ -205,7 +353,10 @@ export const ScheduleService = {
                     work_date: workDate,
                     shift,
                     assigned_by: adminId,
-                    note,
+                    note: opts?.note,
+                    custom_start: opts?.custom_start || null,
+                    custom_end: opts?.custom_end || null,
+                    tag: opts?.tag || null,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id,store_id,work_date,shift' });
             if (error) throw error;
@@ -217,13 +368,29 @@ export const ScheduleService = {
         }
     },
 
-    async removeAssignment(assignmentId: string): Promise<ServiceResult> {
+    async updateAssignment(
+        assignmentId: string,
+        updates: { custom_start?: string | null; custom_end?: string | null; tag?: AssignmentTag | null; note?: string }
+    ): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
             const { error } = await supabase
                 .from('schedule_assignments')
-                .delete()
+                .update({ ...updates, updated_at: new Date().toISOString() })
                 .eq('id', assignmentId);
+            if (error) throw error;
+            return { success: true, message: 'Đã cập nhật' };
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('[Schedule] updateAssignment error:', err);
+            return { success: false, message: msg };
+        }
+    },
+
+    async removeAssignment(assignmentId: string): Promise<ServiceResult> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const { error } = await supabase.from('schedule_assignments').delete().eq('id', assignmentId);
             if (error) throw error;
             return { success: true, message: 'Đã xóa lịch' };
         } catch (err: unknown) {
@@ -233,54 +400,71 @@ export const ScheduleService = {
         }
     },
 
-    async copyPreviousWeekRegistrations(weekDate: Date, storeId: string): Promise<ServiceResult> {
+    async autoAssignShifts(weekDate: Date, storeId: string, storeShifts: StoreShift[]): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
-            const userId = await getCurrentUserId();
+            const adminId = await getCurrentUserId();
+            const { start, end } = getWeekRange(weekDate);
 
-            const prevWeek = new Date(weekDate);
-            prevWeek.setDate(prevWeek.getDate() - 7);
-            const { start: prevStart, end: prevEnd } = getWeekRange(prevWeek);
+            const { data: existingAsgns, error: asgnErr } = await supabase
+                .from('schedule_assignments')
+                .select('user_id, work_date, shift')
+                .eq('store_id', storeId)
+                .gte('work_date', start)
+                .lte('work_date', end);
+            if (asgnErr) throw asgnErr;
 
-            const { data: prevRegs, error: fetchErr } = await supabase
+            const assignedSet = new Set((existingAsgns || []).map(a => `${a.user_id}-${a.work_date}-${a.shift}`));
+            const slotCountMap = new Map<string, number>();
+            (existingAsgns || []).forEach(a => {
+                const key = `${a.work_date}-${a.shift}`;
+                slotCountMap.set(key, (slotCountMap.get(key) || 0) + 1);
+            });
+
+            const maxSlotsMap = new Map<number, number>();
+            storeShifts.forEach(ss => { if (ss.max_slots > 0) maxSlotsMap.set(ss.id, ss.max_slots); });
+
+            const { data: regs, error: regErr } = await supabase
                 .from('schedule_registrations')
                 .select('*')
-                .eq('user_id', userId)
                 .eq('store_id', storeId)
-                .gte('work_date', prevStart)
-                .lte('work_date', prevEnd);
+                .gte('work_date', start)
+                .lte('work_date', end);
+            if (regErr) throw regErr;
+            if (!regs || regs.length === 0) return { success: false, message: 'Không có đăng ký nào để xếp tự động' };
 
-            if (fetchErr) throw fetchErr;
-            if (!prevRegs || prevRegs.length === 0) return { success: false, message: 'Không có đăng ký tuần trước để sao chép' };
+            const toInsert: any[] = [];
+            let skippedByMax = 0;
 
-            const currentWeekDates = getWeekDates(weekDate);
-            const prevWeekDates = getWeekDates(prevWeek);
+            for (const r of regs) {
+                if (assignedSet.has(`${r.user_id}-${r.work_date}-${r.shift}`)) continue;
+                const slotKey = `${r.work_date}-${r.shift}`;
+                const currentCount = slotCountMap.get(slotKey) || 0;
+                const maxSlots = maxSlotsMap.get(r.shift);
+                if (maxSlots && currentCount >= maxSlots) { skippedByMax++; continue; }
 
-            const toInsert = prevRegs
-                .map(r => {
-                    const dayIndex = prevWeekDates.indexOf(r.work_date);
-                    if (dayIndex === -1) return null;
-                    return {
-                        user_id: userId,
-                        store_id: storeId,
-                        shift: r.shift,
-                        work_date: currentWeekDates[dayIndex],
-                        note: r.note
-                    };
-                })
-                .filter((r): r is NonNullable<typeof r> => r !== null);
+                toInsert.push({
+                    user_id: r.user_id, store_id: storeId, shift: r.shift, work_date: r.work_date,
+                    assigned_by: adminId, updated_at: new Date().toISOString()
+                });
+                slotCountMap.set(slotKey, currentCount + 1);
+                assignedSet.add(`${r.user_id}-${r.work_date}-${r.shift}`);
+            }
 
-            if (toInsert.length === 0) return { success: false, message: 'Không thể map ngày tuần trước' };
+            if (toInsert.length === 0) {
+                return { success: true, message: skippedByMax > 0 ? `Tất cả slot đã đầy (${skippedByMax} vượt giới hạn)` : 'Tất cả đã xếp rồi' };
+            }
 
             const { error: insertErr } = await supabase
-                .from('schedule_registrations')
+                .from('schedule_assignments')
                 .upsert(toInsert, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true });
-
             if (insertErr) throw insertErr;
-            return { success: true, message: `Đã sao chép ${toInsert.length} đăng ký từ tuần trước` };
+
+            const extra = skippedByMax > 0 ? ` (bỏ qua ${skippedByMax} do vượt slot)` : '';
+            return { success: true, message: `Đã tự động xếp ${toInsert.length} ca${extra}` };
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
-            console.error('[Schedule] copyPreviousWeekRegistrations error:', err);
+            console.error('[Schedule] autoAssignShifts error:', err);
             return { success: false, message: msg };
         }
     },
@@ -299,7 +483,6 @@ export const ScheduleService = {
                 .eq('store_id', storeId)
                 .gte('work_date', prevStart)
                 .lte('work_date', prevEnd);
-
             if (fetchErr) throw fetchErr;
             if (!prevAsgns || prevAsgns.length === 0) return { success: false, message: 'Không có lịch tuần trước để sao chép' };
 
@@ -311,11 +494,9 @@ export const ScheduleService = {
                     const dayIndex = prevWeekDates.indexOf(a.work_date);
                     if (dayIndex === -1) return null;
                     return {
-                        user_id: a.user_id,
-                        store_id: storeId,
-                        shift: a.shift,
-                        work_date: currentWeekDates[dayIndex],
-                        assigned_by: adminId,
+                        user_id: a.user_id, store_id: storeId, shift: a.shift,
+                        work_date: currentWeekDates[dayIndex], assigned_by: adminId,
+                        custom_start: a.custom_start, custom_end: a.custom_end, tag: a.tag,
                         updated_at: new Date().toISOString()
                     };
                 })
@@ -326,9 +507,8 @@ export const ScheduleService = {
             const { error: insertErr } = await supabase
                 .from('schedule_assignments')
                 .upsert(toInsert, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true });
-
             if (insertErr) throw insertErr;
-            return { success: true, message: `Đã sao chép ${toInsert.length} ca làm từ tuần trước` };
+            return { success: true, message: `Đã sao chép ${toInsert.length} ca từ tuần trước` };
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error('[Schedule] copyPreviousWeekAssignments error:', err);
@@ -336,175 +516,48 @@ export const ScheduleService = {
         }
     },
 
-    async autoAssignShifts(weekDate: Date, storeId: string, shiftConfigs?: ShiftConfig[]): Promise<ServiceResult> {
+    async copyPreviousWeekRegistrations(weekDate: Date): Promise<ServiceResult> {
         if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
         try {
-            const adminId = await getCurrentUserId();
-            const { start, end } = getWeekRange(weekDate);
-
-            // Fetch existing assignments to avoid duplicates
-            const { data: existingAsgns, error: asgnErr } = await supabase
-                .from('schedule_assignments')
-                .select('user_id, work_date, shift')
-                .eq('store_id', storeId)
-                .gte('work_date', start)
-                .lte('work_date', end);
-
-            if (asgnErr) throw asgnErr;
-            const assignedSet = new Set((existingAsgns || []).map(a => `${a.user_id}-${a.work_date}-${a.shift}`));
-
-            // Build slot count map for max_slots enforcement
-            const slotCountMap = new Map<string, number>();
-            (existingAsgns || []).forEach(a => {
-                const key = `${a.work_date}-${a.shift}`;
-                slotCountMap.set(key, (slotCountMap.get(key) || 0) + 1);
-            });
-
-            // Build max_slots lookup from shift configs
-            const maxSlotsMap = new Map<number, number>();
-            if (shiftConfigs) {
-                shiftConfigs.forEach(sc => {
-                    if (sc.max_slots && sc.max_slots > 0) maxSlotsMap.set(sc.id, sc.max_slots);
-                });
-            }
-
-            // Fetch all registrations
-            const { data: regs, error: regErr } = await supabase
-                .from('schedule_registrations')
-                .select('*')
-                .eq('store_id', storeId)
-                .gte('work_date', start)
-                .lte('work_date', end);
-
-            if (regErr) throw regErr;
-            if (!regs || regs.length === 0) return { success: false, message: 'Không có đăng ký nào để xếp tự động' };
-
-            const toInsert: { user_id: string; store_id: string; shift: number; work_date: string; assigned_by: string; updated_at: string }[] = [];
-            let skippedByMax = 0;
-
-            for (const r of regs) {
-                if (assignedSet.has(`${r.user_id}-${r.work_date}-${r.shift}`)) continue;
-
-                // Check max_slots limit
-                const slotKey = `${r.work_date}-${r.shift}`;
-                const currentCount = slotCountMap.get(slotKey) || 0;
-                const maxSlots = maxSlotsMap.get(r.shift);
-                if (maxSlots && currentCount >= maxSlots) {
-                    skippedByMax++;
-                    continue;
-                }
-
-                toInsert.push({
-                    user_id: r.user_id,
-                    store_id: storeId,
-                    shift: r.shift,
-                    work_date: r.work_date,
-                    assigned_by: adminId,
-                    updated_at: new Date().toISOString()
-                });
-                // Increment count for next iteration
-                slotCountMap.set(slotKey, currentCount + 1);
-                assignedSet.add(`${r.user_id}-${r.work_date}-${r.shift}`);
-            }
-
-            if (toInsert.length === 0) {
-                return { success: true, message: skippedByMax > 0 ? `Tất cả slot đã đầy (${skippedByMax} đăng ký vượt giới hạn)` : 'Tất cả các ca đăng ký đã được xếp rồi' };
-            }
-
-            const { error: insertErr } = await supabase
-                .from('schedule_assignments')
-                .upsert(toInsert, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true });
-
-            if (insertErr) throw insertErr;
-            const extra = skippedByMax > 0 ? ` (bỏ qua ${skippedByMax} do vượt slot)` : '';
-            return { success: true, message: `Đã tự động duyệt ${toInsert.length} đăng ký vào lịch${extra}` };
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            console.error('[Schedule] autoAssignShifts error:', err);
-            return { success: false, message: msg };
-        }
-    },
-
-    async getWeekSchedule(weekDate: Date, storeId?: string): Promise<WeekScheduleData> {
-        if (!isSupabaseConfigured()) return { registrations: [], assignments: [] };
-        try {
-            const { start, end } = getWeekRange(weekDate);
-            let regQuery = supabase
-                .from('schedule_registrations')
-                .select('*, users:user_id(name, employee_id, avatar_url), stores:store_id(code, name)')
-                .gte('work_date', start)
-                .lte('work_date', end);
-            if (storeId) regQuery = regQuery.eq('store_id', storeId);
-
-            let asgnQuery = supabase
-                .from('schedule_overview')
-                .select('*')
-                .gte('work_date', start)
-                .lte('work_date', end);
-            if (storeId) asgnQuery = asgnQuery.eq('store_id', storeId);
-
-            const [regRes, asgnRes] = await Promise.all([regQuery, asgnQuery]);
-
-            const registrations: ScheduleRegistration[] = (regRes.data || []).map((r: any) => ({
-                ...r,
-                user_name: r.users?.name,
-                store_code: r.stores?.code,
-                store_name: r.stores?.name,
-            }));
-
-            const assignments: ScheduleAssignment[] = (asgnRes.data || []).map((a: any) => ({
-                ...a,
-            }));
-
-            return { registrations, assignments };
-        } catch (err) {
-            console.error('[Schedule] getWeekSchedule error:', err);
-            return { registrations: [], assignments: [] };
-        }
-    },
-
-    async getMyAssignments(weekDate: Date, storeId?: string): Promise<ScheduleAssignment[]> {
-        if (!isSupabaseConfigured()) return [];
-        try {
             const userId = await getCurrentUserId();
-            const { start, end } = getWeekRange(weekDate);
-            let query = supabase
-                .from('schedule_overview')
+            const prevWeek = new Date(weekDate);
+            prevWeek.setDate(prevWeek.getDate() - 7);
+            const { start: prevStart, end: prevEnd } = getWeekRange(prevWeek);
+
+            const { data: prevRegs, error: fetchErr } = await supabase
+                .from('schedule_registrations')
                 .select('*')
                 .eq('user_id', userId)
-                .gte('work_date', start)
-                .lte('work_date', end);
-            if (storeId) query = query.eq('store_id', storeId);
-            const { data, error } = await query;
-            if (error) throw error;
-            return data || [];
-        } catch (err) {
-            console.error('[Schedule] getMyAssignments error:', err);
-            return [];
-        }
-    },
+                .gte('work_date', prevStart)
+                .lte('work_date', prevEnd);
+            if (fetchErr) throw fetchErr;
+            if (!prevRegs || prevRegs.length === 0) return { success: false, message: 'Không có đăng ký tuần trước để sao chép' };
 
-    async getAvailableEmployees(
-        storeId: string,
-        workDate: string,
-        shift: number
-    ): Promise<ScheduleRegistration[]> {
-        if (!isSupabaseConfigured()) return [];
-        try {
-            const { data, error } = await supabase
+            const currentWeekDates = getWeekDates(weekDate);
+            const prevWeekDates = getWeekDates(prevWeek);
+
+            const toInsert = prevRegs
+                .map(r => {
+                    const dayIndex = prevWeekDates.indexOf(r.work_date);
+                    if (dayIndex === -1) return null;
+                    return {
+                        user_id: userId, store_id: r.store_id, shift: r.shift,
+                        work_date: currentWeekDates[dayIndex], note: r.note
+                    };
+                })
+                .filter((r): r is NonNullable<typeof r> => r !== null);
+
+            if (toInsert.length === 0) return { success: false, message: 'Không thể map ngày tuần trước' };
+
+            const { error: insertErr } = await supabase
                 .from('schedule_registrations')
-                .select('*, users:user_id(name, employee_id, avatar_url)')
-                .eq('store_id', storeId)
-                .eq('work_date', workDate)
-                .eq('shift', shift);
-            if (error) throw error;
-            return (data || []).map((r: any) => ({
-                ...r,
-                user_name: r.users?.name,
-            }));
-        } catch (err) {
-            console.error('[Schedule] getAvailableEmployees error:', err);
-            return [];
+                .upsert(toInsert, { onConflict: 'user_id,store_id,work_date,shift', ignoreDuplicates: true });
+            if (insertErr) throw insertErr;
+            return { success: true, message: `Đã sao chép ${toInsert.length} đăng ký từ tuần trước` };
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('[Schedule] copyPreviousWeekRegistrations error:', err);
+            return { success: false, message: msg };
         }
     },
 
@@ -512,23 +565,15 @@ export const ScheduleService = {
         if (!isSupabaseConfigured()) return [];
         try {
             if (storeId) {
-                // Filter employees who belong to this store via user_stores table
                 const { data, error } = await supabase
                     .from('user_stores')
                     .select('users:user_id(id, name, employee_id, avatar_url)')
                     .eq('store_id', storeId);
                 if (error) throw error;
-                const employees = (data || [])
-                    .map((row: any) => row.users)
-                    .filter(Boolean)
+                return (data || []).map((row: any) => row.users).filter(Boolean)
                     .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
-                return employees;
             }
-            // Fallback: return all users if no storeId
-            const { data, error } = await supabase
-                .from('users')
-                .select('id, name, employee_id, avatar_url')
-                .order('name');
+            const { data, error } = await supabase.from('users').select('id, name, employee_id, avatar_url').order('name');
             if (error) throw error;
             return data || [];
         } catch (err) {

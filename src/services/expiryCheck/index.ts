@@ -468,14 +468,14 @@ export async function syncKiotVietStock(sessionId: string, storeId: string): Pro
 
     const { data: results } = await supabase
         .from('expiry_check_results')
-        .select('id, product_id, product:products(id, barcode)')
+        .select('id, product_id, product:products(id, name, barcode)')
         .eq('session_id', sessionId);
 
     if (!results || results.length === 0) return { success: false, message: 'Không có sản phẩm' };
 
     const updates: { id: string; qty: number }[] = [];
     for (const r of results) {
-        const barcode = (r as any).product?.barcode;
+        const barcode = (r as any).product?.name;
         if (barcode && stockMap[barcode] !== undefined) {
             updates.push({ id: r.id, qty: stockMap[barcode] });
         }
@@ -483,8 +483,20 @@ export async function syncKiotVietStock(sessionId: string, storeId: string): Pro
 
     if (updates.length > 0) {
         const now = new Date().toISOString();
-        const promises = updates.map(u => supabase.from('expiry_check_results').update({ qty: u.qty, checked_at: now }).eq('id', u.id));
-        await Promise.all(promises);
+        const stockGroups = new Map<number, string[]>();
+        for (const u of updates) {
+            const existing = stockGroups.get(u.qty) || [];
+            existing.push(u.id);
+            stockGroups.set(u.qty, existing);
+        }
+
+        const batchPromises = Array.from(stockGroups.entries()).map(([qty, itemIds]) =>
+            supabase
+                .from('expiry_check_results')
+                .update({ qty: qty, checked_at: now })
+                .in('id', itemIds)
+        );
+        await Promise.all(batchPromises);
     }
 
     return { success: true, syncedCount: updates.length, message: `Đã đồng bộ ${updates.length} sản phẩm` };

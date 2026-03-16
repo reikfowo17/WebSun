@@ -45,6 +45,7 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [syncing, setSyncing] = useState(false);
+    const [showSyncModal, setShowSyncModal] = useState(false);
     const [confirmComplete, setConfirmComplete] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
     const [catPopoverOpen, setCatPopoverOpen] = useState(false);
     const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -213,31 +214,30 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
 
         const tableRows = results
           .map((r, i) => {
-            const nameStr = r.product?.name?.trim() || "";
-            const barcodeStr = r.product?.barcode || r.product?.sp || "";
+            const nameStr = (r.product?.sp || r.product?.barcode || "—").trim();
+            const barcodeStr = r.product?.name?.trim() || "-";
+            const barcodeLast6 = barcodeStr.length >= 6 ? "....." + barcodeStr.slice(-6) : barcodeStr;
             const qtyStr = qtyMap[r.id] ?? (r.qty !== null ? String(r.qty) : '');
-            const noteVal = noteMap[r.id] || '';
-            const hasData = qtyStr || noteVal;
-            const info = getExpiryInfo(r.id);
+            const dateStr = dateMap[r.id] ? new Date(dateMap[r.id] + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+            const hasData = qtyStr || dateStr;
 
             return `<tr class="${hasData ? "checked-row" : ""}">
             <td class="stt-col">${i + 1}</td>
             <td class="name-col">${nameStr}</td>
-            <td class="barcode-col">${barcodeStr}</td>
+            <td class="barcode-col">${barcodeLast6}</td>
             <td class="qty-col">${qtyStr}</td>
-            <td class="status-col">${info.label}</td>
-            <td class="note-col">${noteVal}</td>
+            <td class="date-col">${dateStr}</td>
           </tr>`;
           })
           .join("");
 
-        const printCSS = `*{box-sizing:border-box}@media print{body{margin:0;padding:3mm;font-size:9px}.no-print{display:none}@page{size:A4 landscape;margin:5mm}}body{font-family:"Segoe UI","Arial Unicode MS","Tahoma","Arial",sans-serif;margin:0;padding:3mm;font-size:9px;line-height:1.2;color:#000}.header{text-align:center;margin-bottom:1mm;border-bottom:2px solid #000;padding-bottom:0.5mm}.header h2{margin:0;font-size:12px;font-weight:800;text-transform:uppercase;padding:0.5mm 1mm}.info{margin-bottom:2mm;font-size:8px;border-bottom:1px solid #ccc;padding:1mm 2mm}.info p{margin:1px 0;font-weight:500}.product-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:2mm}.product-table th{background:#f0f0f0;color:#000;font-weight:900;text-align:center;padding:1.5mm;border:1px solid #ccc;font-size:8px;text-transform:uppercase;white-space:nowrap}.product-table td{padding:1mm;border:1px solid #ccc;vertical-align:top;font-weight:600;color:#000}.stt-col{width:5%;text-align:center}.name-col{width:30%;text-align:left;padding-left:2mm}.barcode-col{width:15%;text-align:center;font-family:monospace}.qty-col{width:10%;text-align:center;font-weight:900}.status-col{width:18%;text-align:center}.note-col{width:22%;text-align:left}.checked-row{background:#e8f5e8!important}.footer{margin-top:2mm;text-align:center;font-size:7px;border-top:1px solid #ccc;padding:1mm}.footer p{margin:1px 0}`;
+        const printCSS = `*{box-sizing:border-box}@media print{body{margin:0;padding:3mm;font-size:9px}.no-print{display:none}@page{size:80mm auto;margin:2mm}}body{font-family:"Segoe UI","Arial Unicode MS","Tahoma","Arial",sans-serif;margin:0;padding:3mm;font-size:9px;width:100%;max-width:80mm;line-height:1.2;color:#000}.header{text-align:center;margin-bottom:1mm;border-bottom:2px solid #000;padding-bottom:0.5mm}.header h2{margin:0;font-size:12px;font-weight:800;text-transform:uppercase;padding:0.5mm 1mm}.info{margin-bottom:2mm;font-size:8px;border-bottom:1px solid #ccc;padding:1mm 2mm}.info p{margin:1px 0;font-weight:500}.product-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:2mm}.product-table th{background:#fff;color:#000;font-weight:900;text-align:center;padding:1mm;border-bottom:1px solid #000;font-size:9px;text-transform:uppercase;white-space:nowrap}.product-table td{padding:1mm;border-bottom:1px solid #ccc;vertical-align:top;font-weight:600;color:#000}.product-table tr:nth-child(even){background:#f8f8f8}.stt-col{width:7%;text-align:center;font-weight:900;font-size:10px}.name-col{width:42%;text-align:left;padding-left:2mm;word-wrap:break-word;line-height:1.4;font-weight:700;font-size:9px}.barcode-col{width:15%;text-align:center;font-weight:800;font-size:10px;color:#333}.qty-col,.date-col{width:18%;text-align:center;font-weight:800;font-size:10px}.checked-row{background:#e8f5e8!important}.checked-row .qty-col,.checked-row .date-col{background:#d4edda;font-weight:bold;color:#155724}.footer{margin-top:2mm;text-align:center;font-size:7px;border-top:1px solid #ccc;padding:1mm}.footer p{margin:1px 0}`;
 
         const html = `<!DOCTYPE html><html><head><title>Danh sách kiểm tra - ${storeName}</title><meta charset="UTF-8"><style>${printCSS}</style></head><body>
           <div class="header"><h2>DANH SÁCH ${catName.toUpperCase()}</h2></div>
           <div class="info"><p><strong>Ngày:</strong> ${fmtDate(session.check_date)} | <strong>Cửa hàng:</strong> ${storeName} | <strong>Tổng SP:</strong> ${results.length}</p></div>
           <table class="product-table">
-            <thead><tr><th class="stt-col">STT</th><th class="name-col">TÊN SẢN PHẨM</th><th class="barcode-col">BARCODE</th><th class="qty-col">SỐ LƯỢNG</th><th class="status-col">TRẠNG THÁI</th><th class="note-col">GHI CHÚ</th></tr></thead>
+            <thead><tr><th class="stt-col">STT</th><th class="name-col">TÊN SP</th><th class="barcode-col">BARCODE</th><th class="qty-col">SỐ LƯỢNG</th><th class="date-col">DATE</th></tr></thead>
             <tbody>${tableRows}</tbody>
           </table>
           <div class="footer"><p>In lúc: ${now.toLocaleString("vi-VN")}</p></div>
@@ -263,6 +263,7 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     /* ── Sync KiotViet stock quantities ── */
     const handleSync = async () => {
         if (!session || !selectedStoreId) return;
+        setShowSyncModal(false);
         setSyncing(true);
         try {
             const res = await ExpiryCheckService.syncKiotVietStock(session.id, selectedStoreId);
@@ -329,31 +330,31 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
     const renderStatusBadge = (info: { status: string; label: string; daysLeft: number | null }) => {
         if (info.status === 'UNKNOWN') {
             return (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                    Chưa có
+                <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 w-[110px] rounded-md text-[12px] font-medium font-sans whitespace-nowrap bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 shrink-0" />
+                    {info.label}
                 </span>
             );
         }
         if (info.status === 'EXPIRED') {
             return (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/40">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 w-[110px] rounded-md text-[12px] font-semibold font-sans whitespace-nowrap bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
                     {info.label}
                 </span>
             );
         }
         if (info.status === 'NEAR_EXPIRY') {
             return (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/40">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 w-[110px] rounded-md text-[12px] font-semibold font-sans whitespace-nowrap bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
                     {info.label}
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 w-[110px] rounded-md text-[12px] font-semibold font-sans whitespace-nowrap bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                 {info.label}
             </span>
         );
@@ -372,7 +373,7 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                 <div className="flex items-center gap-2">
                     {session && !isCompleted && (
                         <button 
-                            onClick={handleSync} 
+                            onClick={() => setShowSyncModal(true)} 
                             disabled={syncing || results.length === 0} 
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] text-sm font-medium ${syncing ? 'text-blue-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                             title="Đồng bộ số lượng tồn KiotViet"
@@ -630,21 +631,25 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                                                             <td className="px-3 py-3 text-center text-xs text-gray-400 font-medium">{i + 1}</td>
                                                             
                                                             {/* Tên sản phẩm */}
-                                                            <td className="px-4 py-3">
-                                                                <span className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2">{r.product?.name || '—'}</span>
+                                                            <td className="px-5 py-3.5 max-w-[220px]">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <span className="text-[14px] font-semibold text-gray-800 dark:text-gray-200 leading-snug line-clamp-2 tracking-tight">
+                                                                        {r.product?.sp || r.product?.barcode || '—'}
+                                                                    </span>
+                                                                </div>
                                                             </td>
                                                             
                                                             {/* Barcode */}
-                                                            <td className="px-3 py-3 text-center">
-                                                                <span className="text-xs font-mono font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded">
-                                                                    {r.product?.barcode || r.product?.sp || '-'}
+                                                            <td className="px-4 py-3.5 text-center">
+                                                                <span className="inline-flex items-center justify-center font-mono text-[11px] font-medium tracking-wider text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 px-2.5 py-1 rounded-md shadow-sm">
+                                                                    {r.product?.name || '-'}
                                                                 </span>
                                                             </td>
                                                             
                                                             {/* Số lượng */}
                                                             <td className="px-3 py-3 text-center">
                                                                 {!canEdit ? (
-                                                                    <span className="font-extrabold text-base text-gray-900 dark:text-white">{val || '-'}</span>
+                                                                    <span className="font-extrabold text-[15px] font-sans text-gray-900 dark:text-white">{val || '-'}</span>
                                                                 ) : (
                                                                     <input
                                                                         type="number"
@@ -656,9 +661,9 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                                                                         }}
                                                                         max={99999}
                                                                         maxLength={5}
-                                                                        className={`w-full h-10 text-center font-bold text-lg border rounded-lg focus:ring-2 outline-none transition-shadow ${
-                                                                            val ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50 text-gray-900 dark:text-white focus:ring-emerald-500' :
-                                                                            'bg-gray-50 dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-orange-500'
+                                                                        className={`w-full h-9 px-1 text-center font-bold text-[15px] font-sans border rounded-lg outline-none transition-all duration-200 ${
+                                                                            val ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500' :
+                                                                            'bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
                                                                         }`}
                                                                         placeholder="-"
                                                                     />
@@ -680,12 +685,12 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                                                                         type="date"
                                                                         value={dateMap[r.id] || ''}
                                                                         onChange={e => handleFieldChange(r.id, 'date', e.target.value)}
-                                                                        className={`w-full h-10 text-center text-[13px] font-semibold border rounded-lg focus:ring-2 outline-none transition-shadow ${
+                                                                        className={`w-full h-9 px-1.5 text-center text-[13px] font-semibold font-sans tracking-wide border rounded-lg outline-none transition-all duration-200 ${
                                                                             dateMap[r.id] 
-                                                                                ? isExpired ? 'bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 focus:ring-red-500'
-                                                                                : isNearExpiry ? 'bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 focus:ring-orange-500'
-                                                                                : 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50 text-gray-900 dark:text-white focus:ring-emerald-500'
-                                                                            : 'bg-gray-50 dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-orange-500'
+                                                                                ? isExpired ? 'bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400 focus:ring-2 focus:ring-red-500/20 focus:border-red-500'
+                                                                                : isNearExpiry ? 'bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500'
+                                                                                : 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                                                                            : 'bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
                                                                         }`}
                                                                     />
                                                                 )}
@@ -699,13 +704,17 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                                                             {/* Ghi chú */}
                                                             <td className="px-4 py-3">
                                                                 {!canEdit ? (
-                                                                    <span className="text-sm text-gray-600 dark:text-gray-400">{noteVal || '-'}</span>
+                                                                    <span className="text-[13px] font-medium text-gray-600 dark:text-gray-400">{noteVal || '-'}</span>
                                                                 ) : (
                                                                     <input
                                                                         type="text"
                                                                         value={noteVal}
                                                                         onChange={e => handleFieldChange(r.id, 'note', e.target.value)}
-                                                                        className="w-full h-10 px-3 text-sm border rounded-lg bg-gray-50 dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none transition-shadow placeholder-gray-400"
+                                                                        className={`w-full h-9 px-2.5 text-[13px] font-medium font-sans border rounded-lg outline-none transition-all duration-200 placeholder-gray-400 shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${
+                                                                            noteVal
+                                                                                ? 'bg-emerald-50/20 dark:bg-[#0a0a0a] border-emerald-200 dark:border-emerald-800/30 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                                                                                : 'bg-white dark:bg-[#0a0a0a] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500'
+                                                                        }`}
                                                                         placeholder="Nhập ghi chú..."
                                                                     />
                                                                 )}
@@ -722,6 +731,39 @@ const ExpiryCheckWorker: React.FC<ExpiryCheckWorkerProps> = ({ user, currentDate
                     )}
                 </div>
             </div>
+
+            {/* Sync Modal */}
+            {showSyncModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSyncModal(false)}></div>
+                    <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                        <div className="p-6">
+                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4">
+                                <span className="material-symbols-outlined text-2xl">cloud_sync</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Đồng bộ KiotViet</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                Lấy số liệu tồn kho mới nhất trên KiotViet điền tự động vào cột Số lượng.
+                            </p>
+                        </div>
+                        <div className="flex border-t border-gray-100 dark:border-gray-800">
+                            <button
+                                onClick={() => setShowSyncModal(false)}
+                                className="flex-1 py-3.5 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <div className="w-px bg-gray-100 dark:bg-gray-800"></div>
+                            <button
+                                onClick={handleSync}
+                                className="flex-1 py-3.5 text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            >
+                                Đồng bộ ngay
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <ConfirmModal
                 isOpen={confirmComplete.show}
