@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ToastContextType } from '../../contexts/ToastContext';
 import type { ChecklistTemplate, ChecklistCategory, ShiftType, DayOfWeek } from '../../types/shift';
-import { MultiStoreSelect } from '../../components/MultiStoreSelect';
 import { CHECKLIST_LABELS, CHECKLIST_ICONS, DAY_LABELS } from '../../types/shift';
 import { ChecklistService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import { ShiftPillToggle, DayPillToggle } from '../../components/PillToggle';
+import { DayPillToggle } from '../../components/PillToggle';
 
 import type { Store } from '../../types';
 
@@ -14,17 +13,25 @@ interface SettingsChecklistProps {
     stores: Store[];
 }
 
-const CATEGORIES: ChecklistCategory[] = ['HANDOVER', 'NOTE', 'START_SHIFT', 'MID_SHIFT', 'END_SHIFT'];
+const CATEGORIES: ChecklistCategory[] = ['START_SHIFT', 'MID_SHIFT', 'END_SHIFT', 'HANDOVER', 'NOTE'];
+const SHIFTS: { id: ShiftType, label: string }[] = [
+    { id: 'MORNING', label: 'Sáng' },
+    { id: 'AFTERNOON', label: 'Chiều' },
+    { id: 'EVENING', label: 'Tối' }
+];
 
 export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, stores }) => {
     const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [filterCategory, setFilterCategory] = useState<ChecklistCategory | 'ALL'>('ALL');
-    const [filterStore, setFilterStore] = useState<string>('ALL');
+    
+    // Master Selection Context
+    const [selectedContext, setSelectedContext] = useState<string>('GLOBAL');
+
+    // Modal state
+    const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [draft, setDraft] = useState<Partial<ChecklistTemplate>>({});
-    const [isAdding, setIsAdding] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
     useEffect(() => {
@@ -43,64 +50,60 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
         }
     };
 
-    const filtered = templates.filter(t => {
-        const matchCat = filterCategory === 'ALL' || t.category === filterCategory;
-        const matchStore = filterStore === 'ALL' || (t.store_ids === null) || t.store_ids.includes(filterStore);
-        return matchCat && matchStore;
-    });
+    const filteredTemplates = useMemo(() => {
+        return templates.filter(t => {
+            if (selectedContext === 'GLOBAL') {
+                return t.store_ids === null;
+            }
+            return t.store_ids?.includes(selectedContext);
+        });
+    }, [templates, selectedContext]);
 
-    // ─── Add ───
-    const handleAdd = () => {
-        if (isAdding || editingId) return;
-        setIsAdding(true);
+    const handleAdd = (defaultCategory?: ChecklistCategory) => {
+        setEditingId(null);
         setDraft({
-            category: filterCategory !== 'ALL' ? filterCategory : 'START_SHIFT',
+            category: defaultCategory || 'START_SHIFT',
             title: '',
             requires_note: false,
             requires_photo: false,
-            sort_order: (filtered.length || templates.length) + 1,
+            sort_order: templates.length + 1,
             shift_types: ['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[],
             day_of_week: null,
-            store_ids: filterStore !== 'ALL' ? [filterStore] : null,
+            store_ids: selectedContext === 'GLOBAL' ? null : [selectedContext],
             is_active: true,
         });
+        setModalOpen(true);
     };
 
-    const handleSaveNew = async () => {
+    const handleEdit = (template: ChecklistTemplate) => {
+        setEditingId(template.id);
+        setDraft({ ...template });
+        setModalOpen(true);
+    };
+
+    const handleSave = async () => {
         if (!draft.title?.trim()) {
             toast.error('Vui lòng nhập nội dung công việc');
             return;
         }
         setSaving(true);
         try {
-            const created = await ChecklistService.createTemplate(draft as Partial<ChecklistTemplate>);
-            setTemplates(prev => [...prev, created]);
-            setIsAdding(false);
+            if (editingId) {
+                const updated = await ChecklistService.updateTemplate(editingId, draft);
+                setTemplates(prev => prev.map(t => t.id === editingId ? updated : t));
+                toast.success('Đã cập nhật công việc');
+            } else {
+                const payload = {
+                    ...draft,
+                    store_ids: selectedContext === 'GLOBAL' ? null : [selectedContext]
+                };
+                const created = await ChecklistService.createTemplate(payload as Partial<ChecklistTemplate>);
+                setTemplates(prev => [...prev, created]);
+                toast.success('Đã thêm công việc mới');
+            }
+            setModalOpen(false);
             setDraft({});
-            toast.success('Đã thêm mục công việc');
-        } catch (err: unknown) {
-            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // ─── Edit ───
-    const handleEdit = (template: ChecklistTemplate) => {
-        if (isAdding || editingId) return;
-        setEditingId(template.id);
-        setDraft({ ...template });
-    };
-
-    const handleSaveEdit = async () => {
-        if (!editingId || !draft.title?.trim()) return;
-        setSaving(true);
-        try {
-            const updated = await ChecklistService.updateTemplate(editingId, draft);
-            setTemplates(prev => prev.map(t => t.id === editingId ? updated : t));
             setEditingId(null);
-            setDraft({});
-            toast.success('Đã cập nhật');
         } catch (err: unknown) {
             toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
@@ -108,11 +111,10 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
         }
     };
 
-    // ─── Delete ───
     const handleDelete = (template: ChecklistTemplate) => {
         setConfirmDialog({
             title: 'Xóa mục công việc',
-            message: `Xóa "${template.title}"? Thao tác này không thể hoàn tác.`,
+            message: `Bạn có chắc muốn xóa "${template.title}" khỏi ${selectedContext === 'GLOBAL' ? 'Cấu hình chung' : stores.find(s => s.id === selectedContext)?.name}?`,
             onConfirm: async () => {
                 setConfirmDialog(null);
                 try {
@@ -126,305 +128,298 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
         });
     };
 
-    const handleCancel = () => {
-        setEditingId(null);
-        setIsAdding(false);
-        setDraft({});
+    const handleToggleShift = async (template: ChecklistTemplate, shift: ShiftType) => {
+        const currentShifts = template.shift_types || [];
+        const isActive = currentShifts.includes(shift);
+        const newShifts = isActive ? currentShifts.filter(s => s !== shift) : [...currentShifts, shift];
+        
+        try {
+            const updated = await ChecklistService.updateTemplate(template.id, { shift_types: newShifts });
+            setTemplates(prev => prev.map(t => t.id === template.id ? updated : t));
+        } catch (err: unknown) {
+            toast.error('Lỗi đổi thuộc tính ca: ' + (err instanceof Error ? err.message : String(err)));
+        }
     };
 
-    return (
-        <>
-            <div className="stg-section-animate">
-                <div className="stg-table-wrap">
-                    {/* Toolbar */}
-                    <div className="stg-toolbar">
-                        <div className="stg-toolbar-left">
-                            <span className="stg-badge">{templates.length} mục</span>
-                            {/* Category filter */}
-                            <div style={{ position: 'relative' }}>
-                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>filter_list</span>
-                                <select
-                                    className="stg-input"
-                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 140, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151' }}
-                                    value={filterCategory}
-                                    onChange={e => setFilterCategory(e.target.value as ChecklistCategory | 'ALL')}
-                                >
-                                    <option value="ALL">Tất cả phân loại</option>
-                                    {CATEGORIES.map(cat => (
-                                        <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Store filter */}
-                            <div style={{ position: 'relative' }}>
-                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>storefront</span>
-                                <select
-                                    className="stg-input"
-                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 150, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151' }}
-                                    value={filterStore}
-                                    onChange={e => setFilterStore(e.target.value)}
-                                >
-                                    <option value="ALL">Tất cả cửa hàng</option>
-                                    {stores.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+    // Render a Kanban Card
+    const renderCard = (template: ChecklistTemplate) => {
+        return (
+            <div key={template.id} className="stg-kanban-card group">
+                <div className="stg-kanban-card-header">
+                    <span className="stg-kanban-card-title">{template.title}</span>
+                    <div className="stg-kanban-card-actions">
+                        <button onClick={() => handleEdit(template)} className="stg-btn-icon stg-kanban-action" title="Sửa chi tiết">
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(template)} className="stg-btn-icon stg-kanban-action text-red-500" title="Xóa tác vụ">
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_outline</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="stg-kanban-card-tags">
+                    
+                    {/* Quick Shift Toggles */}
+                    <div>
+                        <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                            <span className="material-symbols-outlined" style={{fontSize: 12}}>schedule</span> Áp dụng ca
                         </div>
-                        <div className="stg-toolbar-right">
-                            <button
-                                onClick={handleAdd}
-                                className="stg-btn stg-btn-primary"
-                                disabled={saving || isAdding || !!editingId}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-                                Thêm mục
-                            </button>
+                        <div className="flex gap-1.5">
+                            {SHIFTS.map(s => {
+                                const active = template.shift_types?.includes(s.id);
+                                return (
+                                    <button 
+                                        key={s.id}
+                                        onClick={() => handleToggleShift(template, s.id)}
+                                        className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${
+                                            active 
+                                            ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' 
+                                            : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {s.label}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Table */}
-                    <table className="stg-table stg-table-fixed">
-                        <colgroup>
-                            <col style={{ width: '4%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '28%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '14%' }} />
-                            <col style={{ width: '16%' }} />
-                            <col style={{ width: '12%' }} />
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>PHÂN LOẠI</th>
-                                <th>NỘI DUNG CÔNG VIỆC</th>
-                                <th>ÁP DỤNG CA</th>
-                                <th>NGÀY ÁP DỤNG</th>
-                                <th>CỬA HÀNG</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>Đang tải...</td></tr>
-                            ) : filtered.length === 0 && !isAdding ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>
-                                    Không có mục nào
-                                </td></tr>
-                            ) : (
-                                <>
-                                    {filtered.map((template, idx) => {
-                                        const isEditing = editingId === template.id;
-                                        return (
-                                            <tr key={template.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}>
-                                                <td style={{ paddingLeft: 16 }}>
-                                                    <span className="stg-row-num">{idx + 1}</span>
-                                                </td>
-                                                <td>
-                                                    {isEditing ? (
-                                                        <select
-                                                            className="stg-input stg-input-mono"
-                                                            style={{ width: '100%', padding: '6px' }}
-                                                            value={draft.category || 'START_SHIFT'}
-                                                            onChange={e => setDraft(p => ({ ...p, category: e.target.value as ChecklistCategory }))}
-                                                        >
-                                                            {CATEGORIES.map(cat => (
-                                                                <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--stg-text-muted)' }}>
-                                                                {CHECKLIST_ICONS[template.category]}
-                                                            </span>
-                                                            <span className="stg-badge" style={{ fontSize: 10, padding: '2px 6px' }}>
-                                                                {CHECKLIST_LABELS[template.category]}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td style={{ fontWeight: 500, color: '#111827', fontSize: 13, lineHeight: '1.4' }}>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="text"
-                                                            className="stg-input"
-                                                            value={draft.title || ''}
-                                                            onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
-                                                            placeholder="Nội dung công việc..."
-                                                            autoFocus
-                                                            style={{ width: '100%', fontSize: 13 }}
-                                                        />
-                                                    ) : (
-                                                        <div style={{ wordBreak: 'break-word', paddingRight: 16 }}>{template.title}</div>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {isEditing ? (
-                                                        <ShiftPillToggle
-                                                            shifts={['MORNING', 'AFTERNOON', 'EVENING']}
-                                                            selected={draft.shift_types === undefined ? (template.shift_types as string[] | null) : (draft.shift_types as string[] | null)}
-                                                            onChange={val => setDraft(p => ({ ...p, shift_types: val as ShiftType[] | null }))}
-                                                        />
-                                                    ) : (
-                                                        <div style={{ display: 'flex', gap: 4 }}>
-                                                            {template.shift_types?.map(st => (
-                                                                <span key={st} className="stg-badge" style={{ fontSize: 10, padding: '1px 5px' }}>
-                                                                    {st === 'MORNING' ? 'S' : st === 'AFTERNOON' ? 'C' : 'T'}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                {/* FIX: Day of week column */}
-                                                <td>
-                                                    {isEditing ? (
-                                                        <DayPillToggle
-                                                            days={[2, 3, 4, 5, 6, 7, 1]}
-                                                            labels={DAY_LABELS as Record<number, string>}
-                                                            selected={draft.day_of_week === undefined ? (template.day_of_week as number[] | null) : (draft.day_of_week as number[] | null)}
-                                                            onChange={val => setDraft(p => ({ ...p, day_of_week: val as DayOfWeek[] | null }))}
-                                                        />
-                                                    ) : (
-                                                        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                                            {template.day_of_week === null ? (
-                                                                <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#d1fae5', color: '#065f46' }}>Tất cả</span>
-                                                            ) : (
-                                                                template.day_of_week?.map(d => (
-                                                                    <span key={d} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px' }}>
-                                                                        {DAY_LABELS[d as DayOfWeek]}
-                                                                    </span>
-                                                                ))
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                {/* Multi-Store Selection Column */}
-                                                <td>
-                                                    {isEditing ? (
-                                                        <MultiStoreSelect
-                                                            stores={stores}
-                                                            selectedStoreIds={draft.store_ids || null}
-                                                            onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
-                                                        />
-                                                    ) : (
-                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                            {template.store_ids === null ? (
-                                                                <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#dbeafe', color: '#1e40af' }}>Tất cả CH</span>
-                                                            ) : (
-                                                                template.store_ids.map(sid => {
-                                                                    const store = stores.find(s => s.id === sid);
-                                                                    return store ? (
-                                                                        <span key={sid} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px', background: '#fef3c7', color: '#b45309' }}>
-                                                                            {store.code}
-                                                                        </span>
-                                                                    ) : null;
-                                                                })
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    <div className="stg-row-actions" style={isEditing ? { opacity: 1 } : undefined}>
-                                                        {isEditing ? (
-                                                            <>
-                                                                <button onClick={handleSaveEdit} className="stg-btn-icon stg-btn-save" disabled={saving}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
-                                                                </button>
-                                                                <button onClick={handleCancel} className="stg-btn-icon" disabled={saving}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <button onClick={() => handleEdit(template)} className="stg-btn-icon" disabled={saving || !!editingId}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
-                                                                </button>
-                                                                <button onClick={() => handleDelete(template)} className="stg-btn-icon stg-btn-danger" disabled={saving}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_outline</span>
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-
-                                    {/* New item row */}
-                                    {isAdding && (
-                                        <tr className="stg-table-row stg-row-new">
-                                            <td style={{ paddingLeft: 16 }}>
-                                                <span className="stg-row-num">+</span>
-                                            </td>
-                                            <td>
-                                                <select
-                                                    className="stg-input stg-input-mono"
-                                                    style={{ width: '100%', padding: '6px' }}
-                                                    value={draft.category || 'START_SHIFT'}
-                                                    onChange={e => setDraft(p => ({ ...p, category: e.target.value as ChecklistCategory }))}
-                                                >
-                                                    {CATEGORIES.map(cat => (
-                                                        <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td style={{ fontWeight: 500, color: '#111827', fontSize: 13 }}>
-                                                <input
-                                                    type="text"
-                                                    className="stg-input"
-                                                    value={draft.title || ''}
-                                                    onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
-                                                    placeholder="Nội dung công việc..."
-                                                    autoFocus
-                                                    style={{ width: '100%', fontSize: 13 }}
-                                                />
-                                            </td>
-                                            <td>
-                                                <ShiftPillToggle
-                                                    shifts={['MORNING', 'AFTERNOON', 'EVENING']}
-                                                    selected={draft.shift_types === undefined ? null : (draft.shift_types as string[] | null)}
-                                                    onChange={val => setDraft(p => ({ ...p, shift_types: val as ShiftType[] | null }))}
-                                                />
-                                            </td>
-                                            {/* Day of week for new item */}
-                                            <td>
-                                                <DayPillToggle
-                                                    days={[2, 3, 4, 5, 6, 7, 1]}
-                                                    labels={DAY_LABELS as Record<number, string>}
-                                                    selected={draft.day_of_week === undefined ? null : (draft.day_of_week as number[] | null)}
-                                                    onChange={val => setDraft(p => ({ ...p, day_of_week: val as DayOfWeek[] | null }))}
-                                                />
-                                            </td>
-                                            <td>
-                                                <MultiStoreSelect
-                                                    stores={stores}
-                                                    selectedStoreIds={draft.store_ids || null}
-                                                    onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
-                                                />
-                                            </td>
-                                            <td>
-                                                <div className="stg-row-actions" style={{ opacity: 1 }}>
-                                                    <button onClick={handleSaveNew} className="stg-btn-icon stg-btn-save" disabled={saving}>
-                                                        {saving
-                                                            ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: 18 }}>progress_activity</span>
-                                                            : <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
-                                                        }
-                                                    </button>
-                                                    <button onClick={handleCancel} className="stg-btn-icon" disabled={saving}>
-                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </>
-                            )}
-                        </tbody>
-                    </table>
+                    {/* Days */}
+                    {!template.day_of_week ? (
+                        <div className="stg-kanban-tag-group w-full bg-green-50/50 rounded-lg p-1.5 border border-green-100/50">
+                            <span className="material-symbols-outlined stg-kanban-tag-icon text-green-600">event_available</span>
+                            <span className="text-xs font-semibold text-green-700">Mọi ngày trong tuần</span>
+                        </div>
+                    ) : (
+                        <div className="stg-kanban-tag-group">
+                            <span className="material-symbols-outlined stg-kanban-tag-icon">calendar_month</span>
+                            {template.day_of_week.map(d => (
+                                <span key={d} className="stg-badge" style={{ fontSize: 9, background: '#f3f4f6', color: '#4b5563', padding: '1px 5px' }}>
+                                    {DAY_LABELS[d as DayOfWeek].replace('Thứ ', 'T')}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
+        );
+    };
+
+    return (
+        <div className="stg-section-animate flex h-full rounded-2xl overflow-hidden border border-gray-200 bg-white">
+            
+            {/* Left Sidebar - Context Selector */}
+            <div className="w-[300px] border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
+                <div className="px-5 py-4 border-b border-gray-200/60 bg-white">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-600">view_sidebar</span>
+                        Phạm vi thiết lập
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">Chọn nơi áp dụng công việc</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-1.5">
+                    <button
+                        onClick={() => setSelectedContext('GLOBAL')}
+                        className={`flex items-center gap-3 w-full p-3 rounded-lg text-left transition-all ${
+                            selectedContext === 'GLOBAL' 
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                                : 'hover:bg-gray-200/50 text-gray-700'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>public</span>
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-sm">Cấu hình chung</span>
+                            <span className={`text-[11px] ${selectedContext === 'GLOBAL' ? 'text-blue-200' : 'text-gray-500'}`}>Áp dụng toàn bộ cửa hàng</span>
+                        </div>
+                    </button>
+                    
+                    <div className="flex items-center gap-2 mt-4 mb-2 px-2">
+                        <div className="h-px bg-gray-200 flex-1"></div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Hoặc Cửa Hàng Riêng</span>
+                        <div className="h-px bg-gray-200 flex-1"></div>
+                    </div>
+
+                    {stores.map(store => (
+                        <button
+                            key={store.id}
+                            onClick={() => setSelectedContext(store.id)}
+                            className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all ${
+                                selectedContext === store.id 
+                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                                    : 'hover:bg-gray-200/50 text-gray-700'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>storefront</span>
+                            <div className="flex flex-col truncate">
+                                <span className="font-semibold text-sm truncate">{store.name}</span>
+                                <span className={`text-[11px] truncate ${selectedContext === store.id ? 'text-blue-200' : 'text-gray-500'}`}>{store.address}</span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Right Main Area */}
+            <div className="flex-1 flex flex-col bg-[#F9FAFB] min-w-0">
+                <div className="px-6 py-5 border-b border-gray-200/70 bg-white flex justify-between items-center shrink-0">
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+                            {selectedContext === 'GLOBAL' ? 'Công việc Cố định Toàn hệ thống' : `Công việc riêng: ${stores.find(s => s.id === selectedContext)?.name}`}
+                        </h2>
+                        <p className="text-sm text-gray-500 font-medium mt-1">Danh sách công việc trong khu vực thiết lập này</p>
+                    </div>
+                    <div>
+                        <button onClick={() => handleAdd()} className="stg-btn stg-btn-primary shadow-sm" disabled={loading}>
+                            <span className="material-symbols-outlined">add</span>
+                            Thêm công việc
+                        </button>
+                    </div>
+                </div>
+
+                {/* Kanban Board */}
+                <div className="stg-kanban-board">
+                    {CATEGORIES.map(category => {
+                        const categoryItems = filteredTemplates.filter(t => t.category === category)
+                            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+                        return (
+                            <div key={category} className="stg-kanban-column">
+                                <div className="stg-kanban-column-header">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center border border-gray-100 shrink-0">
+                                            <span className="material-symbols-outlined text-blue-600" style={{ fontSize: 18 }}>
+                                                {CHECKLIST_ICONS[category]}
+                                            </span>
+                                        </div>
+                                        <h3 className="stg-kanban-column-title text-sm tracking-wide">{CHECKLIST_LABELS[category]}</h3>
+                                        <span className="stg-kanban-count ml-auto bg-gray-200 text-gray-700">{categoryItems.length}</span>
+                                    </div>
+                                    <button onClick={() => handleAdd(category)} className="stg-btn-icon stg-kanban-add-btn opacity-0 group-hover:opacity-100 transition mt-2 w-full h-8 bg-gray-100/50 hover:bg-gray-200 rounded text-gray-600 text-xs font-semibold flex items-center justify-center gap-1" title={`Thêm vào ${CHECKLIST_LABELS[category]}`}>
+                                        <span className="material-symbols-outlined" style={{fontSize: 14}}>add</span> Thêm
+                                    </button>
+                                </div>
+                                
+                                <div className="stg-kanban-column-content">
+                                    {loading ? (
+                                        <div className="stg-kanban-loading">
+                                            <span className="material-symbols-outlined stg-spin text-gray-300">progress_activity</span>
+                                        </div>
+                                    ) : categoryItems.length === 0 ? (
+                                        <div className="stg-kanban-empty">
+                                            Kéo thả hoặc thêm nhiệm vụ
+                                        </div>
+                                    ) : (
+                                        categoryItems.map(template => renderCard(template))
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Edit Modal */}
+            {modalOpen && (
+                <div className="stg-modal-overlay" onClick={() => setModalOpen(false)}>
+                    <div className="stg-modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="stg-modal-header">
+                            <h3>{editingId ? 'Chỉnh sửa Nhiệm vụ' : 'Tạo Nhiệm vụ Mới'}</h3>
+                            <button className="stg-btn-icon" onClick={() => setModalOpen(false)}>
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="stg-modal-body flex flex-col gap-4">
+                            
+                            {/* Target info (Read only representation of context) */}
+                            <div className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100/50 rounded-xl mb-1">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                    <span className="material-symbols-outlined">{selectedContext === 'GLOBAL' ? 'public' : 'storefront'}</span>
+                                </div>
+                                <div>
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-blue-800/60 mb-0.5">Phân bổ</div>
+                                    <div className="text-sm font-semibold text-blue-900">
+                                        {selectedContext === 'GLOBAL' ? 'Cấu hình chung toàn hệ thống' : stores.find(s => s.id === selectedContext)?.name}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="stg-field-label">Tên nhiệm vụ <span style={{ color: 'red' }}>*</span></label>
+                                <input
+                                    type="text"
+                                    className="stg-input mt-1 shadow-sm"
+                                    value={draft.title || ''}
+                                    onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
+                                    placeholder="Ví dụ: Quét nhà, Kiểm tra tủ đông..."
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 16 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label className="stg-field-label">Nhóm (Kanban)</label>
+                                    <select
+                                        className="stg-input mt-1 shadow-sm"
+                                        value={draft.category || 'START_SHIFT'}
+                                        onChange={e => setDraft(p => ({ ...p, category: e.target.value as ChecklistCategory }))}
+                                    >
+                                        {CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat}>{CHECKLIST_LABELS[cat]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div style={{ width: 100 }}>
+                                    <label className="stg-field-label">Khoảng</label>
+                                    <input
+                                        type="number"
+                                        className="stg-input mt-1 shadow-sm text-center"
+                                        value={draft.sort_order || 0}
+                                        onChange={e => setDraft(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Note / Photo Toggles */}
+                            <div className="grid grid-cols-2 gap-3 mt-1">
+                                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition">
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-gray-500">draw</span>
+                                        <span className="text-sm font-medium text-gray-700">Yêu cầu Ghi chú</span>
+                                    </div>
+                                    <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={draft.requires_note || false} onChange={e => setDraft(p => ({ ...p, requires_note: e.target.checked }))} />
+                                </label>
+                                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition">
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-gray-500">photo_camera</span>
+                                        <span className="text-sm font-medium text-gray-700">Yêu cầu Chụp ảnh</span>
+                                    </div>
+                                    <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" checked={draft.requires_photo || false} onChange={e => setDraft(p => ({ ...p, requires_photo: e.target.checked }))} />
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="stg-field-label mb-2 border-t border-gray-100 pt-4">Giới hạn Ngày trong tuần</label>
+                                <DayPillToggle
+                                    days={[2, 3, 4, 5, 6, 7, 1]}
+                                    labels={DAY_LABELS as Record<number, string>}
+                                    selected={draft.day_of_week === undefined ? null : (draft.day_of_week as number[] | null)}
+                                    onChange={val => setDraft(p => ({ ...p, day_of_week: val as DayOfWeek[] | null }))}
+                                />
+                                <div className="text-xs text-gray-500 mt-2 flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">info</span>Bỏ trống nếu áp dụng mọi ngày. Tùy chọn <b>ca làm (Ca Sáng/Chiều)</b> có thể bật tắt nhanh ngay ngoài lưới Kanban.</div>
+                            </div>
+
+                        </div>
+                        <div className="stg-modal-footer mt-auto">
+                            <button className="stg-btn bg-white border border-gray-300 shadow-sm text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setModalOpen(false)}>
+                                Hủy bỏ
+                            </button>
+                            <button className="stg-btn stg-btn-primary shadow-sm px-6" onClick={handleSave} disabled={saving}>
+                                {saving ? <span className="material-symbols-outlined stg-spin">progress_activity</span> : 'Lưu cài đặt'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {confirmDialog && (
                 <ConfirmDialog
@@ -434,6 +429,6 @@ export const SettingsChecklist: React.FC<SettingsChecklistProps> = ({ toast, sto
                     onCancel={() => setConfirmDialog(null)}
                 />
             )}
-        </>
+        </div>
     );
 };

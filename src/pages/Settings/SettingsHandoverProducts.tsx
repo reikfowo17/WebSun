@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ToastContextType } from '../../contexts/ToastContext';
 import type { HandoverProduct } from '../../types/shift';
 import { HandoverService } from '../../services/shift';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import { MultiStoreSelect } from '../../components/MultiStoreSelect';
-
 import type { Store } from '../../types';
 
 interface SettingsHandoverProductsProps {
@@ -16,10 +14,14 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
     const [products, setProducts] = useState<HandoverProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [filterStore, setFilterStore] = useState<string>('ALL');
+    
+    // Context selection (global config vs specific store)
+    const [selectedContext, setSelectedContext] = useState<string>('GLOBAL');
+
+    // Modal state
+    const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [draft, setDraft] = useState<Partial<HandoverProduct>>({});
-    const [isAdding, setIsAdding] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
     useEffect(() => {
@@ -38,56 +40,61 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
         }
     };
 
-    const filtered = products.filter(p => {
-        return filterStore === 'ALL' || (p.store_ids === null) || p.store_ids.includes(filterStore);
-    });
+    const filteredProducts = useMemo(() => {
+        return products.filter(p => {
+            if (selectedContext === 'GLOBAL') {
+                return !p.store_ids || p.store_ids.length === 0;
+            }
+            return p.store_ids && p.store_ids.includes(selectedContext);
+        }).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    }, [products, selectedContext]);
 
     const handleAdd = () => {
-        if (isAdding || editingId) return;
-        setIsAdding(true);
+        setEditingId(null);
         setDraft({
             product_name: '',
             barcode: '',
-            sort_order: (filtered.length || products.length) + 1,
+            sort_order: filteredProducts.length + 1,
             is_active: true,
-            store_ids: filterStore !== 'ALL' ? [filterStore] : null,
+            // the store_ids will be implicitly managed by the save context, but we set it here in draft
+            store_ids: selectedContext === 'GLOBAL' ? null : [selectedContext],
         });
+        setModalOpen(true);
     };
 
-    const handleSaveNew = async () => {
+    const handleEdit = (product: HandoverProduct) => {
+        setEditingId(product.id);
+        setDraft({ ...product });
+        setModalOpen(true);
+    };
+
+    const handleSave = async () => {
         if (!draft.product_name?.trim()) {
             toast.error('Vui lòng nhập tên sản phẩm');
             return;
         }
         setSaving(true);
         try {
-            const created = await HandoverService.createProduct(draft);
-            setProducts(prev => [...prev, created]);
-            setIsAdding(false);
+            // Apply context store
+            const finalData = { ...draft };
+            if (selectedContext === 'GLOBAL') {
+                finalData.store_ids = null;
+            } else {
+                finalData.store_ids = [selectedContext];
+            }
+
+            if (editingId) {
+                const updated = await HandoverService.updateProduct(editingId, finalData);
+                setProducts(prev => prev.map(p => p.id === editingId ? updated : p));
+                toast.success('Đã cập nhật SP giao ca');
+            } else {
+                const created = await HandoverService.createProduct(finalData as Partial<HandoverProduct>);
+                setProducts(prev => [...prev, created]);
+                toast.success('Đã thêm SP giao ca');
+            }
+            setModalOpen(false);
             setDraft({});
-            toast.success('Đã thêm SP giao ca');
-        } catch (err: unknown) {
-            toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleEdit = (product: HandoverProduct) => {
-        if (isAdding || editingId) return;
-        setEditingId(product.id);
-        setDraft({ ...product });
-    };
-
-    const handleSaveEdit = async () => {
-        if (!editingId || !draft.product_name?.trim()) return;
-        setSaving(true);
-        try {
-            const updated = await HandoverService.updateProduct(editingId, draft);
-            setProducts(prev => prev.map(p => p.id === editingId ? updated : p));
             setEditingId(null);
-            setDraft({});
-            toast.success('Đã cập nhật');
         } catch (err: unknown) {
             toast.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
         } finally {
@@ -112,7 +119,7 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
         });
     };
 
-    const handleToggle = async (product: HandoverProduct) => {
+    const handleToggleState = async (product: HandoverProduct) => {
         try {
             const updated = await HandoverService.updateProduct(product.id, { is_active: !product.is_active });
             setProducts(prev => prev.map(p => p.id === product.id ? updated : p));
@@ -122,200 +129,207 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
         }
     };
 
-    const handleCancel = () => {
-        setEditingId(null);
-        setIsAdding(false);
-        setDraft({});
+    const renderCard = (product: HandoverProduct) => {
+        return (
+            <div key={product.id} className="stg-kanban-card group" style={{ opacity: product.is_active ? 1 : 0.6 }}>
+                <div className="stg-kanban-card-header">
+                    <div className="flex flex-col min-w-0 pr-2">
+                        <span className="stg-kanban-card-title truncate" title={product.product_name}>{product.product_name}</span>
+                        {product.barcode && (
+                            <div className="text-xs font-mono text-gray-500 mt-1">
+                                {product.barcode}
+                            </div>
+                        )}
+                    </div>
+                    <div className="stg-kanban-card-actions">
+                        <button onClick={() => handleToggleState(product)} className="stg-btn-icon stg-kanban-action w-7 h-7" title={product.is_active ? 'Tắt' : 'Bật'}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{product.is_active ? 'visibility_off' : 'visibility'}</span>
+                        </button>
+                        <button onClick={() => handleEdit(product)} className="stg-btn-icon stg-kanban-action w-7 h-7" title="Sửa">
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(product)} className="stg-btn-icon stg-kanban-action w-7 h-7 text-red-500" title="Xóa">
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_outline</span>
+                        </button>
+                    </div>
+                </div>
+                
+                {!product.is_active && (
+                    <div className="stg-kanban-card-tags">
+                        <div className="stg-kanban-tag-group text-gray-400 bg-gray-100 border-none">
+                            Đã tắt
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
-        <>
-            <div className="stg-section-animate">
-                <div className="stg-table-wrap">
-                    <div className="stg-toolbar">
-                        <div className="stg-toolbar-left">
-                            <span className="stg-badge">{products.length} sản phẩm</span>
-                            <span style={{ fontSize: 12, color: 'var(--stg-text-muted)' }}>
-                                · {products.filter(p => p.is_active).length} đang hoạt động
-                            </span>
+        <div className="stg-section-animate flex h-full rounded-2xl overflow-hidden border border-gray-200 bg-white">
+            
+            {/* Left Sidebar - Context Selector */}
+            <div className="w-[300px] border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
+                <div className="px-5 py-4 border-b border-gray-200/60 bg-white">
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-600">view_sidebar</span>
+                        Phạm vi thiết lập
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">Chọn nơi áp dụng sản phẩm</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-1.5">
+                    <button
+                        onClick={() => setSelectedContext('GLOBAL')}
+                        className={`flex items-center gap-3 w-full p-3 rounded-lg text-left transition-all ${
+                            selectedContext === 'GLOBAL' 
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                                : 'hover:bg-gray-200/50 text-gray-700'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>public</span>
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-sm">Cấu hình chung</span>
+                            <span className={`text-[11px] ${selectedContext === 'GLOBAL' ? 'text-blue-200' : 'text-gray-500'}`}>Áp dụng toàn bộ cửa hàng</span>
                         </div>
-                        <div className="stg-toolbar-right">
-                            {/* Store filter */}
-                            <div style={{ position: 'relative' }}>
-                                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }}>storefront</span>
-                                <select
-                                    className="stg-input"
-                                    style={{ padding: '6px 28px', fontSize: 13, width: 'auto', minWidth: 150, borderRadius: 20, backgroundColor: '#FAFAFA', borderColor: '#E5E7EB', fontWeight: 500, color: '#374151', marginRight: 8 }}
-                                    value={filterStore}
-                                    onChange={e => setFilterStore(e.target.value)}
-                                >
-                                    <option value="ALL">Tất cả cửa hàng</option>
-                                    {stores.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
+                    </button>
+                    
+                    <div className="flex items-center gap-2 mt-4 mb-2 px-2">
+                        <div className="h-px bg-gray-200 flex-1"></div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Hoặc Cửa Hàng Riêng</span>
+                        <div className="h-px bg-gray-200 flex-1"></div>
+                    </div>
+
+                    {stores.map(store => (
+                        <button
+                            key={store.id}
+                            onClick={() => setSelectedContext(store.id)}
+                            className={`flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-all ${
+                                selectedContext === store.id 
+                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                                    : 'hover:bg-gray-200/50 text-gray-700'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>storefront</span>
+                            <div className="flex flex-col truncate">
+                                <span className="font-semibold text-sm truncate">{store.name}</span>
+                                <span className={`text-[11px] truncate ${selectedContext === store.id ? 'text-blue-200' : 'text-gray-500'}`}>{store.address}</span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Right Main Area */}
+            <div className="flex-1 flex flex-col bg-[#F9FAFB] min-w-0">
+                <div className="px-6 py-5 border-b border-gray-200/70 bg-white flex justify-between items-center shrink-0">
+                    <div>
+                        <h2 className="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+                            {selectedContext === 'GLOBAL' ? 'Sản Phẩm Giao Ca Chung' : `Sản Phẩm Giao Ca: ${stores.find(s => s.id === selectedContext)?.name}`}
+                        </h2>
+                        <p className="text-sm text-gray-500 font-medium mt-1">Quản lý danh sách sản phẩm cần kiểm đếm</p>
+                    </div>
+                    <div>
+                        <button onClick={() => handleAdd()} className="stg-btn stg-btn-primary shadow-sm" disabled={loading}>
+                            <span className="material-symbols-outlined">add</span>
+                            Thêm sản phẩm
+                        </button>
+                    </div>
+                </div>
+
+                {/* Grid Board */}
+                <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+                    {loading ? (
+                        <div className="flex items-center justify-center h-40">
+                            <span className="material-symbols-outlined stg-spin text-3xl text-yellow-400">autorenew</span>
+                        </div>
+                    ) : filteredProducts.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                            {filteredProducts.map(renderCard)}
+                        </div>
+                    ) : (
+                        <div className="stg-kanban-empty border-dashed border-2 border-gray-200 py-12 bg-white/50 text-gray-400 rounded-xl flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-2">
+                                <span className="material-symbols-outlined text-4xl text-gray-300">inventory_2</span>
+                                <div>Chưa có sản phẩm nào cho khu vực này</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Edit Modal */}
+            {modalOpen && (
+                <div className="stg-modal-overlay" onClick={() => setModalOpen(false)}>
+                    <div className="stg-modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="stg-modal-header">
+                            <h3>{editingId ? 'Chỉnh sửa Sản phẩm' : 'Thêm Sản phẩm mới'}</h3>
+                            <button className="stg-btn-icon" onClick={() => setModalOpen(false)}>
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="stg-modal-body flex flex-col gap-4">
+                            
+                            <div>
+                                <label className="stg-field-label">Tên sản phẩm <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    className="stg-input mt-1.5"
+                                    value={draft.product_name || ''}
+                                    onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))}
+                                    placeholder="Ví dụ: Cuộn in Bill k80x80"
+                                    autoFocus
+                                />
                             </div>
 
-                            <button onClick={handleAdd} className="stg-btn stg-btn-primary" disabled={saving || isAdding || !!editingId}>
-                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-                                Thêm SP
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="stg-field-label">Mã Barcode</label>
+                                    <input
+                                        type="text"
+                                        className="stg-input mt-1.5 font-mono text-sm"
+                                        value={draft.barcode || ''}
+                                        onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))}
+                                        placeholder="Tùy chọn"
+                                    />
+                                </div>
+                                <div className="w-24">
+                                    <label className="stg-field-label">Thứ tự</label>
+                                    <input
+                                        type="number"
+                                        className="stg-input mt-1.5"
+                                        value={draft.sort_order || 0}
+                                        onChange={e => setDraft(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="stg-field-label">Trạng thái</label>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <button
+                                        className={`stg-toggle-btn ${draft.is_active ? 'active' : 'inactive'}`}
+                                        onClick={() => setDraft(p => ({ ...p, is_active: !p.is_active }))}
+                                    >
+                                        <span className="stg-toggle-knob" />
+                                    </button>
+                                    <span className={draft.is_active ? 'text-blue-600 font-medium text-sm' : 'text-gray-500 font-medium text-sm'}>
+                                        {draft.is_active ? 'Đang hoạt động' : 'Tạm ẩn'}
+                                    </span>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div className="stg-modal-footer mt-auto">
+                            <button className="stg-btn bg-white border border-gray-300 shadow-sm text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setModalOpen(false)}>
+                                Hủy
+                            </button>
+                            <button className="stg-btn stg-btn-primary shadow-sm px-6" onClick={handleSave} disabled={saving}>
+                                {saving ? <span className="material-symbols-outlined stg-spin">progress_activity</span> : 'Cập nhật'}
                             </button>
                         </div>
                     </div>
-
-                    <table className="stg-table stg-table-fixed">
-                        <colgroup>
-                            <col style={{ width: '6%' }} />
-                            <col style={{ width: '28%' }} />
-                            <col style={{ width: '20%' }} />
-                            <col style={{ width: '15%' }} />
-                            <col style={{ width: '20%' }} />
-                            <col style={{ width: '11%' }} />
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>TÊN SẢN PHẨM</th>
-                                <th>BARCODE</th>
-                                <th style={{ textAlign: 'center' }}>TRẠNG THÁI</th>
-                                <th>CỬA HÀNG</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>Đang tải...</td></tr>
-                            ) : products.length === 0 && !isAdding ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--stg-text-muted)' }}>
-                                    Chưa có SP giao ca nào. Thêm tối đa 20 SP chính để nhân viên kiểm tồn.
-                                </td></tr>
-                            ) : (
-                                <>
-                                    {filtered.map((product, idx) => {
-                                        const isEditing = editingId === product.id;
-                                        return (
-                                            <tr key={product.id} className={`stg-table-row ${isEditing ? 'stg-row-new' : ''}`}
-                                                style={{ opacity: !product.is_active && !isEditing ? 0.55 : 1 }}
-                                            >
-                                                <td style={{ paddingLeft: 16, fontWeight: 600, color: 'var(--stg-text-muted)' }}>{idx + 1}</td>
-                                                <td style={{ fontWeight: 500, color: '#111827', fontSize: 13, lineHeight: '1.4' }}>
-                                                    {isEditing ? (
-                                                        <input type="text" className="stg-input" value={draft.product_name || ''} onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))} placeholder="Tên sản phẩm" autoFocus style={{ width: '100%', fontSize: 13 }} />
-                                                    ) : (
-                                                        <div style={{ wordBreak: 'break-word', paddingRight: 16 }}>{product.product_name}</div>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {isEditing ? (
-                                                        <input type="text" className="stg-input stg-input-mono" value={draft.barcode || ''} onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))} placeholder="Mã barcode" />
-                                                    ) : (
-                                                        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--stg-text-muted)' }}>{product.barcode || '—'}</span>
-                                                    )}
-                                                </td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                                        <span className={`stg-status-dot ${product.is_active ? 'active' : 'inactive'}`} />
-                                                        <button
-                                                            className={`stg-toggle-btn ${product.is_active ? 'active' : 'inactive'}`}
-                                                            onClick={() => handleToggle(product)}
-                                                            disabled={saving || isEditing}
-                                                        >
-                                                            <span className="stg-toggle-knob" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {isEditing ? (
-                                                        <MultiStoreSelect
-                                                            stores={stores}
-                                                            selectedStoreIds={draft.store_ids || null}
-                                                            onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
-                                                        />
-                                                    ) : (
-                                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                                            {product.store_ids === null ? (
-                                                                <span className="stg-badge" style={{ fontSize: 9, padding: '1px 5px', background: '#dbeafe', color: '#1e40af' }}>Tất cả CH</span>
-                                                            ) : (
-                                                                product.store_ids.map(sid => {
-                                                                    const store = stores.find(s => s.id === sid);
-                                                                    return store ? (
-                                                                        <span key={sid} className="stg-badge" style={{ fontSize: 9, padding: '1px 4px', background: '#fef3c7', color: '#b45309' }}>
-                                                                            {store.code}
-                                                                        </span>
-                                                                    ) : null;
-                                                                })
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    <div className="stg-row-actions" style={isEditing ? { opacity: 1 } : undefined}>
-                                                        {isEditing ? (
-                                                            <>
-                                                                <button onClick={handleSaveEdit} className="stg-btn-icon stg-btn-save" disabled={saving}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
-                                                                </button>
-                                                                <button onClick={handleCancel} className="stg-btn-icon" disabled={saving}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <button onClick={() => handleEdit(product)} className="stg-btn-icon" disabled={saving || !!editingId}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
-                                                                </button>
-                                                                <button onClick={() => handleDelete(product)} className="stg-btn-icon stg-btn-danger" disabled={saving}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_outline</span>
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {isAdding && (
-                                        <tr className="stg-table-row stg-row-new">
-                                            <td style={{ paddingLeft: 16 }}><span className="stg-row-num">+</span></td>
-                                            <td style={{ fontWeight: 500, color: '#111827', fontSize: 13 }}>
-                                                <input type="text" className="stg-input" value={draft.product_name || ''} onChange={e => setDraft(p => ({ ...p, product_name: e.target.value }))} placeholder="Tên sản phẩm (VD: Cuộn in Bill k80x80)" autoFocus style={{ width: '100%', fontSize: 13 }} />
-                                            </td>
-                                            <td>
-                                                <input type="text" className="stg-input stg-input-mono" value={draft.barcode || ''} onChange={e => setDraft(p => ({ ...p, barcode: e.target.value }))} placeholder="Barcode" />
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                                    <span className="stg-status-dot active" />
-                                                    <button className="stg-toggle-btn active" disabled>
-                                                        <span className="stg-toggle-knob" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <MultiStoreSelect
-                                                    stores={stores}
-                                                    selectedStoreIds={draft.store_ids || null}
-                                                    onChange={ids => setDraft(p => ({ ...p, store_ids: ids }))}
-                                                />
-                                            </td>
-                                            <td>
-                                                <div className="stg-row-actions" style={{ opacity: 1 }}>
-                                                    <button onClick={handleSaveNew} className="stg-btn-icon stg-btn-save" disabled={saving}>
-                                                        {saving ? <span className="material-symbols-outlined stg-spin" style={{ fontSize: 18 }}>progress_activity</span> : <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>}
-                                                    </button>
-                                                    <button onClick={handleCancel} className="stg-btn-icon" disabled={saving}>
-                                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </>
-                            )}
-                        </tbody>
-                    </table>
                 </div>
-            </div>
+            )}
 
             {confirmDialog && (
                 <ConfirmDialog
@@ -325,6 +339,6 @@ export const SettingsHandoverProducts: React.FC<SettingsHandoverProductsProps> =
                     onCancel={() => setConfirmDialog(null)}
                 />
             )}
-        </>
+        </div>
     );
 };

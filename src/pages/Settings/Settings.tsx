@@ -5,8 +5,7 @@ import PortalHeader from '../../components/PortalHeader';
 import SubSidebar, { SubSidebarGroup } from '../../components/SubSidebar';
 import '../../styles/hq-sidebar.css';
 import '../../styles/settings.css';
-import { SettingsShifts } from './SettingsShifts';
-import { SettingsStores } from './SettingsStores';
+import { SettingsStoresAndShifts } from './SettingsStoresAndShifts';
 import { SettingsEmployees } from './SettingsEmployees';
 import { SettingsNotifications } from './SettingsNotifications';
 import { SettingsGeneral } from './SettingsGeneral';
@@ -16,11 +15,10 @@ interface SettingsTabProps {
     toast: ToastContextType;
 }
 
-type SettingsSection = 'shifts' | 'stores' | 'employees' | 'notifications' | 'general' | 'lifecycle';
+type SettingsSection = 'stores_shifts' | 'employees' | 'notifications' | 'general' | 'lifecycle';
 
 const SECTION_META: Record<SettingsSection, { label: string; desc: string; icon: string }> = {
-    shifts: { label: 'Ca Làm Việc', desc: 'Khung giờ & quy trình', icon: 'schedule' },
-    stores: { label: 'Cửa Hàng', desc: 'Danh sách cơ sở', icon: 'storefront' },
+    stores_shifts: { label: 'Cửa Hàng & Ca Làm', desc: 'Quản lý cửa hàng, cấu hình ca', icon: 'store' },
     employees: { label: 'Nhân Viên', desc: 'Phân quyền & chi nhánh', icon: 'badge' },
     notifications: { label: 'Thông Báo', desc: 'Cấu hình thông báo', icon: 'notifications' },
     general: { label: 'Cài Đặt Chung', desc: 'Tên hệ thống, múi giờ', icon: 'tune' },
@@ -32,7 +30,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const [stores, setStores] = useState<StoreConfig[]>([]);
     const [employees, setEmployees] = useState<EmployeeConfig[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeSection, setActiveSection] = useState<SettingsSection>('shifts');
+    const [activeSection, setActiveSection] = useState<SettingsSection>('stores_shifts');
 
     useEffect(() => {
         loadData();
@@ -60,8 +58,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
         {
             label: 'HỆ THỐNG',
             items: [
-                { id: 'shifts', label: 'Ca Làm Việc', badge: shifts.length },
-                { id: 'stores', label: 'Cửa Hàng', badge: stores.length },
+                { id: 'stores_shifts', label: 'Cửa Hàng & Ca Làm', badge: stores.length },
             ]
         },
         {
@@ -111,10 +108,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ toast }) => {
     const renderContent = () => {
         if (loading) return renderSkeletonLoader();
         switch (activeSection) {
-            case 'shifts':
-                return <SettingsShifts toast={toast} initialShifts={shifts} />;
-            case 'stores':
-                return <SettingsStores toast={toast} initialStores={stores} />;
+            case 'stores_shifts':
+                return <SettingsStoresAndShifts toast={toast} initialStores={stores} />;
             case 'employees':
                 return <SettingsEmployees toast={toast} initialEmployees={employees} allStores={stores} />;
             case 'notifications':

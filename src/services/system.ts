@@ -20,6 +20,21 @@ export interface StoreConfig {
     sort_order?: number;
 }
 
+export interface StoreShiftConfig {
+    id: number;
+    store_id: string;
+    name: string;
+    time_start: string;
+    time_end: string;
+    type: 'MAIN' | 'SUPPORT';
+    parent_id?: number | null;
+    icon: string;
+    color?: string | null;
+    max_slots: number;
+    sort_order: number;
+    is_active: boolean;
+}
+
 export const SystemService = {
     async getShifts(): Promise<ShiftConfig[]> {
         if (!isSupabaseConfigured()) {
@@ -124,6 +139,91 @@ export const SystemService = {
             const errorMsg = err instanceof Error ? err.message : String(err);
             console.error('[System] Error reordering stores:', err);
             return { success: false, message: errorMsg };
+        }
+    },
+
+    /* ──────────── STORE SHIFTS (per-store) ──────────── */
+
+    async getStoreShifts(storeId: string): Promise<StoreShiftConfig[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const { data, error } = await supabase
+                .from('store_shifts')
+                .select('*')
+                .eq('store_id', storeId)
+                .order('sort_order');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('[System] Error fetching store shifts:', error);
+            return [];
+        }
+    },
+
+    async getAllStoreShifts(): Promise<StoreShiftConfig[]> {
+        if (!isSupabaseConfigured()) return [];
+        try {
+            const { data, error } = await supabase
+                .from('store_shifts')
+                .select('*')
+                .order('store_id')
+                .order('sort_order');
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('[System] Error fetching all store shifts:', error);
+            return [];
+        }
+    },
+
+    async saveStoreShift(shift: Partial<StoreShiftConfig>): Promise<{ success: boolean; data?: StoreShiftConfig; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            let res;
+            const payload = {
+                store_id: shift.store_id, name: shift.name, time_start: shift.time_start,
+                time_end: shift.time_end, type: shift.type || 'MAIN', parent_id: shift.parent_id || null,
+                icon: shift.icon || 'schedule', color: shift.color || null,
+                max_slots: shift.max_slots ?? 0, sort_order: shift.sort_order ?? 0,
+                is_active: shift.is_active ?? true,
+            };
+            if (shift.id) {
+                res = await supabase.from('store_shifts').update(payload).eq('id', shift.id).select();
+            } else {
+                res = await supabase.from('store_shifts').insert(payload).select();
+            }
+            if (res.error) throw res.error;
+            return { success: true, data: res.data?.[0] };
+        } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error('[System] Error saving store shift:', err);
+            return { success: false, message: errorMsg };
+        }
+    },
+
+    async deleteStoreShift(id: number): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const { error } = await supabase.from('store_shifts').delete().eq('id', id);
+            if (error) throw error;
+            return { success: true };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
+        }
+    },
+
+    async reorderStoreShifts(shifts: { id: number; sort_order: number }[]): Promise<{ success: boolean; message?: string }> {
+        if (!isSupabaseConfigured()) return { success: false, message: 'DB Disconnected' };
+        try {
+            const updates = shifts.map(s =>
+                supabase.from('store_shifts').update({ sort_order: s.sort_order }).eq('id', s.id)
+            );
+            const results = await Promise.all(updates);
+            const failed = results.find(r => r.error);
+            if (failed?.error) throw failed.error;
+            return { success: true };
+        } catch (err: unknown) {
+            return { success: false, message: err instanceof Error ? err.message : String(err) };
         }
     },
 
